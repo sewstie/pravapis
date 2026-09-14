@@ -1,9 +1,8 @@
-"""Vendored variant of the /api/convert function (for embedding in another repo).
+"""Vercel Python serverless function: /api/convert (POST, OPTIONS).
 
-The standalone deployment uses api/convert.py at the belnorm repo root. This copy
-is produced by scripts/export_vercel.py for a host project: it imports the
-converter from api/_belnorm/ (leading underscore: not a function). Request
-handling, validation and CORS live in belnorm.webapi, shared by both.
+Deployed straight from this repository: the package is imported from src/,
+the lexicon, rules and stress tables from data/. All request handling lives in
+belnorm.webapi; this file only adapts it to BaseHTTPRequestHandler.
 """
 
 from __future__ import annotations
@@ -13,16 +12,16 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
-VENDOR = Path(__file__).resolve().parent / "_belnorm"
-if str(VENDOR) not in sys.path:
-    sys.path.insert(0, str(VENDOR))
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
 from belnorm.config import Config  # noqa: E402
 from belnorm.pipeline import Converter  # noqa: E402
 from belnorm.webapi import handle  # noqa: E402
 
 # Built once per cold start, reused by every request on this instance.
-CONVERTER = Converter.from_config(Config.default(VENDOR / "data"))
+CONVERTER = Converter.from_config(Config.default(ROOT / "data"))
 
 
 class handler(BaseHTTPRequestHandler):

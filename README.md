@@ -152,6 +152,55 @@ curl -X POST localhost:8000/v1/convert -H 'content-type: application/json' \
 
 Set `BELNORM_DATA_DIR` to point at a different `data/` directory.
 
+## Serverless deployment (Vercel)
+
+This repository deploys as its own Vercel project: a demo page at `/` and a Python
+function at `/api/convert`. No FastAPI, no build step.
+
+| File | Role |
+|---|---|
+| `api/convert.py` | Vercel Python function; thin `BaseHTTPRequestHandler` over `belnorm.webapi` |
+| `src/belnorm/webapi.py` | validation, CORS, JSON shapes (stdlib + the converter only) |
+| `requirements.txt` | runtime deps for the function: regex, marisa-trie, PyYAML, pydantic |
+| `vercel.json` | static output from `public/`; tests, benchmarks, scripts, `data/eval` excluded from the function bundle |
+| `public/index.html` | demo page (single file, no framework) |
+
+`POST /api/convert` takes `{"text", "direction", "explain"}` and returns `{"result",
+"direction", "stats"}`, plus `segments` (every word with its method, rule id and rule trace)
+when `explain` is true. Cross-origin calls are allowed from `https://paznaj.by`,
+`https://www.paznaj.by` and `http://localhost` / `http://127.0.0.1` on any port; `OPTIONS`
+preflight is answered with 204.
+
+Payload: code, rules, lexicon TSVs and the 626 KB stress table, under 1 MB; dependencies
+17.7 MB installed. The compiled `data/lexicon.marisa` is git-ignored, so a deployment builds
+the lexicon from `data/lexicon/*.tsv` at cold start (a few milliseconds at its current size).
+
+### Vercel dashboard steps
+
+1. Push this repository to GitHub (it has no remote yet).
+2. **Add New… → Project → Import** the repository.
+3. **Framework Preset: Other.** Root Directory: the repository root. Leave Build Command and
+   Install Command empty/default. Output Directory is set to `public` by `vercel.json`.
+4. No environment variables are needed. Deploy.
+5. Open the build log and check the Python install step lists only the four packages from
+   `requirements.txt`. The repository also has `pyproject.toml` and `uv.lock`; if Vercel
+   installs from those instead, the function still works but also pulls FastAPI, Typer and
+   Rich. If that happens, tell me and the dev dependencies can be moved out of the way.
+6. Check it: open the deployment URL for the demo, and
+   `curl -X POST https://<deployment>/api/convert -H 'Content-Type: application/json' -d '{"text":"снег"}'`
+   should return `{"result": "сьнег", …}`.
+7. Optional: **Settings → Domains** to attach a custom domain. The CORS allowlist does not
+   depend on the API's own domain.
+
+### Run it locally
+
+```bash
+python scripts/serve_local.py --port 3000   # public/ at /, the function at /api/convert
+```
+
+`scripts/export_vercel.py` still exists for embedding the function in another repository
+(vendored under `api/_belnorm/`); it is not used by the standalone deployment.
+
 ## Development
 
 ```bash
@@ -173,8 +222,11 @@ data/rules/      YAML rules (palatalization, loanwords, morphology)
 data/lexicon/    TSV sources → data/lexicon.marisa
 data/eval/       gold.tsv (held out, with provenance), roundtrip_corpus.txt,
                  ambiguous.tsv (experimental classifier training)
-src/belnorm/     normalize, tokenize, rules/, lexicon/, pipeline, metrics, api/, cli
-                 disambiguate/ (experimental, off by default)
+src/belnorm/     normalize, tokenize, rules/, lexicon/, stress, pipeline, metrics, webapi,
+                 api/ (FastAPI), cli, disambiguate/ (experimental, off by default)
+api/             Vercel function (convert.py)
+public/          demo page served at /
+data/stress/     GrammarDB first-syllable stress tables (CC BY-SA 4.0)
 tests/           pytest + hypothesis
 benchmarks/      pytest-benchmark
 ```

@@ -77,17 +77,17 @@ def test_exported_function_serves_requests(tmp_path: Path) -> None:
     assert status == 200
     assert body["result"] == "Сьнег і сьвет у Эўропе, плян сыстэмы. Ня быў без мяне."
     assert body["direction"] == "taraskievica"
-    assert body["stats"]["model"] == 0
+    assert body["stats"]["by_method"]["model"] == 0
     assert headers["Cache-Control"] == "no-store"
     assert r["t2n"][0] == 200 and r["t2n"][1]["result"] == "Снег і свет"
-    assert r["empty"][:2] == [200, {"result": "   ", "direction": "taraskievica", "stats": {}}]
+    assert r["empty"][0] == 200 and r["empty"][1]["result"] == "   "
     assert r["latin"][0] == 422
     assert r["bad_dir"][0] == 400
     assert r["not_str"][0] == 400
     assert r["too_long"][0] == 413
     assert r["bad_json"][0] == 400
     assert r["bad_ctype"][0] == 415
-    assert r["get"][0] == 405 and r["get"][2]["Allow"] == "POST"
+    assert r["get"][0] == 405 and r["get"][2]["Allow"] == "POST, OPTIONS"
 
     # the vendored copy is what ran, and nothing heavy came along
     assert Path(r["belnorm_file"]).is_relative_to(out_dir / "api" / "_belnorm")

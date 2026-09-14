@@ -43,6 +43,7 @@ RUNTIME_MODULES = (
     "tokenize.py",
     "pipeline.py",
     "stress.py",
+    "webapi.py",
     "rules/__init__.py",
     "rules/engine.py",
     "rules/loanwords.py",
