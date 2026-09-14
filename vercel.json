@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "outputDirectory": "public",
+  "functions": {
+    "api/convert.py": {
+      "maxDuration": 10,
+      "excludeFiles": "{tests,benchmarks,scripts,deploy,data/eval,data/corpora,data/models,.venv,.hypothesis}/**"
+    }
+  }
+}

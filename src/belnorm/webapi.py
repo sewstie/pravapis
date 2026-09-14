@@ -1,0 +1,186 @@
+"""Framework-free HTTP layer for serverless deployment (Vercel Python).
+
+Stdlib only on top of the converter: request validation, CORS, and the JSON
+shapes the demo page and API clients use. ``api/convert.py`` at the repo root
+is a thin ``BaseHTTPRequestHandler`` over :func:`handle`.
+
+POST /api/convert, ``Content-Type: application/json``::
+
+    {"text": "Не быў без мяне", "direction": "taraskievica", "explain": true}
+
+- ``direction``: ``"taraskievica"`` (default) or ``"narkamauka"``
+- ``script``: ``"cyrillic"`` only for now
+- ``explain``: add per-token ``segments`` covering the whole output
+
+200::
+
+    {"result": "Ня быў без мяне", "direction": "taraskievica",
+     "stats": {"words": 4, "changed": 1, "by_method": {"rule": 1, ...}},
+     "segments": [{"text": "Ня", "source": "Не", "method": "rule",
+                   "rule_id": "morph.particle", "changed": true,
+                   "traces": [{"rule_id": "morph.particle", "before": "не", "after": "ня"}]},
+                  {"text": " "}, ...]}
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any, Final
+
+import regex
+
+from belnorm.normalize import sanitize
+from belnorm.pipeline import Converter
+from belnorm.tokenize import tokenize
+from belnorm.types import Method, Orthography, TokenKind
+
+MAX_CHARS: Final[int] = 50_000
+MAX_BODY_BYTES: Final[int] = MAX_CHARS * 4 + 4_096  # UTF-8 worst case plus JSON overhead
+
+DIRECTIONS: Final[dict[str, Orthography]] = {
+    "taraskievica": Orthography.TARASKIEVICA,
+    "narkamauka": Orthography.NARKAMAUKA,
+}
+
+#: Origins allowed to call the API cross-site. The demo page is same-origin.
+ALLOWED_ORIGINS: Final[frozenset[str]] = frozenset({"https://paznaj.by", "https://www.paznaj.by"})
+_LOCAL_ORIGIN: Final[regex.Pattern[str]] = regex.compile(
+    r"^http://(localhost|127\.0\.0\.1)(:\d{1,5})?$"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Response:
+    status: int
+    body: dict[str, Any] | None
+    headers: dict[str, str] = field(default_factory=dict)
+
+    def encode(self) -> bytes:
+        if self.body is None:
+            return b""
+        return json.dumps(self.body, ensure_ascii=False).encode("utf-8")
+
+
+class ApiError(Exception):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
+def cors_headers(origin: str | None) -> dict[str, str]:
+    """CORS headers for an allowed ``Origin``; empty for any other (the browser then blocks)."""
+    base = {"Vary": "Origin"}
+    if origin and (origin in ALLOWED_ORIGINS or _LOCAL_ORIGIN.match(origin)):
+        base["Access-Control-Allow-Origin"] = origin
+    return base
+
+
+def _segments(converter: Converter, text: str, direction: Orthography) -> list[dict[str, Any]]:
+    """The output as a sequence of pieces: word segments carry how they were resolved."""
+    tokens = tokenize(text)
+    explanations = iter(converter.explain(text, direction))
+    out: list[dict[str, Any]] = []
+    for tok in tokens:
+        if tok.kind is not TokenKind.WORD:
+            out.append({"text": tok.text})
+            continue
+        e = next(explanations)
+        out.append(
+            {
+                "text": e.target,
+                "source": e.source,
+                "method": e.method.value,
+                "rule_id": e.rule_id,
+                "changed": e.target != e.source,
+                "traces": [
+                    {"rule_id": t.rule_id, "before": t.before, "after": t.after} for t in e.traces
+                ],
+            }
+        )
+    return out
+
+
+def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
+    """Validate a decoded JSON body and convert it. Raises :class:`ApiError`."""
+    if not isinstance(payload, dict):
+        raise ApiError(400, "body must be a JSON object")
+    text = payload.get("text", "")
+    if not isinstance(text, str):
+        raise ApiError(400, "text must be a string")
+    if len(text) > MAX_CHARS:
+        raise ApiError(413, f"text longer than {MAX_CHARS} characters")
+    name = payload.get("direction", "taraskievica")
+    direction = DIRECTIONS.get(name) if isinstance(name, str) else None
+    if direction is None:
+        raise ApiError(400, "direction must be 'taraskievica' or 'narkamauka'")
+    if payload.get("script", "cyrillic") != "cyrillic":
+        raise ApiError(422, "only script='cyrillic' is supported")
+    explain = payload.get("explain", False)
+    if not isinstance(explain, bool):
+        raise ApiError(400, "explain must be a boolean")
+
+    text = sanitize(text)
+    result = converter.convert(text, direction)
+    by_method = {m.value: 0 for m in Method}
+    for c in result.conversions:
+        if c.target != c.source:
+            by_method[c.method.value] += 1
+    body: dict[str, Any] = {
+        "result": result.text,
+        "direction": direction.value,
+        "stats": {
+            "words": len(result.conversions),
+            "changed": sum(by_method.values()),
+            "by_method": by_method,
+        },
+    }
+    if explain:
+        body["segments"] = _segments(converter, text, direction)
+    return body
+
+
+def handle(
+    converter: Converter,
+    method: str,
+    headers: dict[str, str],
+    read_body: Callable[[int], bytes],
+) -> Response:
+    """Route one request.
+
+    ``headers`` must have lowercase keys; ``read_body(n)`` returns the raw body bytes.
+    """
+    cors = cors_headers(headers.get("origin"))
+    common = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", **cors}
+    if method == "OPTIONS":
+        pre = dict(common)
+        if "Access-Control-Allow-Origin" in cors:
+            pre.update(
+                {
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Max-Age": "86400",
+                }
+            )
+        return Response(204, None, pre)
+    if method != "POST":
+        return Response(405, {"error": "use POST"}, {**common, "Allow": "POST, OPTIONS"})
+    try:
+        if "application/json" not in headers.get("content-type", ""):
+            raise ApiError(415, "Content-Type must be application/json")
+        try:
+            length = int(headers.get("content-length") or 0)
+        except ValueError:
+            raise ApiError(400, "invalid Content-Length") from None
+        if length > MAX_BODY_BYTES:
+            raise ApiError(413, "request body too large")
+        raw = read_body(length)
+        try:
+            payload = json.loads(raw.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise ApiError(400, "body is not valid UTF-8 JSON") from None
+        return Response(200, convert_payload(converter, payload), common)
+    except ApiError as exc:
+        return Response(exc.status, {"error": exc.message}, common)
