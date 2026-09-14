@@ -166,9 +166,11 @@ def test_g_distinction_roundtrip() -> None:
         ("не", None, None),
         ("без", "сну", "бяз"),
         ("без", "ліку", "бязь"),  # лі+ку: jakanne, then soft onset
-        ("без", "мяне", None),  # мяне+
-        ("без", "якога", None),  # яко+га: was *бязь before stress lookup
-        ("без", "людзей", None),  # людзе+й; never *безь
+        ("без", "мяне", "безь"),  # мяне+: no jakanne, but §29 softness
+        ("без", "якога", "безь"),  # яко+га
+        ("без", "людзей", "безь"),  # людзе+й
+        ("без", "іголкі", None),  # §29 Заўвага А: unstressed initial і
+        ("з", "іх", "зь"),  # і+х: stressed initial і
         ("без", "працы", "бяз"),  # пра+цы; the old word list did not know it
         ("не", "было", None),  # было+ (the old word list had it first-stressed)
         ("не", "мае", None),  # homograph ма+е / мае+: left alone

@@ -14,8 +14,8 @@ T2N = Orthography.NARKAMAUKA
 
 SENTENCES: list[tuple[str, str]] = [
     ("Учора ішоў снег.", "Учора ішоў сьнег."),
-    # мяне is end-stressed (GrammarDB мяне+), so no jakanne and no soft sign.
-    ("Без мяне не пачынайце.", "Без мяне не пачынайце."),
+    # мяне+ is end-stressed: no jakanne (§3), but §29 softness before soft м: безь.
+    ("Без мяне не пачынайце.", "Безь мяне не пачынайце."),
     ("З’ява была нечаканай.", "Зьява была нечаканай."),
     ("Мы жывём у Мінску.", "Мы жывём у Менску."),
     ("Свіння спіць.", "Сьвіньня сьпіць."),

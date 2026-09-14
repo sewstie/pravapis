@@ -91,13 +91,14 @@ def test_preposition_softness_follows_converted_next_word(
     The palatalization bug class (зллю, без слёз): a condition evaluated on the
     Narkamaŭka form, where assimilative softness is not written.
     """
-    from belnorm.rules.morphology import CLITICS, _soft_onset
+    from belnorm.rules.morphology import CLITICS, _soft_onset, _unstressed_initial_i
 
     assume(w not in CLITICS)
     out = converter.convert(f"{prep} {w}", N2T)
     assume(len(out.conversions) == 2)
     head, nxt = out.conversions
-    assert (head.target == prep + "ь") is _soft_onset(nxt.target.lower())
+    expected = _soft_onset(nxt.target.lower()) and not _unstressed_initial_i(w, converter.stress)
+    assert (head.target == prep + "ь") is expected
 
 
 @settings(max_examples=200)

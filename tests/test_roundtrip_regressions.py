@@ -47,22 +47,42 @@ def test_word_round_trips(converter: Converter, nark: str, tarask: str) -> None:
     assert converter.convert(there, T2N).text == nark
 
 
-@pytest.mark.parametrize(
-    ("nark", "tarask"),
-    [
-        # без before an unstressed soft onset once produced the non-word *безь.
-        # With GrammarDB stress it stays без: no jakanne, so nothing to soften.
-        ("без пісьмовай згоды", "без пісьмовай згоды"),  # пісьмо+вай
-        ("без людзей", "без людзей"),  # людзе+й
-        ("без вялікай мэты", "без вялікай мэты"),  # вялі+кай
-        ("без якога", "без якога"),  # яко+га: the one N→T false positive on the gold set
-        ("без ліку", "бязь ліку"),  # лі+ку: stressed and soft
-    ],
-)
-def test_bez_never_becomes_bez_soft(converter: Converter, nark: str, tarask: str) -> None:
+#: Examples quoted from Збор правілаў 2005 (§3 jakanne, §29 softness of prepositions,
+#: §29 Заўвага А unstressed initial і), plus our own cases derived from those rules.
+CODIFICATION_CLITICS = [
+    # §3: не / без in the syllable right before the stress
+    ("не пойдзе", "ня пойдзе"),  # ня по´йдзе
+    ("без крыўды", "бяз крыўды"),  # бяз кры´ўды
+    ("не было", "не было"),  # было´: second syllable, no jakanne (endnote xxxi)
+    # §29: softness extends to з, без/бяз, праз, цераз
+    ("з вераю", "зь вераю"),
+    ("без слёз", "бязь сьлёз"),
+    ("праз лес", "празь лес"),
+    ("цераз сетку", "церазь сетку"),
+    ("з юнаком", "зь юнаком"),
+    ("без іх", "бязь іх"),  # бязь і´х: stressed initial і
+    ("з Інаю", "зь Інаю"),
+    ("без Янкі", "бязь Янкі"),
+    ("без яго", "безь яго"),  # the book's own prose: "безь яго"
+    # §29 Заўвага А: no softening before an unstressed initial і
+    ("з ідэяй", "з ідэяй"),
+    ("без іголкі", "без іголкі"),
+    ("праз імглу", "праз імглу"),
+    # §29: no softening before г, к, х
+    ("без кішэні", "без кішэні"),
+    # unstressed без before a soft onset: безь (no jakanne, but softness)
+    ("без пісьмовай згоды", "безь пісьмовай згоды"),
+    ("без людзей", "безь людзей"),
+    ("без вялікай мэты", "безь вялікай мэты"),
+    ("без якога", "безь якога"),
+    ("без ліку", "бязь ліку"),  # лі+ку: stressed and soft
+]
+
+
+@pytest.mark.parametrize(("nark", "tarask"), CODIFICATION_CLITICS)
+def test_clitics_follow_codification(converter: Converter, nark: str, tarask: str) -> None:
     there = converter.convert(nark, N2T).text
     assert there == tarask
-    assert "безь" not in there
     assert converter.convert(there, T2N).text == nark
 
 
@@ -96,8 +116,11 @@ def test_convert_particle_soft_onset_uses_next_target(stress: StressTable) -> No
     assert morphology.convert_particle("з", "снегам", N2T, stress, "сьнегам") == "зь"
 
 
-def test_convert_particle_bez_unstressed_stays(stress: StressTable) -> None:
-    assert morphology.convert_particle("без", "людзей", N2T, stress) is None
+def test_convert_particle_bez_unstressed_softens(stress: StressTable) -> None:
+    # §29: без/бяз both soften; jakanne (§3) did not apply, so the vowel stays е
+    assert morphology.convert_particle("без", "людзей", N2T, stress, "людзей") == "безь"
+    # §29 Заўвага А: unstressed initial і — no softening
+    assert morphology.convert_particle("з", "ідэяй", N2T, stress, "ідэяй") is None
 
 
 def test_every_forward_loan_stem_has_a_reverse() -> None:

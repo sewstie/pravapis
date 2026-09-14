@@ -1,19 +1,21 @@
-"""Context-dependent clitics.
+"""Context-dependent clitics (Збор правілаў 2005, §3 and §29).
 
-Taraškievica spells the particle *не* and the preposition *без* as *ня* /
-*бяз* when the following word is stressed on its first syllable (jakanne),
-and softens prepositions ending in *з* before a soft onset (*з ім* → *зь ім*,
-*без ліку* → *бязь ліку*). Both need the next word, so they run in the
-pipeline rather than the per-word rule engine.
+Jakanne (§3): the particle *не* and the preposition *без* become *ня* / *бяз*
+when they stand in the syllable right before the stress, i.e. when the next
+word is stressed on its first syllable: *ня наш, ня по´йдзе, бяз кры´ўды*.
+*не было́* stays *не*: the stress is on the second syllable.
 
-Stress is not written in Belarusian text. It comes from GrammarDB stress marks
-(``belnorm.stress.StressTable``). Without a table only two facts are used:
-a monosyllabic content word is stressed on its only syllable, and ё is always
-stressed. Anything else counts as not first-stressed, so the particle is left
-alone: a missed ня is better than a wrong one.
+Assimilative softness (§29) extends to the prepositions *з, без/бяз, праз,
+цераз* before a soft onset, whether or not jakanne applied: *зь вераю, бязь
+сьлёз, празь лес, церазь сетку; безь яго*. §29 Заўвага А: before an
+*unstressed* initial *і* no [й] develops, so there is no softening: *з ідэяй,
+без іголкі, праз імглу* — but *бязь і´х, зь І´наю* when the і is stressed.
 
-Unstressed *без* stays *без* even before a soft onset: jakanne did not apply,
-and Taraškievica has no *безь.
+Both need the next word, so they run in the pipeline rather than the per-word
+rule engine. Stress is not written in Belarusian text; it comes from GrammarDB
+stress marks (``belnorm.stress.StressTable``). Without a table only two facts
+are used: a monosyllabic content word is stressed on its only syllable, and ё
+is always stressed. Anything else counts as not first-stressed.
 """
 
 from __future__ import annotations
@@ -28,11 +30,16 @@ VOWELS: Final[frozenset[str]] = frozenset("аеёіоуыэюя")
 
 #: не/без → ня/бяз (N→T) and back (T→N).
 PARTICLES_N2T: Final[dict[str, str]] = {"не": "ня", "без": "бяз"}
-PARTICLES_T2N: Final[dict[str, str]] = {"ня": "не", "бяз": "без", "бязь": "без", "зь": "з"}
+PARTICLES_T2N: Final[dict[str, str]] = {
+    "ня": "не",
+    "бяз": "без",
+    "бязь": "без",
+    "безь": "без",
+    "зь": "з",
+}
 
-#: Prepositions ending in з that soften before a soft onset. Plain без is not
-#: here: it only softens once jakanne has made it бяз.
-SOFTENING_PREPOSITIONS: Final[frozenset[str]] = frozenset({"з", "бяз", "праз", "цераз"})
+#: Prepositions that soften before a soft onset (§29): з, без/бяз, праз, цераз.
+SOFTENING_PREPOSITIONS: Final[frozenset[str]] = frozenset({"з", "без", "бяз", "праз", "цераз"})
 
 #: Unstressed function words: a monosyllable here does not attract "ня"/"бяз".
 CLITICS: Final[frozenset[str]] = frozenset(
@@ -144,8 +151,19 @@ def convert_particle(
     onset_form = next_target if next_target is not None else next_word
     if (
         base in SOFTENING_PREPOSITIONS
+        and next_word is not None
         and onset_form is not None
         and _soft_onset(onset_form.lower())
+        and not _unstressed_initial_i(next_word, stress)
     ):
         result = base + "ь"
     return result
+
+
+def _unstressed_initial_i(word: str, stress: StressTable | None) -> bool:
+    """§29 Заўвага А: an unstressed initial і develops no [й], so з/без/праз stay hard.
+
+    Reads the Narkamaŭka form (stress comes from GrammarDB); the letter і is the
+    same in both orthographies.
+    """
+    return word[:1].lower() == "і" and not is_first_syllable_stressed(word, stress)
