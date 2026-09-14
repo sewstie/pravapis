@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="be">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>belnorm — Наркамаўка ↔ Тарашкевіца</title>
+<meta name="description" content="Bidirectional Belarusian orthography converter: Narkamaŭka ↔ Taraškievica, with explanations of every change.">
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --panel: #ffffff;
+    --ink: #1d1d1b;
+    --muted: #6b6a64;
+    --line: #dedbd3;
+    --accent: #a1271f;
+    --accent-ink: #ffffff;
+    --rule-bg: #f7dedb;
+    --rule-line: #a1271f;
+    --lex-bg: #e3ebf7;
+    --lex-line: #2f5fa7;
+    --focus: #2f5fa7;
+    --tip-bg: #1d1d1b;
+    --tip-ink: #f7f6f3;
+    --radius: 10px;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514;
+      --panel: #1f1f1d;
+      --ink: #eceae4;
+      --muted: #a3a19a;
+      --line: #3a3935;
+      --accent: #e0655a;
+      --accent-ink: #151514;
+      --rule-bg: #4a2320;
+      --rule-line: #e0655a;
+      --lex-bg: #22324a;
+      --lex-line: #7fa6e0;
+      --focus: #7fa6e0;
+      --tip-bg: #eceae4;
+      --tip-ink: #151514;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 var(--sans);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 24px; }
+  header h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 4px 0 0; color: var(--muted); }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
+    margin: 24px 0 12px;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--panel); }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label {
+    padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--muted);
+    font-size: 0.93rem; user-select: none; white-space: nowrap;
+  }
+  .seg input:checked + label { background: var(--ink); color: var(--bg); }
+  .seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--muted); font-size: 0.93rem; }
+  .switch input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  button.primary {
+    margin-left: auto;
+    background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 999px;
+    padding: 9px 22px; font: 600 0.98rem var(--sans); cursor: pointer;
+  }
+  button.primary:disabled { opacity: 0.6; cursor: progress; }
+  button.primary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  kbd { font: 0.8rem var(--mono); color: var(--muted); }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; align-items: center; }
+  .presets span { color: var(--muted); font-size: 0.9rem; margin-right: 2px; }
+  .presets button {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 999px; padding: 5px 12px; font: 0.88rem var(--sans); cursor: pointer;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .presets button:hover { border-color: var(--muted); }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .panes { grid-template-columns: 1fr; } button.primary { margin-left: 0; } }
+  .pane { display: flex; flex-direction: column; min-width: 0; }
+  .pane h2 { margin: 0 0 6px; font-size: 0.85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  textarea, .rendered {
+    width: 100%; min-height: 220px; resize: vertical;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 16px; font: 1.05rem/1.65 var(--sans);
+  }
+  textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .rendered { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; }
+  .rendered[hidden], textarea[hidden] { display: none; }
+
+  .w { border-radius: 4px; padding: 0 1px; cursor: help; }
+  .w.rule { background: var(--rule-bg); box-shadow: inset 0 -2px var(--rule-line); }
+  .w.lexicon { background: var(--lex-bg); box-shadow: inset 0 -2px var(--lex-line); }
+  .w:focus-visible { outline: 2px solid var(--focus); }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 14px 2px 0; color: var(--muted); font-size: 0.93rem; min-height: 1.5em; }
+  .stats b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .legend { display: inline-flex; gap: 12px; align-items: center; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+  .legend .l-rule { background: var(--rule-bg); box-shadow: inset 0 -2px var(--rule-line); }
+  .legend .l-lex { background: var(--lex-bg); box-shadow: inset 0 -2px var(--lex-line); }
+  .error { color: var(--accent); }
+
+  #tip {
+    position: fixed; z-index: 10; max-width: min(360px, calc(100vw - 24px));
+    background: var(--tip-bg); color: var(--tip-ink); border-radius: 8px;
+    padding: 10px 12px; font-size: 0.88rem; line-height: 1.45; pointer-events: none;
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+  }
+  #tip .pair { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+  #tip .how { opacity: 0.8; margin-bottom: 4px; }
+  #tip ol { margin: 0; padding-left: 18px; font-family: var(--mono); font-size: 0.8rem; }
+
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; }
+  footer p { margin: 4px 0; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span>belnorm</span> · Наркамаўка ↔ Тарашкевіца</h1>
+    <p>Converts Belarusian text between the official orthography and the classical one, and shows why each word changed.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="seg" role="radiogroup" aria-label="Direction">
+      <input type="radio" name="dir" id="dir-t" value="taraskievica" checked>
+      <label for="dir-t">Наркамаўка → Тарашкевіца</label>
+      <input type="radio" name="dir" id="dir-n" value="narkamauka">
+      <label for="dir-n">Тарашкевіца → Наркамаўка</label>
+    </div>
+    <label class="switch"><input type="checkbox" id="explain" checked> Explain changes</label>
+    <button class="primary" id="go">Convert</button>
+    <kbd>Ctrl+Enter</kbd>
+  </div>
+
+  <div class="presets" id="presets"><span>Try:</span></div>
+
+  <div class="panes">
+    <div class="pane">
+      <h2 id="in-label">Наркамаўка</h2>
+      <textarea id="input" spellcheck="false" aria-labelledby="in-label" placeholder="Увядзіце тэкст…"></textarea>
+    </div>
+    <div class="pane">
+      <h2 id="out-label">Тарашкевіца</h2>
+      <textarea id="output" readonly aria-labelledby="out-label" hidden></textarea>
+      <div id="rendered" class="rendered" aria-labelledby="out-label" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <footer>
+    <p><a id="repo" href="https://github.com/sewstie/belnorm">Source on GitHub</a> · API: <code>POST /api/convert</code></p>
+    <p>Code: MIT licence. Stress data derived from the Belarusian Grammar Database (GrammarDB) by Aleś Bułojčyk and Uładzimir Koščanka, CC BY-SA 4.0.</p>
+    <p>Rules are not yet verified against <i>Беларускі клясычны правапіс: Збор правілаў</i> (2005); treat output as a draft.</p>
+  </footer>
+</div>
+<div id="tip" role="tooltip" hidden></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Each preset written in both orthographies, keyed by the orthography of the text.
+  // The Taraškievica side is belnorm's own output for the Narkamaŭka sentence.
+  const PRESETS = [
+    { label: "Снег і свет",
+      narkamauka: "Учора ішоў снег, і свет за акном здаваўся зусім іншым.",
+      taraskievica: "Учора ішоў сьнег, і сьвет за акном здаваўся зусім іншым." },
+    { label: "Сістэма ў Еўропе",
+      narkamauka: "Сістэма плануе адкрыць новую лабараторыю ў цэнтры Еўропы.",
+      taraskievica: "Сыстэма плянуе адкрыць новую лябараторыю ў цэнтры Эўропы." },
+    { label: "Не быў у Мінску",
+      narkamauka: "Не быў без мяне на свяце ў Мінску — не магу забыць гэты вечар.",
+      taraskievica: "Ня быў без мяне на сьвяце ў Менску — не магу забыць гэты вечар." },
+  ];
+  const NAMES = { taraskievica: "Тарашкевіца", narkamauka: "Наркамаўка" };
+  const METHOD_LABEL = { rule: "rule", lexicon: "lexicon entry", identity: "listed as unchanged", unknown: "unchanged", model: "classifier" };
+
+  const $ = (id) => document.getElementById(id);
+  const input = $("input"), output = $("output"), rendered = $("rendered");
+  const explain = $("explain"), go = $("go"), stats = $("stats"), tip = $("tip");
+  let last = null;  // last API response
+
+  const direction = () => document.querySelector('input[name="dir"]:checked').value;
+  const source = (dir) => (dir === "taraskievica" ? "narkamauka" : "taraskievica");
+
+  function setLabels() {
+    const d = direction();
+    $("in-label").textContent = NAMES[source(d)];
+    $("out-label").textContent = NAMES[d];
+  }
+
+  for (const p of PRESETS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = p.label;
+    b.title = p.narkamauka;
+    b.addEventListener("click", () => { input.value = p[source(direction())]; convert(); });
+    $("presets").appendChild(b);
+  }
+
+  document.querySelectorAll('input[name="dir"]').forEach((r) =>
+    r.addEventListener("change", () => {
+      if (last && last.result) input.value = last.result;  // continue from the output
+      setLabels();
+      if (input.value.trim()) convert(); else clearOutput();
+    })
+  );
+  explain.addEventListener("change", render);
+  go.addEventListener("click", convert);
+  input.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); convert(); }
+  });
+
+  function clearOutput() {
+    last = null; output.value = ""; rendered.textContent = ""; stats.textContent = "";
+  }
+
+  async function convert() {
+    const text = input.value;
+    if (!text.trim()) { clearOutput(); return; }
+    go.disabled = true;
+    try {
+      const res = await fetch("/api/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, direction: direction(), explain: true }),
+      });
+      const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      last = body;
+      render();
+    } catch (err) {
+      last = null;
+      output.value = ""; rendered.textContent = "";
+      stats.innerHTML = "";
+      const e = document.createElement("span");
+      e.className = "error";
+      e.textContent = `Conversion failed: ${err.message}`;
+      stats.appendChild(e);
+    } finally {
+      go.disabled = false;
+    }
+  }
+
+  function render() {
+    hideTip();
+    if (!last) return;
+    const on = explain.checked;
+    output.hidden = on;
+    rendered.hidden = !on;
+    output.value = last.result;
+    rendered.textContent = "";
+    if (on) {
+      const frag = document.createDocumentFragment();
+      for (const seg of last.segments || []) {
+        if (!seg.changed) { frag.appendChild(document.createTextNode(seg.text)); continue; }
+        const s = document.createElement("span");
+        s.className = `w ${seg.method}`;
+        s.textContent = seg.text;
+        s.tabIndex = 0;
+        s._seg = seg;
+        frag.appendChild(s);
+      }
+      rendered.appendChild(frag);
+    }
+    renderStats(last.stats);
+  }
+
+  function renderStats(st) {
+    const m = st.by_method;
+    const parts = [
+      `<span><b>${st.words}</b> words</span>`,
+      `<span><b>${st.changed}</b> changed</span>`,
+      `<span class="legend"><span><i class="l-lex"></i>lexicon <b>${m.lexicon}</b></span>` +
+        `<span><i class="l-rule"></i>rules <b>${m.rule}</b></span></span>`,
+      `<span><b>${st.words - st.changed}</b> unchanged</span>`,
+    ];
+    stats.innerHTML = parts.join("");
+  }
+
+  // --- tooltip ----------------------------------------------------------------
+  function showTip(el) {
+    const seg = el._seg;
+    tip.textContent = "";
+    const pair = document.createElement("div");
+    pair.className = "pair";
+    pair.textContent = `${seg.source} → ${seg.text}`;
+    const how = document.createElement("div");
+    how.className = "how";
+    how.textContent = METHOD_LABEL[seg.method] || seg.method;
+    tip.append(pair, how);
+    if (seg.traces && seg.traces.length) {
+      const ol = document.createElement("ol");
+      for (const t of seg.traces) {
+        const li = document.createElement("li");
+        li.textContent = `${t.rule_id}: ${t.before} → ${t.after}`;
+        ol.appendChild(li);
+      }
+      tip.appendChild(ol);
+    } else if (seg.method === "lexicon") {
+      const p = document.createElement("div");
+      p.textContent = "Looked up in data/lexicon/, not produced by a rule.";
+      tip.appendChild(p);
+    }
+    tip.hidden = false;
+    const r = el.getBoundingClientRect();
+    const t = tip.getBoundingClientRect();
+    let left = Math.min(Math.max(8, r.left), window.innerWidth - t.width - 8);
+    let top = r.bottom + 8;
+    if (top + t.height > window.innerHeight - 8) top = r.top - t.height - 8;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  }
+  function hideTip() { tip.hidden = true; }
+  for (const ev of ["mouseover", "focusin"]) {
+    rendered.addEventListener(ev, (e) => { const w = e.target.closest(".w"); if (w) showTip(w); });
+  }
+  for (const ev of ["mouseout", "focusout"]) {
+    rendered.addEventListener(ev, (e) => { if (e.target.closest(".w")) hideTip(); });
+  }
+  window.addEventListener("scroll", hideTip, { passive: true });
+
+  setLabels();
+  input.value = PRESETS[0].narkamauka;
+  convert();
+})();
+</script>
+</body>
+</html>
