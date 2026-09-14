@@ -192,7 +192,22 @@ lemma to the original tag, and change agreeing words.
 Both tiers need GrammarDB morphology (lemmas and full tags); tier 2 also needs a Taraškievica
 paradigm for the target lemma, which GrammarDB does not have. Not started.
 
+## Unresolved — deliberately left unconverted
+
+Policy: when sources disagree or the annotator is unsure, the word is **not** added to the
+lexicon or the rules and passes through unchanged. A missing conversion is better than a
+guessed one. Each item needs the codification (or another cited dictionary) to resolve.
+
+- **Кыргызстан**: Taraškievica sources disagree between *Кыргыстан* and *Кіргізія*. Not in
+  the lexicon; Кыргызстан and its forms pass through unchanged.
+
 ## Lexicon
+
+- **Швейцарыя → Швайцарыя** and **швейцарскі → швайцарскі**: all forms listed in
+  `data/lexicon/proper_nouns.tsv`, taken from GrammarDB RELEASE-202601 (paradigms Швейцарыя
+  NPIINF2 and швейцарскі ARP) with only the stem changed. Source for the Taraškievica stem:
+  UNVERIFIED like the rest of the lexicon.
+
 
 `data/lexicon/*.tsv` entries (loanwords, proper nouns, exceptions) are lexical facts, not
 rules, but they are equally unverified: they were written from memory, not from a dictionary.

@@ -111,6 +111,39 @@ def test_bad_direction_flag_is_rejected(tmp_path: Path) -> None:
         list(read_tsv_pairs(tsv))
 
 
+SWITZERLAND = [
+    ("Швейцарыя", "Швайцарыя"),
+    ("Швейцарыі", "Швайцарыі"),
+    ("Швейцарыю", "Швайцарыю"),
+    ("Швейцарыяй", "Швайцарыяй"),
+    ("Швейцарыяю", "Швайцарыяю"),
+    ("швейцарскі", "швайцарскі"),
+    ("швейцарскага", "швайцарскага"),
+    ("швейцарскаму", "швайцарскаму"),
+    ("швейцарскім", "швайцарскім"),
+    ("швейцарскае", "швайцарскае"),
+    ("швейцарская", "швайцарская"),
+    ("швейцарскай", "швайцарскай"),
+    ("швейцарскую", "швайцарскую"),
+    ("швейцарскаю", "швайцарскаю"),
+    ("швейцарскія", "швайцарскія"),
+    ("швейцарскіх", "швайцарскіх"),
+    ("швейцарскімі", "швайцарскімі"),
+]
+
+
+@pytest.mark.parametrize(("nark", "tarask"), SWITZERLAND)
+def test_switzerland_all_forms(converter: Converter, nark: str, tarask: str) -> None:
+    assert converter.convert(nark, N2T).text == tarask
+    assert converter.convert(tarask, T2N).text == nark
+
+
+def test_unresolved_and_unrelated_words_pass_through(converter: Converter) -> None:
+    # Кыргызстан: sources disagree (NORMS.md, "Unresolved"); швейцар: a different lexeme.
+    for word in ("Кыргызстан", "Кыргызстана", "швейцар", "швейцара"):
+        assert converter.convert(word, N2T).text == word
+
+
 def test_litar_letters_survive_round_trip(converter: Converter) -> None:
     text = "Алфавіт мае 32 літары, а ў словах шмат літар."
     there = converter.convert(text, N2T).text
