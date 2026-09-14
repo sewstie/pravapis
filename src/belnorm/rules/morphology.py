@@ -210,5 +210,6 @@ def convert_particle(word: str, next_word: str | None, direction: Orthography) -
         result = PARTICLES_N2T[word]
     base = result or word
     if base in SOFTENING_PREPOSITIONS and next_word is not None and _soft_onset(next_word.lower()):
-        result = base + "ь"
+        # Taraškievica has бязь but no *безь: the soft form always takes я.
+        result = ("бяз" if base == "без" else base) + "ь"
     return result
