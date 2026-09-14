@@ -1,9 +1,16 @@
-"""Evaluation: the four honest numbers.
+"""Evaluation.
 
-* word-level accuracy against the gold set
-* coverage split — share resolved by identity / lexicon / rule / model / unknown
-* round-trip consistency — N→T→N returning the original
-* throughput in MB/s (measured by ``evaluate``, reported by the CLI)
+Most Belarusian words are spelled identically in both orthographies, so raw
+word accuracy is dominated by words the converter only has to leave alone.
+Every number here is therefore reported against the **do-nothing baseline**
+(return the input unchanged), and accuracy is split in two:
+
+* **change accuracy** — of the words whose gold form differs from the source,
+  the share converted exactly right. This is the real number.
+* **false-positive rate** — of the words whose gold form equals the source,
+  the share the converter changed anyway. Catches over-applied rules.
+
+Also: coverage split by method, round-trip consistency, throughput.
 """
 
 from __future__ import annotations
@@ -66,6 +73,33 @@ class EvalReport:
     sentence_accuracy: float = 0.0
     round_trip: float | None = None
     per_rule: dict[str, PRF] = field(default_factory=dict)
+    #: aligned words whose gold form differs from the source
+    changed_words: int = 0
+    #: of those, converted exactly right
+    changed_correct: int = 0
+    #: of the unchanged words, how many the converter altered anyway
+    false_positives: int = 0
+    #: accuracy of returning every word unchanged
+    baseline_accuracy: float = 0.0
+    baseline_sentence_accuracy: float = 0.0
+
+    @property
+    def unchanged_words(self) -> int:
+        return self.words - self.changed_words
+
+    @property
+    def change_accuracy(self) -> float:
+        return self.changed_correct / self.changed_words if self.changed_words else 0.0
+
+    @property
+    def false_positive_rate(self) -> float:
+        return self.false_positives / self.unchanged_words if self.unchanged_words else 0.0
+
+    @property
+    def error_reduction(self) -> float:
+        """Share of the baseline's word errors the converter removed (can be negative)."""
+        base_err = 1.0 - self.baseline_accuracy
+        return (self.accuracy - self.baseline_accuracy) / base_err if base_err else 0.0
 
     @property
     def mb_per_second(self) -> float:
@@ -193,10 +227,16 @@ def evaluate(
     errors: list[ErrorCase] = []
     misaligned = 0
     sentence_ok = 0
+    baseline_sentence_ok = 0
     n_words = 0
     n_correct = 0
-    for i, (res, exp) in enumerate(zip(results, expected, strict=True)):
+    n_changed = 0
+    changed_correct = 0
+    baseline_correct = 0
+    false_positives = 0
+    for i, (res, src, exp) in enumerate(zip(results, sources, expected, strict=True)):
         sentence_ok += res.text == exp
+        baseline_sentence_ok += src == exp
         gold_words = _words(exp)
         if len(gold_words) != len(res.conversions):
             misaligned += 1
@@ -204,7 +244,14 @@ def evaluate(
         for conv, gold_word in zip(res.conversions, gold_words, strict=True):
             conversions.append(conv)
             n_words += 1
-            if conv.target == gold_word:
+            ok = conv.target == gold_word
+            if conv.source == gold_word:
+                baseline_correct += 1
+                false_positives += not ok
+            else:
+                n_changed += 1
+                changed_correct += ok
+            if ok:
                 n_correct += 1
                 correct_by_method[conv.method] += 1
             elif len(errors) < error_limit:
@@ -244,4 +291,11 @@ def evaluate(
         sentence_accuracy=sentence_ok / len(materialised) if materialised else 0.0,
         round_trip=rt,
         per_rule=per_rule,
+        changed_words=n_changed,
+        changed_correct=changed_correct,
+        false_positives=false_positives,
+        baseline_accuracy=baseline_correct / n_words if n_words else 0.0,
+        baseline_sentence_accuracy=(
+            baseline_sentence_ok / len(materialised) if materialised else 0.0
+        ),
     )
