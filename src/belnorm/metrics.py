@@ -172,6 +172,57 @@ def round_trip_consistency(texts: Sequence[str], converter: Converter) -> float:
     return ok / len(texts)
 
 
+@dataclass(frozen=True, slots=True)
+class RoundTripFailure:
+    """One word for which N→T→N did not return the original."""
+
+    sentence: str
+    source: str
+    there: str
+    back: str
+    there_method: Method
+    there_rule: str | None
+    back_method: Method
+    back_rule: str | None
+
+    @property
+    def group(self) -> str:
+        """Which stage broke it: the N→T resolution, then the T→N one."""
+        there = self.there_rule or self.there_method.value
+        back = self.back_rule or self.back_method.value
+        return f"{there} | {back}"
+
+
+def round_trip_failures(
+    texts: Iterable[str], converter: Converter
+) -> tuple[int, list[RoundTripFailure]]:
+    """Word-level N→T→N check. Returns (words checked, failures)."""
+    n_words = 0
+    failures: list[RoundTripFailure] = []
+    for text in texts:
+        original = sanitize(text)
+        there = converter.convert(original, Orthography.TARASKIEVICA)
+        back = converter.convert(there.text, Orthography.NARKAMAUKA)
+        if len(there.conversions) != len(back.conversions):
+            continue  # tokenisation changed; counted by the sentence-level metric
+        for t, b in zip(there.conversions, back.conversions, strict=True):
+            n_words += 1
+            if b.target != t.source:
+                failures.append(
+                    RoundTripFailure(
+                        original,
+                        t.source,
+                        t.target,
+                        b.target,
+                        t.method,
+                        t.rule_id,
+                        b.method,
+                        b.rule_id,
+                    )
+                )
+    return n_words, failures
+
+
 def error_report(
     pred: Sequence[str],
     gold: Sequence[str],

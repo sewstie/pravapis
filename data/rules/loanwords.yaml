@@ -44,6 +44,7 @@ rules:
         - { input: "сістэма", expected: "сыстэма" }
         - { input: "прэзідэнт", expected: "прэзыдэнт" }
         - { input: "фізіка", expected: "фізыка" }
+        - { input: "класічны", expected: "класычны" }
       negative:
         - { input: "сіла", expected: "сіла" }
         - { input: "сіні", expected: "сіні" }
@@ -83,6 +84,37 @@ rules:
     tests:
       positive:
         - { input: "ґанак", expected: "ганак" }
+
+  - id: loan.l_unpalatalization
+    description: "Reverse of loan.l_palatalization on the same stems: плян → план"
+    direction: taraskievica_to_narkamauka
+    function: "belnorm.rules.loanwords:remove_l_palatalization"
+    # Above loan.y_to_i so клясычны → класычны → класічны.
+    priority: 45
+    tests:
+      positive:
+        - { input: "плян", expected: "план" }
+        - { input: "лябараторыі", expected: "лабараторыі" }
+        - { input: "тэхналёгій", expected: "тэхналогій" }
+        - { input: "кілямэтраў", expected: "кіламетраў" }
+      negative:
+        - { input: "салёны", expected: "салёны" }
+        - { input: "лёгкі", expected: "лёгкі" }
+
+  - id: loan.y_to_i
+    description: "Reverse of loan.i_to_y on the same stems: сыстэма → сістэма"
+    direction: taraskievica_to_narkamauka
+    function: "belnorm.rules.loanwords:remove_i_to_y"
+    priority: 40
+    tests:
+      positive:
+        - { input: "сыстэму", expected: "сістэму" }
+        - { input: "сынонімы", expected: "сінонімы" }
+        - { input: "апазыцыя", expected: "апазіцыя" }
+        - { input: "класычнага", expected: "класічнага" }
+      negative:
+        - { input: "сыры", expected: "сыры" }
+        - { input: "сын", expected: "сын" }
 
   - id: loan.eu_reverse
     description: "Word-initial эўр → еўр: Эўропа → Еўропа"

@@ -4,6 +4,12 @@ Source format (``data/lexicon/*.tsv``)::
 
     # comment lines start with '#'
     narkamauka<TAB>taraskievica
+    narkamauka<TAB>taraskievica<TAB>n2t    # one-way entry
+
+An optional third column restricts an entry to one direction: ``n2t`` builds
+only the Narkamaŭka → Taraškievica key, ``t2n`` only the reverse. Use it when
+the target form is also an unrelated word on its own side (літр → літар is
+right, but Taraškievica *літар* is also the genitive plural of *літара*).
 
 Entries are lowercased on build; capitalisation is re-applied at lookup time.
 The first entry for a key wins, so put preferred variants first.
@@ -21,7 +27,7 @@ import regex
 
 from belnorm.normalize import sanitize
 from belnorm.tokenize import BELARUSIAN_LETTERS, tokenize
-from belnorm.types import TokenKind
+from belnorm.types import Orthography, TokenKind
 
 LEXICON_MAGIC: Final[bytes] = b"BELNORM1"
 
@@ -41,8 +47,20 @@ class ValidationError:
         return f"[{self.severity}] #{self.index} {self.source!r} -> {self.target!r}: {self.message}"
 
 
-def read_tsv_pairs(path: Path) -> Iterator[tuple[str, str]]:
-    """Yield (narkamauka, taraskievica) pairs; blank lines and ``#`` comments skipped."""
+_ONE_WAY: Final[dict[str, Orthography]] = {
+    "n2t": Orthography.TARASKIEVICA,
+    "t2n": Orthography.NARKAMAUKA,
+}
+
+
+def read_tsv_pairs(
+    path: Path, *, usable_for: Orthography | None = None
+) -> Iterator[tuple[str, str]]:
+    """Yield (narkamauka, taraskievica) pairs; blank lines and ``#`` comments skipped.
+
+    With ``usable_for`` (the target orthography), one-way entries for the other
+    direction are dropped.
+    """
     with path.open(encoding="utf-8") as fh:
         for line_no, raw in enumerate(fh, 1):
             line = raw.rstrip("\r\n")
@@ -51,12 +69,31 @@ def read_tsv_pairs(path: Path) -> Iterator[tuple[str, str]]:
             parts = line.split("\t")
             if len(parts) < 2:
                 raise ValueError(f"{path}:{line_no}: expected two tab-separated columns")
+            flag = parts[2].strip() if len(parts) > 2 else ""
+            if flag and flag not in _ONE_WAY:
+                raise ValueError(f"{path}:{line_no}: third column must be n2t or t2n, got {flag!r}")
+            if usable_for is not None and flag and _ONE_WAY[flag] is not usable_for:
+                continue
             yield sanitize(parts[0].strip()), sanitize(parts[1].strip())
 
 
-def read_tsv_dir(path: Path) -> Iterator[tuple[str, str]]:
+def read_tsv_dir(path: Path, *, usable_for: Orthography | None = None) -> Iterator[tuple[str, str]]:
     for tsv in sorted(path.glob("*.tsv")):
-        yield from read_tsv_pairs(tsv)
+        yield from read_tsv_pairs(tsv, usable_for=usable_for)
+
+
+def read_sources(path: Path, usable_for: Orthography | None = None) -> list[tuple[str, str]]:
+    """A TSV file or a directory of them."""
+    if path.is_dir():
+        return list(read_tsv_dir(path, usable_for=usable_for))
+    return list(read_tsv_pairs(path, usable_for=usable_for))
+
+
+def build_from_sources(path: Path) -> tuple[marisa_trie.BytesTrie, marisa_trie.BytesTrie]:
+    """Forward and reverse tries, honouring one-way entries."""
+    fwd = build_trie(read_sources(path, Orthography.TARASKIEVICA))
+    rev = build_trie((t, s) for s, t in read_sources(path, Orthography.NARKAMAUKA))
+    return fwd, rev
 
 
 def align_corpora(a: Path, b: Path) -> Iterator[tuple[str, str]]:

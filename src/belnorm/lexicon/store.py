@@ -20,9 +20,8 @@ import marisa_trie
 from belnorm.casing import recase
 from belnorm.lexicon.builder import (
     build_both,
+    build_from_sources,
     load_lexicon_file,
-    read_tsv_dir,
-    read_tsv_pairs,
 )
 from belnorm.types import Orthography
 
@@ -35,10 +34,8 @@ class Lexicon:
     # --- construction ---------------------------------------------------------
     @classmethod
     def load(cls, path: Path) -> Lexicon:
-        if path.is_dir():
-            return cls.from_pairs(read_tsv_dir(path))
-        if path.suffix == ".tsv":
-            return cls.from_pairs(read_tsv_pairs(path))
+        if path.is_dir() or path.suffix == ".tsv":
+            return cls(*build_from_sources(path))
         return cls(*load_lexicon_file(path))
 
     @classmethod

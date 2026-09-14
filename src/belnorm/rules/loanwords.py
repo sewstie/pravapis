@@ -74,6 +74,7 @@ _I_RULES: Final[tuple[tuple[regex.Pattern[str], str], ...]] = tuple(
         (r"^сінагог", "сынагог"),
         (r"^сіндык", "сындык"),
         (r"^сілуэт", "сылюэт"),
+        (r"^класі(?=[кч])", "класы"),  # класічны → клясычны once l_palatalization runs
         (r"^прэзід", "прэзыд"),
         (r"^рэзід", "рэзыд"),
         (r"^дысід", "дысыд"),
@@ -123,6 +124,39 @@ _G_STEMS: Final[str] = "|".join(
 _G_RE: Final[regex.Pattern[str]] = regex.compile(rf"^г(?={_G_STEMS})")
 
 
+# --- reverse tables (Taraškievica → Narkamaŭka) ----------------------------------------
+# Every forward stem must round-trip, so the reverse rules are the same stems
+# read backwards. Stems whose Taraškievica form collides with a native word are
+# left out and belong to the lexicon: салён- is also "salty" (салёны, салёна).
+_L_REVERSE_SKIP: Final[frozenset[str]] = frozenset({"салён"})
+_I_REVERSE_SKIP: Final[frozenset[str]] = frozenset()
+_STEM_RE: Final[regex.Pattern[str]] = regex.compile(r"^\^(\p{Cyrillic}+)((?:\(\?[=!][^)]*\))?)$")
+
+
+def _invert(
+    rules: tuple[tuple[regex.Pattern[str], str], ...], skip: frozenset[str]
+) -> tuple[tuple[regex.Pattern[str], str], ...]:
+    """Reverse ``^stem(lookaround)?`` → ``repl`` rules; others need an explicit entry."""
+    out: list[tuple[regex.Pattern[str], str]] = []
+    for pattern, repl in rules:
+        m = _STEM_RE.match(pattern.pattern)
+        if m is None or repl in skip:
+            continue
+        stem, look = m.groups()
+        out.append((regex.compile(f"^{regex.escape(repl)}{look}"), stem))
+    return tuple(out)
+
+
+_L_REVERSE: Final[tuple[tuple[regex.Pattern[str], str], ...]] = (
+    *_invert(_L_RULES, _L_REVERSE_SKIP),
+    (regex.compile(rf"(?<=[{_V}])лёгі"), "логі"),
+)
+_I_REVERSE: Final[tuple[tuple[regex.Pattern[str], str], ...]] = (
+    *_invert(_I_RULES, _I_REVERSE_SKIP),
+    (regex.compile(r"^(а|апа|кампа|экспа|прапа|дыспа|пра)?пазыц"), r"\1пазіц"),
+)
+
+
 def _apply_first(word: str, rules: tuple[tuple[regex.Pattern[str], str], ...]) -> str:
     for pattern, repl in rules:
         new = pattern.sub(repl, word, count=1)
@@ -139,6 +173,16 @@ def apply_l_palatalization(word: str) -> str:
 def apply_i_to_y(word: str) -> str:
     """сістэма → сыстэма, прэзідэнт → прэзыдэнт; сіла → сіла."""
     return _apply_first(word, _I_RULES)
+
+
+def remove_l_palatalization(word: str) -> str:
+    """плян → план, біялёгія → біялогія; салёны (salty) → салёны."""
+    return _apply_first(word, _L_REVERSE)
+
+
+def remove_i_to_y(word: str) -> str:
+    """сыстэма → сістэма, прэзыдэнт → прэзідэнт; сыр → сыр."""
+    return _apply_first(word, _I_REVERSE)
 
 
 def apply_eu_prefix(word: str) -> str:

@@ -174,22 +174,20 @@ def build_lexicon(
 ) -> None:
     """Compile TSV sources into the marisa-trie lexicon file."""
     from belnorm.lexicon.builder import (
-        build_both,
-        read_tsv_dir,
-        read_tsv_pairs,
+        build_from_sources,
+        read_sources,
         save_lexicon,
         validate_entries,
     )
 
-    pairs = list(read_tsv_dir(src) if src.is_dir() else read_tsv_pairs(src))
-    problems = validate_entries(pairs)
+    problems = validate_entries(read_sources(src))
     for p in problems:
         errors.print(("[red]" if p.severity == "error" else "[yellow]") + str(p))
     hard = [p for p in problems if p.severity == "error"]
     if hard or (strict and problems):
         errors.print(f"[red]{len(problems)} problem(s); nothing written[/red]")
         raise typer.Exit(1)
-    fwd, rev = build_both(pairs)
+    fwd, rev = build_from_sources(src)
     save_lexicon(fwd, rev, out)
     console.print(
         f"wrote [bold]{out}[/bold]: {len(fwd)} n→t keys, {len(rev)} t→n keys, "
