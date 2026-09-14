@@ -1,0 +1,6 @@
+# Runtime dependencies for api/convert.py (Vercel Python, 3.12).
+# Lexicon + rules + stress table only: no FastAPI, no scikit-learn, no BelVoice.
+regex==2026.9.10
+marisa-trie==1.4.1
+PyYAML==6.0.3
+pydantic==2.13.5
