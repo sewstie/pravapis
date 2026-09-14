@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from belnorm.metrics import evaluate, word_accuracy
@@ -37,6 +39,29 @@ def test_false_positive_is_counted(converter: Converter) -> None:
     assert rep.false_positive_rate == 1.0
     assert rep.baseline_accuracy == 1.0
     assert rep.accuracy == 0.0
+
+
+def test_read_gold_skips_uncertain(tmp_path: Path) -> None:
+    from belnorm.metrics import read_gold, read_gold_rows
+
+    tsv = tmp_path / "g.tsv"
+    tsv.write_text(
+        "# c\nснег\tсьнег\tv0\thand_written\nсвет\tсьвет\tv0\tconverter_checked\n"
+        "не\tня\tv0\tuncertain\nдом\tдом\n",
+        encoding="utf-8",
+    )
+    assert len(read_gold_rows(tsv)) == 4
+    assert read_gold(tsv) == [("снег", "сьнег"), ("свет", "сьвет"), ("дом", "дом")]
+    assert read_gold(tsv, trusted_only=True) == [("снег", "сьнег")]
+
+
+def test_word_round_trip_both_starts(converter: Converter) -> None:
+    from belnorm.metrics import round_trip_failures
+
+    n_words, failures = round_trip_failures(["снег і свет"], converter)
+    assert (n_words, failures) == (3, [])
+    n_words, failures = round_trip_failures(["сьнег і сьвет"], converter, Orthography.TARASKIEVICA)
+    assert (n_words, failures) == (3, [])
 
 
 def test_missed_change_is_not_a_false_positive(converter: Converter) -> None:

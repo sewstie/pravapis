@@ -53,4 +53,16 @@ def test_gold_rows_are_well_formed() -> None:
             continue
         cols = line.split("\t")
         assert len(cols) == 4, f"line {i}: expected 4 columns"
-        assert cols[3] in {"annotated", "uncertain", "reviewed"}, f"line {i}: status {cols[3]!r}"
+        assert cols[3] in {"hand_written", "converter_checked", "uncertain"}, (
+            f"line {i}: provenance {cols[3]!r}"
+        )
+
+
+def test_provenance_filters() -> None:
+    from belnorm.metrics import read_gold_rows
+
+    rows = read_gold_rows(GOLD)
+    counts = {p: sum(r.provenance == p for r in rows) for p in ("uncertain", "hand_written")}
+    assert len(read_gold(GOLD)) == len(rows) - counts["uncertain"]
+    assert len(read_gold(GOLD, trusted_only=True)) == counts["hand_written"]
+    assert len(read_gold(GOLD, trusted_only=True)) >= 500

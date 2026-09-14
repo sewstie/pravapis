@@ -239,14 +239,40 @@ def eval_cmd(
     json_out: Annotated[
         Path | None, typer.Option("--json", help="Write the report as JSON.")
     ] = None,
+    trusted: Annotated[
+        bool,
+        typer.Option(
+            "--trusted",
+            help="Score only hand_written rows (never adjusted after seeing converter output).",
+        ),
+    ] = False,
 ) -> None:
-    """Score the converter on a gold set: accuracy, coverage split, round trip, throughput."""
-    from belnorm.metrics import evaluate, read_gold
+    """Score the converter on a gold set: accuracy, coverage split, round trip, throughput.
+
+    Rows marked ``uncertain`` are never scored. By default the remaining rows
+    are scored and the hand_written subset is scored alongside for comparison;
+    ``--trusted`` scores only that subset.
+    """
+    from belnorm.metrics import HAND_WRITTEN, UNCERTAIN, evaluate, read_gold, read_gold_rows
 
     converter = _converter(config)
-    pairs = read_gold(gold)
+    rows = read_gold_rows(gold)
+    n_uncertain = sum(r.provenance == UNCERTAIN for r in rows)
+    pairs = read_gold(gold, trusted_only=trusted)
+    subset = "hand_written only (--trusted)" if trusted else "all except uncertain"
+    console.print(
+        f"gold rows: {len(rows)} · [yellow]skipped {n_uncertain} uncertain[/yellow]"
+        + (
+            f" · skipped {len(rows) - n_uncertain - len(pairs)} non-hand_written"
+            if trusted
+            else f" · {sum(r.provenance == HAND_WRITTEN for r in rows)} hand_written"
+        )
+        + f" · scoring [bold]{subset}[/bold]"
+    )
+    trusted_pairs = None if trusted else read_gold(gold, trusted_only=True)
     directions = list(Orthography) if direction.lower() == "both" else [_direction(direction)]
     payload: dict[str, object] = {}
+    divergences: list[str] = []
     for d in directions:
         rep = evaluate(converter, pairs, d, error_limit=show_errors)
         console.rule(f"→ {d.value}")
@@ -291,12 +317,39 @@ def eval_cmd(
             f"{rep.baseline_sentence_accuracy:.1%}",
             str(rep.pairs),
         )
+        if rep.word_round_trip is not None and rep.round_trip is not None:
+            back = "N→T→N" if d is Orthography.TARASKIEVICA else "T→N→T"
+            headline.add_row(
+                f"word round trip ({back})", f"{rep.word_round_trip:.2%}", "100.0%", ""
+            )
+            headline.add_row(f"sentence round trip ({back})", f"{rep.round_trip:.1%}", "100.0%", "")
         console.print(headline)
         console.print(
             f"word-error reduction vs baseline [bold]{rep.error_reduction:.1%}[/bold]"
-            + (f" · round trip {rep.round_trip:.1%}" if rep.round_trip is not None else "")
-            + f" · {rep.mb_per_second:.2f} MB/s"
+            f" · {rep.mb_per_second:.2f} MB/s"
         )
+        if trusted_pairs is not None:
+            tr = evaluate(converter, trusted_pairs, d, error_limit=0, round_trip=False)
+            cmp = Table(title="hand_written subset vs scored set")
+            cmp.add_column("metric")
+            cmp.add_column("scored", justify="right")
+            cmp.add_column("hand_written", justify="right")
+            cmp.add_column("Δ pts", justify="right")
+            for name, a, b in (
+                ("change accuracy", rep.change_accuracy, tr.change_accuracy),
+                ("false-positive rate", rep.false_positive_rate, tr.false_positive_rate),
+                ("word accuracy", rep.accuracy, tr.accuracy),
+                ("baseline word accuracy", rep.baseline_accuracy, tr.baseline_accuracy),
+            ):
+                delta = (b - a) * 100
+                cmp.add_row(name, f"{a:.1%}", f"{b:.1%}", f"{delta:+.1f}")
+                if abs(delta) > 2 and name != "baseline word accuracy":
+                    divergences.append(f"→ {d.value}: {name} {a:.1%} vs {b:.1%} ({delta:+.1f} pts)")
+            console.print(cmp)
+            console.print(
+                f"hand_written: {tr.pairs} sentences · {tr.words} words · "
+                f"{tr.changed_words} should change ({tr.changed_correct} right)"
+            )
         table = Table(title="coverage by method")
         table.add_column("method")
         table.add_column("count", justify="right")
@@ -329,7 +382,10 @@ def eval_cmd(
             "error_reduction": rep.error_reduction,
             "sentence_accuracy": rep.sentence_accuracy,
             "baseline_sentence_accuracy": rep.baseline_sentence_accuracy,
+            "subset": subset,
+            "skipped_uncertain": n_uncertain,
             "round_trip": rep.round_trip,
+            "word_round_trip": rep.word_round_trip,
             "mb_per_second": rep.mb_per_second,
             "breakdown": {
                 m.value: {"count": s.count, "share": s.share, "accuracy": s.accuracy}
@@ -349,6 +405,19 @@ def eval_cmd(
                 for e in rep.errors
             ],
         }
+    if divergences:
+        console.rule("[bold red]WARNING[/bold red]")
+        console.print(
+            "[bold red]hand_written subset diverges from the scored set "
+            "by more than 2 points:[/bold red]"
+        )
+        for line in divergences:
+            console.print(f"[bold red]  {line}[/bold red]")
+        console.print(
+            "[bold red]Trust the hand_written number; the converter_checked rows are biased "
+            "toward the converter.[/bold red]"
+        )
+        payload["divergence_warnings"] = divergences
     if json_out is not None:
         json_out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         console.print(f"wrote {json_out}")
