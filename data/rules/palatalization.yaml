@@ -1,0 +1,145 @@
+version: "1.0"
+group: assimilative_softness
+# Reference implementation: src/belnorm/rules/palatalization.py — the tests
+# assert the two agree on every generated word. Rules apply to lowercase words,
+# highest priority first; `repeat` re-applies a rule until it stops changing
+# the word (softness propagates leftward: свіння → свіньня → сьвіньня).
+rules:
+  # ---------------------------------------------------------------- N → T
+  - id: palat.apostrophe
+    description: "Dental + apostrophe + iotated vowel is written with ь: з’ява → зьява"
+    direction: narkamauka_to_taraskievica
+    pattern: '([зс])’(?=[еёіюя])'
+    replacement: '\1ь'
+    priority: 120
+    tests:
+      positive:
+        - { input: "з’ява", expected: "зьява" }
+        - { input: "з’езд", expected: "зьезд" }
+      negative:
+        - { input: "аб’ява", expected: "аб’ява" }
+        - { input: "б’ю", expected: "б’ю" }
+
+  - id: palat.geminate.dz
+    description: "Soft geminate дз: суддзя → судзьдзя"
+    direction: narkamauka_to_taraskievica
+    pattern: 'д(?=дз[еёіюяь])'
+    replacement: 'дзь'
+    priority: 115
+    tests:
+      positive:
+        - { input: "суддзя", expected: "судзьдзя" }
+      negative:
+        - { input: "падзея", expected: "падзея" }
+
+  - id: palat.geminate
+    description: "Soft geminates take ь: насенне → насеньне, жыццё → жыцьцё, вяселле → вясельле"
+    direction: narkamauka_to_taraskievica
+    pattern: '(дз|[нлзсц])(?=\1[еёіюяь])'
+    replacement: '\1ь'
+    priority: 110
+    repeat: true
+    tests:
+      positive:
+        - { input: "насенне", expected: "насеньне" }
+        - { input: "жыццё", expected: "жыцьцё" }
+        - { input: "вяселле", expected: "вясельле" }
+        - { input: "пытанне", expected: "пытаньне" }
+        - { input: "калоссе", expected: "калосьсе" }
+      negative:
+        - { input: "ванна", expected: "ванна" }
+        - { input: "рассада", expected: "рассада" }
+
+  - id: palat.assim
+    description: "з с ц дз soften before a soft consonant: снег → сьнег, свет → сьвет, дзверы → дзьверы"
+    direction: narkamauka_to_taraskievica
+    pattern: '(дз|[зсц])(?=(?:дз|[вмпблнсзц])[еёіюяь])'
+    replacement: '\1ь'
+    priority: 100
+    repeat: true
+    exceptions:
+      - супермен
+    tests:
+      positive:
+        - { input: "снег", expected: "сьнег" }
+        - { input: "свет", expected: "сьвет" }
+        - { input: "песня", expected: "песьня" }
+        - { input: "дзверы", expected: "дзьверы" }
+        - { input: "свіння", expected: "сьвіння" }
+        - { input: "сцвярджаць", expected: "сьцьвярджаць" }
+        - { input: "косць", expected: "косьць" }
+        - { input: "здзейсніць", expected: "зьдзейсьніць" }
+        - { input: "рассцілаць", expected: "расьсьцілаць" }
+      negative:
+        - { input: "падсекчы", expected: "падсекчы" }
+        - { input: "адзначыць", expected: "адзначыць" }
+        - { input: "скептык", expected: "скептык" }
+        - { input: "склеп", expected: "склеп" }
+        - { input: "пісьмо", expected: "пісьмо" }
+        - { input: "касьба", expected: "касьба" }
+
+  # ---------------------------------------------------------------- T → N
+  - id: palat.ungeminate.dz
+    description: "судзьдзя → суддзя"
+    direction: taraskievica_to_narkamauka
+    pattern: 'дзь(?=дз[еёіюяь])'
+    replacement: 'д'
+    priority: 120
+    tests:
+      positive:
+        - { input: "судзьдзя", expected: "суддзя" }
+
+  - id: palat.ungeminate
+    description: "Drop ь inside soft geminates: насеньне → насенне, жыцьцё → жыццё"
+    direction: taraskievica_to_narkamauka
+    pattern: '(дз|[нлзсц])ь(?=\1[еёіюяь])'
+    replacement: '\1'
+    # Below palat.unassim: dropping a geminate's ь first would hide the soft
+    # trigger licensing the ь to its left (зьльлю → зьллю instead of зллю).
+    priority: 100
+    repeat: true
+    tests:
+      positive:
+        - { input: "насеньне", expected: "насенне" }
+        - { input: "жыцьцё", expected: "жыццё" }
+        - { input: "вясельле", expected: "вяселле" }
+      negative:
+        - { input: "гусь", expected: "гусь" }
+
+  - id: palat.unassim
+    description: "Drop assimilative ь before a soft consonant: сьнег → снег; keep genuine ь: пісьмо"
+    direction: taraskievica_to_narkamauka
+    pattern: '(дз|[зсц])ь(?=(?:дз|[вмпблнсзц])[еёіюяь])'
+    replacement: '\1'
+    priority: 110
+    repeat: true
+    exceptions:
+      - пісьме
+      - пісьменнік
+      - пісьменьнік
+    tests:
+      positive:
+        - { input: "сьнег", expected: "снег" }
+        - { input: "сьвет", expected: "свет" }
+        - { input: "дзьверы", expected: "дзверы" }
+        - { input: "сьвіньня", expected: "свіньня" }
+        - { input: "косьць", expected: "косць" }
+        - { input: "расьсьцілаць", expected: "рассцілаць" }
+      negative:
+        - { input: "пісьмо", expected: "пісьмо" }
+        - { input: "касьба", expected: "касьба" }
+        - { input: "восьмы", expected: "восьмы" }
+        - { input: "дзень", expected: "дзень" }
+
+  - id: palat.unapostrophe
+    description: "зь/сь before an iotated vowel is the apostrophe in Narkamaŭka: зьява → з’ява"
+    direction: taraskievica_to_narkamauka
+    pattern: '([зс])ь(?=[еёіюя])'
+    replacement: '\1’'
+    priority: 90
+    tests:
+      positive:
+        - { input: "зьява", expected: "з’ява" }
+        - { input: "зьезд", expected: "з’езд" }
+      negative:
+        - { input: "гразь", expected: "гразь" }

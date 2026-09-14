@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from belnorm.config import Config
+from belnorm.lexicon.store import Lexicon
+from belnorm.pipeline import Converter
+from belnorm.rules.engine import RuleEngine
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+
+@pytest.fixture(scope="session")
+def data_dir() -> Path:
+    return DATA_DIR
+
+
+@pytest.fixture(scope="session")
+def config() -> Config:
+    # Always build from TSV so tests never depend on a compiled lexicon or a model.
+    return Config(
+        lexicon=DATA_DIR / "lexicon",
+        rules=tuple(
+            DATA_DIR / "rules" / n
+            for n in ("palatalization.yaml", "loanwords.yaml", "morphology.yaml")
+        ),
+        model=None,
+    )
+
+
+@pytest.fixture(scope="session")
+def engine(config: Config) -> RuleEngine:
+    return RuleEngine.from_yaml(*config.rules)
+
+
+@pytest.fixture(scope="session")
+def lexicon(config: Config) -> Lexicon:
+    return Lexicon.load(config.lexicon)
+
+
+@pytest.fixture(scope="session")
+def converter(lexicon: Lexicon, engine: RuleEngine, config: Config) -> Converter:
+    return Converter(lexicon, engine, None, config)

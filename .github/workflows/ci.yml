@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --all-extras --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest --cov=belnorm --cov-report=term-missing
+      - run: uv run belnorm build-lexicon data/lexicon --out data/lexicon.marisa
+      - run: uv run belnorm eval data/eval/gold.tsv --json eval.json
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: eval-report
+          path: eval.json
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: belnorm:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

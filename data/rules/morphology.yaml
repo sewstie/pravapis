@@ -1,0 +1,60 @@
+version: "1.0"
+group: morphology
+# Small deterministic morphological differences. The contextual clitic rules
+# (не → ня, без → бяз/бязь, з → зь before a soft onset) need the *next* word
+# and live in src/belnorm/rules/morphology.py; only their reverse forms are
+# context-free and appear here.
+rules:
+  # ---------------------------------------------------------------- N → T
+  - id: morph.final_tr
+    description: "Epenthetic а in word-final -тр/-др: тэатр → тэатар, цэнтр → цэнтар, кадр → кадар"
+    direction: narkamauka_to_taraskievica
+    pattern: '([тд])р$'
+    replacement: '\1ар'
+    priority: 30
+    tests:
+      positive:
+        - { input: "тэатр", expected: "тэатар" }
+        - { input: "цэнтр", expected: "цэнтар" }
+        - { input: "літр", expected: "літар" }
+        - { input: "кадр", expected: "кадар" }
+      negative:
+        - { input: "тэатры", expected: "тэатры" }
+        - { input: "вецер", expected: "вецер" }
+
+  # ---------------------------------------------------------------- T → N
+  - id: morph.particle.nya
+    description: "Standalone ня → не"
+    direction: taraskievica_to_narkamauka
+    pattern: '^ня$'
+    replacement: 'не'
+    priority: 30
+    tests:
+      positive:
+        - { input: "ня", expected: "не" }
+      negative:
+        - { input: "няма", expected: "няма" }
+
+  - id: morph.particle.byaz
+    description: "Standalone бяз / бязь → без"
+    direction: taraskievica_to_narkamauka
+    pattern: '^бязь?$'
+    replacement: 'без'
+    priority: 30
+    tests:
+      positive:
+        - { input: "бяз", expected: "без" }
+        - { input: "бязь", expected: "без" }
+
+  - id: morph.preposition.z
+    description: "Softened prepositions зь / празь / церазь → з / праз / цераз"
+    direction: taraskievica_to_narkamauka
+    pattern: '^(з|праз|цераз)ь$'
+    replacement: '\1'
+    priority: 30
+    tests:
+      positive:
+        - { input: "зь", expected: "з" }
+        - { input: "празь", expected: "праз" }
+      negative:
+        - { input: "гразь", expected: "гразь" }
