@@ -155,6 +155,43 @@ These need the next word, so they run in the pipeline rather than the YAML engin
 - **і → й after a vowel** (мама й тата): no rule, no gold coverage.
 - **Genitive plural -аў** (хвілін → хвілінаў): no rule, no gold coverage; needs a noun list.
 
+## Architectural gap: no morphological layer
+
+Lexicon entries are exact word forms. A substitution listed for one form does nothing for the
+other forms of the same lexeme, and nothing checks whether a word that looks like a listed stem
+is actually that lexeme. These are one missing layer — lemmatize, substitute, re-inflect — not
+missing lexicon entries. Do not file them as entries.
+
+Two tiers, because they need different amounts of morphology:
+
+**Tier 1 — same paradigm, only the stem differs.** Lemmatize to confirm the lexeme, swap the
+stem, keep the ending. No re-inflection.
+
+| Text form | Expected | Lexicon has |
+|---|---|---|
+| Аргенціны | Аргентыны | аргенціна → аргентына |
+| Бельгіі | Бэльгіі | бельгія → бэльгія |
+| Арменіі, Мексікі | Армэніі, Мэксыкі | (not listed) |
+| філасофіі | філязофіі | філасофія → філязофія |
+| серыяла, сезонная, дэсертаў, алкагольны, метровым, спецыяльнай | сэрыяла, сэзонная, дэсэртаў, алькагольны, мэтровым, спэцыяльнай | серыя, сезон, дэсерт, алкаголь, метры, спецыяльны |
+
+The lemma check is what makes this safe: a bare prefix match on the stem would also rewrite
+native words that happen to share it (серыя → сэрыя must not turn серада into сэрада).
+
+**Tier 2 — different paradigm or gender.** Lemmatize, substitute the lemma, re-inflect the new
+lemma to the original tag, and change agreeing words.
+
+| Text | Expected | Why the ending changes |
+|---|---|---|
+| Германіі | Нямеччыны | Германія (fem. -ія) → Нямеччына (fem. -а): gen. -іі vs -ы |
+| Іспаніі, Расіі | Гішпаніі, Расеі | lemma substitution; paradigm of the target to be confirmed |
+| новы клас | новая кляса | клас (masc.) → кляса (fem.): the adjective, pronouns and past-tense verbs agreeing with it change too |
+| Брэста | Берасьця | Брэст (masc.) → Берасьце (neut.) |
+| Мінска | Менску | Мінск gen. -а → Менск gen. -у |
+
+Both tiers need GrammarDB morphology (lemmas and full tags); tier 2 also needs a Taraškievica
+paradigm for the target lemma, which GrammarDB does not have. Not started.
+
 ## Lexicon
 
 `data/lexicon/*.tsv` entries (loanwords, proper nouns, exceptions) are lexical facts, not
