@@ -78,6 +78,28 @@ def test_engine_palatalization_round_trip(engine: RuleEngine, w: str) -> None:
     assert back == w
 
 
+@settings(max_examples=300)
+@given(
+    st.sampled_from(["з", "праз", "цераз"]),
+    st.text(alphabet=NARK_LETTERS[:-1], min_size=1, max_size=10),
+)
+def test_preposition_softness_follows_converted_next_word(
+    converter: Converter, prep: str, w: str
+) -> None:
+    """з/праз/цераз take ь exactly when the next word, as written in Taraškievica, has a soft onset.
+
+    The palatalization bug class (зллю, без слёз): a condition evaluated on the
+    Narkamaŭka form, where assimilative softness is not written.
+    """
+    from belnorm.rules.morphology import CLITICS, _soft_onset
+
+    assume(w not in CLITICS)
+    out = converter.convert(f"{prep} {w}", N2T)
+    assume(len(out.conversions) == 2)
+    head, nxt = out.conversions
+    assert (head.target == prep + "ь") is _soft_onset(nxt.target.lower())
+
+
 @settings(max_examples=200)
 @given(belarusian_text())
 def test_conversion_preserves_layout(converter: Converter, s: str) -> None:

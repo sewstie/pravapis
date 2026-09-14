@@ -294,7 +294,9 @@ class Converter:
             return head
         fired: list[str] = []
         work = lw
-        particle = convert_particle(lw, following, direction, self.stress)
+        particle = convert_particle(
+            lw, following, direction, self.stress, self._next_target(following, direction)
+        )
         if particle is not None and particle != lw:
             work = particle
             fired.append(PARTICLE_RULE_ID)
@@ -305,6 +307,21 @@ class Converter:
         if self._wants_model(lw, direction):
             return None
         return (lw, Method.UNKNOWN, None)
+
+    def _next_target(self, following: str | None, direction: Orthography) -> str | None:
+        """The following word in the *target* orthography, converted without context.
+
+        A clitic's soft-onset condition must read the next word as it will be
+        written in the output, where softness is marked (слёз → сьлёз). A next
+        word that is itself a clitic gets only the context-free rules.
+        """
+        if following is None or direction is not Orthography.TARASKIEVICA:
+            return None
+        lw = following.lower()
+        if lw in CONTEXT_SENSITIVE:
+            return self.engine.apply(lw, direction)[0]
+        resolved = self._resolve_cached(lw, direction)
+        return lw if resolved is None else resolved[0]
 
     def _resolve_hyphenated(self, lw: str, direction: Orthography) -> Resolved:
         """Each part goes through the cascade; parts never consult the classifier."""
@@ -329,8 +346,9 @@ class Converter:
         traces: list[RuleTrace] = []
         work = lw
         if conv.method is Method.RULE:
+            nxt = following.text if following else None
             particle = convert_particle(
-                lw, following.text if following else None, direction, self.stress
+                lw, nxt, direction, self.stress, self._next_target(nxt, direction)
             )
             if particle is not None and particle != lw:
                 traces.append(RuleTrace(PARTICLE_RULE_ID, lw, particle))

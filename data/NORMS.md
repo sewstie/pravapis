@@ -147,8 +147,28 @@ These need the next word, so they run in the pipeline rather than the YAML engin
   - не было (было+): stress data says не; gold has ня. Stress may retract onto the particle.
   - не пойдзем (по+йдзем): stress data says ня; the v0 gold row has не.
   - без мяне (мяне+): stress data says без; the v0 gold row has бязь.
-  - без слёз: converter gives бяз, gold бязь сьлёз — the soft-onset test looks at the
-    Narkamaŭka form слёз, where the assimilative softness of с is not written.
+- representation: stress is read from the next word's *Narkamaŭka* form (GrammarDB is
+  Narkamaŭka); the soft onset is read from the next word *already converted to
+  Taraškievica*, where assimilative softness is written. Fixed bug: reading the Narkamaŭka
+  form gave без слёз → бяз сьлёз and з снегам → з сьнегам; now бязь сьлёз, зь сьнегам.
+
+### Palatalization audit (same bug class: a softness condition read on a form where softness is not written)
+
+| Place | Reads | Verdict |
+|---|---|---|
+| morph.particle soft onset (з, бяз, праз, цераз) | next word, Narkamaŭka | **bug, fixed**: now reads the converted Taraškievica form |
+| palat.assim / palat.geminate (N → T) | the word being rewritten, repeated to a fixpoint, so later rewrites see earlier ь | ok (property tests; зллю fixed earlier) |
+| loanword rules after palatalization | engine re-runs the repeat rules after every pass | ok: no loanword output left with an unmarked softness context |
+| lexicon targets | written by hand | ok except the intended lexical ь in пісьменнік, пісьменства, пісьме |
+| palat.unassim / ungeminate / unapostrophe (T → N) | the Taraškievica form, where softness is written | ok |
+| stress for jakanne | Narkamaŭka form | ok by design (GrammarDB) |
+| hyphenated words | each part separately | no softness context across a hyphen in the 100k most frequent words; whether Taraškievica marks one is a codification question |
+| `is_palatalizing_context` | — | reference helper, not used at runtime |
+
+Measured on the 100,000 most frequent Wikipedia words plus the gold set, the round-trip corpus
+and every lexicon entry: after the fix, no Belarusian N → T output word contains a softness
+context the rules would still mark, and the only T → N outputs keeping an assimilative-looking ь
+are the пісьменнік family above.
 
 ## Known gaps (not implemented, need the codification)
 

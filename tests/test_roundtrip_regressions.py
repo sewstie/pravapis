@@ -66,6 +66,36 @@ def test_bez_never_becomes_bez_soft(converter: Converter, nark: str, tarask: str
     assert converter.convert(there, T2N).text == nark
 
 
+@pytest.mark.parametrize(
+    ("nark", "tarask"),
+    [
+        # The soft-onset test read the Narkamaŭka form (слёз: no written softness)
+        # instead of the Taraškievica one (сьлёз). Fixed by converting the next word first.
+        ("без слёз", "бязь сьлёз"),
+        ("з снегам", "зь сьнегам"),
+        ("праз свет", "празь сьвет"),
+        ("цераз сцяну", "церазь сьцяну"),
+        # softness already visible in Narkamaŭka keeps working
+        ("з цёртай бульбы", "зь цёртай бульбы"),
+        ("з ім", "зь ім"),
+        # hard onset in both orthographies stays hard
+        ("з сабой", "з сабой"),
+        ("без працы", "бяз працы"),
+    ],
+)
+def test_soft_onset_reads_taraskievica_form(converter: Converter, nark: str, tarask: str) -> None:
+    there = converter.convert(nark, N2T).text
+    assert there == tarask
+    assert converter.convert(there, T2N).text == nark
+
+
+def test_convert_particle_soft_onset_uses_next_target(stress: StressTable) -> None:
+    # stress from the Narkamaŭka form (слёз is monosyllabic), softness from the Taraškievica form
+    assert morphology.convert_particle("без", "слёз", N2T, stress) == "бяз"
+    assert morphology.convert_particle("без", "слёз", N2T, stress, "сьлёз") == "бязь"
+    assert morphology.convert_particle("з", "снегам", N2T, stress, "сьнегам") == "зь"
+
+
 def test_convert_particle_bez_unstressed_stays(stress: StressTable) -> None:
     assert morphology.convert_particle("без", "людзей", N2T, stress) is None
 

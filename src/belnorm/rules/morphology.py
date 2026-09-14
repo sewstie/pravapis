@@ -113,11 +113,22 @@ def convert_particle(
     next_word: str | None,
     direction: Orthography,
     stress: StressTable | None = None,
+    next_target: str | None = None,
 ) -> str | None:
     """Rewrite a clitic given the word that follows it; None when no rule applies.
 
     Input is lowercase. Returns the fully converted form (including the soft
     sign on *бязь* / *зь*), so the caller can skip the per-word engine for it.
+
+    The two conditions read *different* forms of the next word:
+
+    - stress (jakanne) reads ``next_word``, the Narkamaŭka form, because the
+      stress table is built from GrammarDB, which is Narkamaŭka;
+    - soft onset reads ``next_target``, the next word already converted to
+      Taraškievica, because only there is assimilative softness written:
+      Narkamaŭka *слёз* shows no soft с, Taraškievica *сьлёз* does. Reading
+      the Narkamaŭka form is the без слёз → *бяз сьлёз bug. Without
+      ``next_target`` the Narkamaŭka form is the fallback.
     """
     if direction is Orthography.NARKAMAUKA:
         return PARTICLES_T2N.get(word)
@@ -130,6 +141,11 @@ def convert_particle(
     ):
         result = PARTICLES_N2T[word]
     base = result or word
-    if base in SOFTENING_PREPOSITIONS and next_word is not None and _soft_onset(next_word.lower()):
+    onset_form = next_target if next_target is not None else next_word
+    if (
+        base in SOFTENING_PREPOSITIONS
+        and onset_form is not None
+        and _soft_onset(onset_form.lower())
+    ):
         result = base + "ь"
     return result
