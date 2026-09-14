@@ -71,7 +71,8 @@ class EvalReport:
     bytes_processed: int
     misaligned: int = 0
     sentence_accuracy: float = 0.0
-    round_trip: float | None = None
+    round_trip: float | None = None  # sentence level
+    word_round_trip: float | None = None
     per_rule: dict[str, PRF] = field(default_factory=dict)
     #: aligned words whose gold form differs from the source
     changed_words: int = 0
@@ -159,22 +160,28 @@ def per_rule_precision_recall(
     return out
 
 
-def round_trip_consistency(texts: Sequence[str], converter: Converter) -> float:
-    """Share of texts for which N→T→N reproduces the (sanitised) original."""
+def _other(o: Orthography) -> Orthography:
+    return Orthography.NARKAMAUKA if o is Orthography.TARASKIEVICA else Orthography.TARASKIEVICA
+
+
+def round_trip_consistency(
+    texts: Sequence[str], converter: Converter, start: Orthography = Orthography.NARKAMAUKA
+) -> float:
+    """Share of texts (written in ``start``) that survive a there-and-back conversion unchanged."""
     if not texts:
         return 0.0
     ok = 0
     for text in texts:
         original = sanitize(text)
-        there = converter.convert(original, Orthography.TARASKIEVICA).text
-        back = converter.convert(there, Orthography.NARKAMAUKA).text
+        there = converter.convert(original, _other(start)).text
+        back = converter.convert(there, start).text
         ok += back == original
     return ok / len(texts)
 
 
 @dataclass(frozen=True, slots=True)
 class RoundTripFailure:
-    """One word for which N→T→N did not return the original."""
+    """One word for which a there-and-back conversion did not return the original."""
 
     sentence: str
     source: str
@@ -194,17 +201,28 @@ class RoundTripFailure:
 
 
 def round_trip_failures(
-    texts: Iterable[str], converter: Converter
+    texts: Iterable[str], converter: Converter, start: Orthography = Orthography.NARKAMAUKA
 ) -> tuple[int, list[RoundTripFailure]]:
-    """Word-level N→T→N check. Returns (words checked, failures)."""
+    """Word-level round trip for texts written in ``start``. Returns (words checked, failures).
+
+    If the word count changes on the way, every word of that sentence counts
+    as a failure (grouped as ``tokenisation``) rather than being dropped.
+    """
     n_words = 0
     failures: list[RoundTripFailure] = []
     for text in texts:
         original = sanitize(text)
-        there = converter.convert(original, Orthography.TARASKIEVICA)
-        back = converter.convert(there.text, Orthography.NARKAMAUKA)
+        there = converter.convert(original, _other(start))
+        back = converter.convert(there.text, start)
         if len(there.conversions) != len(back.conversions):
-            continue  # tokenisation changed; counted by the sentence-level metric
+            n_words += len(there.conversions)
+            failures.extend(
+                RoundTripFailure(
+                    original, t.source, t.target, "", t.method, "tokenisation", Method.UNKNOWN, None
+                )
+                for t in there.conversions
+            )
+            continue
         for t, b in zip(there.conversions, back.conversions, strict=True):
             n_words += 1
             if b.target != t.source:
@@ -239,21 +257,47 @@ def error_report(
     return errors
 
 
-def read_gold(path: Path) -> list[tuple[str, str]]:
-    """``narkamauka<TAB>taraskievica[<TAB>extra columns…]`` lines.
+HAND_WRITTEN = "hand_written"
+CONVERTER_CHECKED = "converter_checked"
+UNCERTAIN = "uncertain"
 
-    Blank lines and ``#`` comments are skipped; columns after the second
-    (provenance, review status) are ignored.
-    """
-    pairs: list[tuple[str, str]] = []
+
+@dataclass(frozen=True, slots=True)
+class GoldRow:
+    narkamauka: str
+    taraskievica: str
+    source: str = ""
+    provenance: str = ""  # hand_written | converter_checked | uncertain | "" (legacy 2-column)
+
+
+def read_gold_rows(path: Path) -> list[GoldRow]:
+    """``narkamauka<TAB>taraskievica[<TAB>source<TAB>provenance]`` lines; ``#`` comments skipped."""
+    rows: list[GoldRow] = []
     with path.open(encoding="utf-8") as fh:
         for raw in fh:
             line = raw.rstrip("\r\n")
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
-            a, b, *_ = [*line.split("\t"), ""]
-            pairs.append((sanitize(a.strip()), sanitize(b.strip())))
-    return pairs
+            a, b, source, provenance, *_ = [*line.split("\t"), "", "", ""]
+            rows.append(
+                GoldRow(
+                    sanitize(a.strip()), sanitize(b.strip()), source.strip(), provenance.strip()
+                )
+            )
+    return rows
+
+
+def read_gold(path: Path, *, trusted_only: bool = False) -> list[tuple[str, str]]:
+    """Scorable gold pairs: ``uncertain`` rows are always excluded.
+
+    ``trusted_only`` keeps just the ``hand_written`` rows — the subset never
+    adjusted after seeing converter output.
+    """
+    return [
+        (r.narkamauka, r.taraskievica)
+        for r in read_gold_rows(path)
+        if r.provenance != UNCERTAIN and (not trusted_only or r.provenance == HAND_WRITTEN)
+    ]
 
 
 def _words(text: str) -> list[str]:
@@ -330,9 +374,13 @@ def evaluate(
     ]
     per_rule = per_rule_precision_recall(traces, gold_lower, converter.engine, direction)
     rt = None
+    word_rt = None
     if round_trip:
-        n_texts = [n for n, _ in materialised]
-        rt = round_trip_consistency(n_texts, converter)
+        # Start from the side this direction reads: →T scores N→T→N, →N scores T→N→T.
+        rt_start = _other(direction)
+        rt = round_trip_consistency(sources, converter, rt_start)
+        rt_words, rt_failures = round_trip_failures(sources, converter, rt_start)
+        word_rt = 1 - len(rt_failures) / rt_words if rt_words else 0.0
     return EvalReport(
         direction=direction,
         pairs=len(materialised),
@@ -345,6 +393,7 @@ def evaluate(
         misaligned=misaligned,
         sentence_accuracy=sentence_ok / len(materialised) if materialised else 0.0,
         round_trip=rt,
+        word_round_trip=word_rt,
         per_rule=per_rule,
         changed_words=n_changed,
         changed_correct=changed_correct,
