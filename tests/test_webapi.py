@@ -130,6 +130,8 @@ out = {
                  **{"Content-Type": "application/json", "Origin": "https://paznaj.by"}),
     "preflight": call("OPTIONS", **{"Origin": "http://localhost:3000",
                                     "Access-Control-Request-Method": "POST"}),
+    # larger than MAX_BODY_BYTES: must be a JSON 413, not a connection reset
+    "huge": call("POST", {"text": "снег " * 80_000}, **{"Content-Type": "application/json"}),
 }
 import belnorm
 out["belnorm_file"] = belnorm.__file__
@@ -158,6 +160,8 @@ def test_root_function_over_http() -> None:
     assert headers["Content-Type"] == "application/json; charset=utf-8"
     assert r["preflight"][0] == 204
     assert r["preflight"][2]["Access-Control-Allow-Origin"] == "http://localhost:3000"
+    assert r["huge"][0] == 413
+    assert "too large" in r["huge"][1]["error"]
     assert Path(r["belnorm_file"]).is_relative_to(ROOT / "src")
     assert r["heavy"] == []
 
