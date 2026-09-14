@@ -13,6 +13,7 @@ import pytest
 from belnorm.lexicon.store import Lexicon
 from belnorm.pipeline import Converter
 from belnorm.rules import loanwords, morphology
+from belnorm.stress import StressTable
 from belnorm.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
@@ -49,10 +50,13 @@ def test_word_round_trips(converter: Converter, nark: str, tarask: str) -> None:
 @pytest.mark.parametrize(
     ("nark", "tarask"),
     [
-        # без before an unstressed soft onset produced the non-word *безь
-        ("без пісьмовай згоды", "бязь пісьмовай згоды"),
-        ("без людзей", "бязь людзей"),
-        ("без вялікай мэты", "бязь вялікай мэты"),
+        # без before an unstressed soft onset once produced the non-word *безь.
+        # With GrammarDB stress it stays без: no jakanne, so nothing to soften.
+        ("без пісьмовай згоды", "без пісьмовай згоды"),  # пісьмо+вай
+        ("без людзей", "без людзей"),  # людзе+й
+        ("без вялікай мэты", "без вялікай мэты"),  # вялі+кай
+        ("без якога", "без якога"),  # яко+га: the one N→T false positive on the gold set
+        ("без ліку", "бязь ліку"),  # лі+ку: stressed and soft
     ],
 )
 def test_bez_never_becomes_bez_soft(converter: Converter, nark: str, tarask: str) -> None:
@@ -62,8 +66,8 @@ def test_bez_never_becomes_bez_soft(converter: Converter, nark: str, tarask: str
     assert converter.convert(there, T2N).text == nark
 
 
-def test_convert_particle_bez_soft_unstressed() -> None:
-    assert morphology.convert_particle("без", "людзей", N2T) == "бязь"
+def test_convert_particle_bez_unstressed_stays(stress: StressTable) -> None:
+    assert morphology.convert_particle("без", "людзей", N2T, stress) is None
 
 
 def test_every_forward_loan_stem_has_a_reverse() -> None:

@@ -42,14 +42,17 @@ change): rows never adjusted after seeing converter output.
 
 | | N → T | baseline | T → N | baseline |
 |---|---|---|---|---|
-| **Change accuracy** (words that should change) | **95.3%** (591/620) | 0.0% | **96.0%** (595/620) | 0.0% |
+| **Change accuracy** (words that should change) | **95.5%** (592/620) | 0.0% | **96.0%** (595/620) | 0.0% |
 | False-positive rate (words that should not change) | 0.03% (1/3,411) | 0.0% | 0.0% (0/3,411) | 0.0% |
 | Word accuracy | 99.3% | 84.6% | 99.4% | 84.6% |
-| Word round trip (there and back) | 99.95% | 100% | 99.83% | 100% |
+| Word round trip (there and back) | 99.95% | 100% | 99.85% | 100% |
 
 The full scored set (634 sentences; `converter_checked` rows included, `uncertain` excluded) is
-within 0.3 points of these on every metric. Coverage on it: lexicon 1.6%, rules 13.8%,
-identity 0.7%, unchanged 83.9%. Throughput: **1.00 MB/s** (~77k words/s).
+within 0.6 points of these on every metric. Coverage on it: lexicon 1.6%, rules 13.8%,
+identity 0.7%, unchanged 83.9%. Throughput: **1.01 MB/s** (~78k words/s).
+
+не → ня and без → бяз use GrammarDB stress marks (`data/stress/`, CC BY-SA 4.0) to decide
+whether the next word is stressed on its first syllable.
 
 Caveats:
 

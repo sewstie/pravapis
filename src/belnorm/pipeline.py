@@ -31,6 +31,7 @@ from belnorm.rules.morphology import (
     SOFTENING_PREPOSITIONS,
     convert_particle,
 )
+from belnorm.stress import StressTable
 from belnorm.tokenize import context_of, is_belarusian_word, next_word, tokenize
 from belnorm.types import (
     METHOD_PRIORITY,
@@ -79,11 +80,13 @@ class Converter:
         engine: RuleEngine,
         disambiguator: Disambiguator | None = None,
         config: Config | None = None,
+        stress: StressTable | None = None,
     ):
         self.lexicon = lexicon
         self.engine = engine
         self.disambiguator = disambiguator
         self.config = config
+        self.stress = stress
         triggers = config.ambiguity_triggers if config else DEFAULT_AMBIGUITY_TRIGGERS
         self._triggers: tuple[regex.Pattern[str], ...] = tuple(regex.compile(t) for t in triggers)
         self._cache: dict[tuple[str, Orthography], Resolved | None] = {}
@@ -100,6 +103,7 @@ class Converter:
             config = Config.load(path)
         lexicon = Lexicon.load(config.lexicon)
         engine = RuleEngine.from_yaml(*config.rules)
+        stress = StressTable.load(config.stress) if config.stress is not None else None
         disambiguator: Disambiguator | None = None
         if config.model is not None:  # explicit opt-in only; Config.default() never sets it
             try:
@@ -110,7 +114,7 @@ class Converter:
                 )
             except Exception as exc:  # fail-safe: rules + lexicon still work
                 log.warning("disambiguation model %s not loaded: %s", config.model, exc)
-        return cls(lexicon, engine, disambiguator, config)
+        return cls(lexicon, engine, disambiguator, config, stress)
 
     # --- introspection --------------------------------------------------------
     @property
@@ -290,7 +294,7 @@ class Converter:
             return head
         fired: list[str] = []
         work = lw
-        particle = convert_particle(lw, following, direction)
+        particle = convert_particle(lw, following, direction, self.stress)
         if particle is not None and particle != lw:
             work = particle
             fired.append(PARTICLE_RULE_ID)
@@ -325,7 +329,9 @@ class Converter:
         traces: list[RuleTrace] = []
         work = lw
         if conv.method is Method.RULE:
-            particle = convert_particle(lw, following.text if following else None, direction)
+            particle = convert_particle(
+                lw, following.text if following else None, direction, self.stress
+            )
             if particle is not None and particle != lw:
                 traces.append(RuleTrace(PARTICLE_RULE_ID, lw, particle))
                 work = particle
