@@ -45,6 +45,8 @@ class Config(BaseModel):
 
     lexicon: Path
     rules: tuple[Path, ...]
+    #: directory built by scripts/build_stress_table.py (GrammarDB stress marks)
+    stress: Path | None = None
     model: Path | None = None
     confidence_threshold: float = 0.75
     ambiguity_triggers: tuple[str, ...] = DEFAULT_AMBIGUITY_TRIGGERS
@@ -68,9 +70,11 @@ class Config(BaseModel):
         base = data_dir or find_data_dir()
         compiled = base / "lexicon.marisa"
         lexicon = compiled if compiled.is_file() else base / "lexicon"
+        stress = base / "stress"
         return cls(
             lexicon=lexicon,
             rules=tuple(base / "rules" / name for name in RULE_FILES),
+            stress=stress if (stress / "first_stressed.marisa").is_file() else None,
             model=None,
         )
 
@@ -89,6 +93,8 @@ class Config(BaseModel):
             raw["lexicon"] = resolve(str(raw["lexicon"]))
         if "rules" in raw:
             raw["rules"] = tuple(resolve(str(r)) for r in raw["rules"])
+        if raw.get("stress"):
+            raw["stress"] = resolve(str(raw["stress"]))
         if raw.get("model"):
             raw["model"] = resolve(str(raw["model"]))
         return cls.model_validate(raw)

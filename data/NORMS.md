@@ -135,11 +135,20 @@ These need the next word, so they run in the pipeline rather than the YAML engin
 
 ### morph.particle
 - direction: narkamauka → taraskievica
-- does: не → ня and без → бяз before a word stressed on its first syllable (stress guessed by
-  a heuristic and a word list); з, без/бяз, праз, цераз take ь before a soft onset
-  (з ім → зь ім, без мяне → бязь мяне)
-- source: UNVERIFIED (both the conditions and the бязь-before-any-soft-onset choice are
-  open questions; see gold rows marked `uncertain`)
+- does: не → ня and без → бяз when the next word is stressed on its first syllable; з, бяз,
+  праз, цераз then take ь before a soft onset (з ім → зь ім, без ліку → бязь ліку). Unstressed
+  без stays без. A next word GrammarDB does not know, or knows as a homograph with stress in
+  different places (ма+е / мае+), leaves the particle unchanged.
+- source: GrammarDB-stress (RELEASE-202601, `data/stress/`) for *where the stress falls*.
+  The phonological conditioning itself — jakanne of не/без before a stressed first syllable,
+  and the ь on з/бяз/праз/цераз before a soft onset — is still UNVERIFIED and wants a
+  citation from the Збор правілаў (2005).
+- open questions the stress data exposed (gold disagrees, codification needed):
+  - не было (было+): stress data says не; gold has ня. Stress may retract onto the particle.
+  - не пойдзем (по+йдзем): stress data says ня; the v0 gold row has не.
+  - без мяне (мяне+): stress data says без; the v0 gold row has бязь.
+  - без слёз: converter gives бяз, gold бязь сьлёз — the soft-onset test looks at the
+    Narkamaŭka form слёз, where the assimilative softness of с is not written.
 
 ## Known gaps (not implemented, need the codification)
 

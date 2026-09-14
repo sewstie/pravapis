@@ -1,15 +1,19 @@
-"""Context-dependent clitics and small morphological rules.
+"""Context-dependent clitics.
 
 Taraškievica spells the particle *не* and the preposition *без* as *ня* /
-*бяз* when the following word is stressed on its first syllable, and softens
-prepositions ending in *з* before a soft onset (*з ім* → *зь ім*,
-*без мяне* → *бязь мяне*). Both need the next word, so they run in the
+*бяз* when the following word is stressed on its first syllable (jakanne),
+and softens prepositions ending in *з* before a soft onset (*з ім* → *зь ім*,
+*без ліку* → *бязь ліку*). Both need the next word, so they run in the
 pipeline rather than the per-word rule engine.
 
-Stress is not marked in Belarusian text. The heuristic here — the next word
-is monosyllabic, or sits in a small list of common first-syllable-stressed
-words — covers the frequent cases and is deliberately conservative; the rest
-is the classifier's job.
+Stress is not written in Belarusian text. It comes from GrammarDB stress marks
+(``belnorm.stress.StressTable``). Without a table only two facts are used:
+a monosyllabic content word is stressed on its only syllable, and ё is always
+stressed. Anything else counts as not first-stressed, so the particle is left
+alone: a missed ня is better than a wrong one.
+
+Unstressed *без* stays *без* even before a soft onset: jakanne did not apply,
+and Taraškievica has no *безь.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from __future__ import annotations
 from typing import Final
 
 from belnorm.rules.palatalization import SOFT_TRIGGERS, SOFT_VOWELS, SOFTENERS
+from belnorm.stress import StressTable
 from belnorm.types import Orthography
 
 VOWELS: Final[frozenset[str]] = frozenset("аеёіоуыэюя")
@@ -25,8 +30,9 @@ VOWELS: Final[frozenset[str]] = frozenset("аеёіоуыэюя")
 PARTICLES_N2T: Final[dict[str, str]] = {"не": "ня", "без": "бяз"}
 PARTICLES_T2N: Final[dict[str, str]] = {"ня": "не", "бяз": "без", "бязь": "без", "зь": "з"}
 
-#: Prepositions ending in з that soften before a soft onset.
-SOFTENING_PREPOSITIONS: Final[frozenset[str]] = frozenset({"з", "без", "бяз", "праз", "цераз"})
+#: Prepositions ending in з that soften before a soft onset. Plain без is not
+#: here: it only softens once jakanne has made it бяз.
+SOFTENING_PREPOSITIONS: Final[frozenset[str]] = frozenset({"з", "бяз", "праз", "цераз"})
 
 #: Unstressed function words: a monosyllable here does not attract "ня"/"бяз".
 CLITICS: Final[frozenset[str]] = frozenset(
@@ -68,120 +74,26 @@ CLITICS: Final[frozenset[str]] = frozenset(
     ]
 )
 
-#: Common polysyllabic words stressed on the first syllable.
-FIRST_SYLLABLE_STRESS: Final[frozenset[str]] = frozenset(
-    [
-        "мяне",
-        "цябе",
-        "сябе",
-        "гэта",
-        "гэты",
-        "гэтая",
-        "гэтае",
-        "гэтыя",
-        "гэтак",
-        "гэтым",
-        "гэтага",
-        "толькі",
-        "вельмі",
-        "трэба",
-        "нават",
-        "можа",
-        "можаш",
-        "можам",
-        "мог",
-        "магу",
-        "магла",
-        "маглі",
-        "могуць",
-        "хоча",
-        "хочу",
-        "хочаш",
-        "хочам",
-        "хочуць",
-        "буду",
-        "будзе",
-        "будзеш",
-        "будзем",
-        "будуць",
-        "было",
-        "была",
-        "былі",
-        "быў",
-        "ведаю",
-        "ведае",
-        "ведаеш",
-        "ведаем",
-        "ведаюць",
-        "ведаў",
-        "ведала",
-        "ведалі",
-        "мае",
-        "маю",
-        "маеш",
-        "маем",
-        "маюць",
-        "мела",
-        "меў",
-        "мелі",
-        "стаў",
-        "стала",
-        "сталі",
-        "стане",
-        "станеш",
-        "станем",
-        "стануць",
-        "бачу",
-        "бачыў",
-        "бачыла",
-        "бачылі",
-        "чую",
-        "чуў",
-        "чула",
-        "чулі",
-        "знае",
-        "знаю",
-        "знаеш",
-        "знаем",
-        "знаюць",
-        "кажа",
-        "кажу",
-        "кажаш",
-        "кажам",
-        "кажуць",
-        "люблю",
-        "любіць",
-        "любіш",
-        "любім",
-        "любяць",
-        "помню",
-        "помніць",
-        "помніш",
-        "помнім",
-        "помняць",
-        "верыць",
-        "веру",
-        "верыш",
-        "верым",
-        "вераць",
-        "хочацца",
-        "дома",
-    ]
-)
-
 
 def syllable_count(word: str) -> int:
-    return sum(1 for c in word if c in VOWELS)
+    return sum(1 for c in word.lower() if c in VOWELS)
 
 
-def is_first_syllable_stressed(word: str) -> bool:
-    """Heuristic: monosyllabic content word, or a known first-stressed word."""
-    word = word.lower()
-    if word in CLITICS:
+def is_first_syllable_stressed(word: str, stress: StressTable | None = None) -> bool:
+    """Is ``word`` stressed on its first syllable?
+
+    GrammarDB stress marks when a table is given; otherwise (and for words the
+    table does not know) only monosyllables and a leading ё count.
+    """
+    if word.lower() in CLITICS:
         return False
-    if syllable_count(word) == 1:
+    if stress is not None and stress.is_first_stressed(word):
         return True
-    return word in FIRST_SYLLABLE_STRESS
+    lw = word.lower()
+    if syllable_count(lw) == 1:
+        return True
+    # ё is always stressed, so a word whose first vowel is ё is first-stressed.
+    return next((c for c in lw if c in VOWELS), "") == "ё"
 
 
 def _soft_onset(word: str) -> bool:
@@ -196,7 +108,12 @@ def _soft_onset(word: str) -> bool:
     return word[len(head) : len(head) + 1] in set(SOFTENERS)
 
 
-def convert_particle(word: str, next_word: str | None, direction: Orthography) -> str | None:
+def convert_particle(
+    word: str,
+    next_word: str | None,
+    direction: Orthography,
+    stress: StressTable | None = None,
+) -> str | None:
     """Rewrite a clitic given the word that follows it; None when no rule applies.
 
     Input is lowercase. Returns the fully converted form (including the soft
@@ -206,10 +123,13 @@ def convert_particle(word: str, next_word: str | None, direction: Orthography) -
         return PARTICLES_T2N.get(word)
 
     result: str | None = None
-    if word in PARTICLES_N2T and next_word is not None and is_first_syllable_stressed(next_word):
+    if (
+        word in PARTICLES_N2T
+        and next_word is not None
+        and is_first_syllable_stressed(next_word, stress)
+    ):
         result = PARTICLES_N2T[word]
     base = result or word
     if base in SOFTENING_PREPOSITIONS and next_word is not None and _soft_onset(next_word.lower()):
-        # Taraškievica has бязь but no *безь: the soft form always takes я.
-        result = ("бяз" if base == "без" else base) + "ь"
+        result = base + "ь"
     return result

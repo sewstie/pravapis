@@ -9,6 +9,7 @@ from belnorm.rules.palatalization import (
     mark_assimilative_softness,
     unmark_assimilative_softness,
 )
+from belnorm.stress import StressTable
 from belnorm.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
@@ -158,14 +159,19 @@ def test_g_distinction_roundtrip() -> None:
 @pytest.mark.parametrize(
     ("word", "nxt", "expected"),
     [
-        ("не", "быў", "ня"),
-        ("не", "ведае", "ня"),
+        ("не", "быў", "ня"),  # бы+ў
+        ("не", "ведае", "ня"),  # ве+дае
         ("не", "працуе", None),
         ("не", "у", None),
         ("не", None, None),
         ("без", "сну", "бяз"),
-        ("без", "мяне", "бязь"),
-        ("без", "працы", None),
+        ("без", "ліку", "бязь"),  # лі+ку: jakanne, then soft onset
+        ("без", "мяне", None),  # мяне+
+        ("без", "якога", None),  # яко+га: was *бязь before stress lookup
+        ("без", "людзей", None),  # людзе+й; never *безь
+        ("без", "працы", "бяз"),  # пра+цы; the old word list did not know it
+        ("не", "было", None),  # было+ (the old word list had it first-stressed)
+        ("не", "мае", None),  # homograph ма+е / мае+: left alone
         ("з", "ім", "зь"),
         ("з", "мяне", "зь"),
         ("з", "табой", None),
@@ -173,8 +179,10 @@ def test_g_distinction_roundtrip() -> None:
         ("снег", "быў", None),
     ],
 )
-def test_convert_particle_n2t(word: str, nxt: str | None, expected: str | None) -> None:
-    assert morphology.convert_particle(word, nxt, N2T) == expected
+def test_convert_particle_n2t(
+    stress: StressTable, word: str, nxt: str | None, expected: str | None
+) -> None:
+    assert morphology.convert_particle(word, nxt, N2T, stress) == expected
 
 
 def test_convert_particle_t2n() -> None:
@@ -184,10 +192,19 @@ def test_convert_particle_t2n() -> None:
     assert morphology.convert_particle("няма", None, T2N) is None
 
 
-def test_first_syllable_stress_heuristic() -> None:
-    assert morphology.is_first_syllable_stressed("быў")
-    assert morphology.is_first_syllable_stressed("ведае")
-    assert not morphology.is_first_syllable_stressed("працуе")
+def test_first_syllable_stress_from_grammardb(stress: StressTable) -> None:
+    assert morphology.is_first_syllable_stressed("ведае", stress)
+    assert morphology.is_first_syllable_stressed("Толькі", stress)
+    assert morphology.is_first_syllable_stressed("бізнес-кантакту", stress)  # first part decides
+    assert not morphology.is_first_syllable_stressed("працуе", stress)
+    assert not morphology.is_first_syllable_stressed("мяне", stress)
+    assert not morphology.is_first_syllable_stressed("у", stress)
+
+
+def test_first_syllable_stress_without_table() -> None:
+    assert morphology.is_first_syllable_stressed("быў")  # monosyllable
+    assert morphology.is_first_syllable_stressed("ёлка")  # ё is always stressed
+    assert not morphology.is_first_syllable_stressed("ведае")  # unknown without a table
     assert not morphology.is_first_syllable_stressed("у")
 
 

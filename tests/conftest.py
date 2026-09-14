@@ -8,6 +8,7 @@ from belnorm.config import Config
 from belnorm.lexicon.store import Lexicon
 from belnorm.pipeline import Converter
 from belnorm.rules.engine import RuleEngine
+from belnorm.stress import StressTable
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -26,8 +27,15 @@ def config() -> Config:
             DATA_DIR / "rules" / n
             for n in ("palatalization.yaml", "loanwords.yaml", "morphology.yaml")
         ),
+        stress=DATA_DIR / "stress",
         model=None,
     )
+
+
+@pytest.fixture(scope="session")
+def stress(config: Config) -> StressTable:
+    assert config.stress is not None
+    return StressTable.load(config.stress)
 
 
 @pytest.fixture(scope="session")
@@ -41,5 +49,7 @@ def lexicon(config: Config) -> Lexicon:
 
 
 @pytest.fixture(scope="session")
-def converter(lexicon: Lexicon, engine: RuleEngine, config: Config) -> Converter:
-    return Converter(lexicon, engine, None, config)
+def converter(
+    lexicon: Lexicon, engine: RuleEngine, config: Config, stress: StressTable
+) -> Converter:
+    return Converter(lexicon, engine, None, config, stress)
