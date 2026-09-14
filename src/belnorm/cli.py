@@ -251,7 +251,55 @@ def eval_cmd(
     payload: dict[str, object] = {}
     for d in directions:
         rep = evaluate(converter, pairs, d, error_limit=show_errors)
-        table = Table(title=f"→ {d.value}: {rep.pairs} pairs, {rep.words} words")
+        console.rule(f"→ {d.value}")
+        console.print(
+            f"gold set: [bold]{rep.pairs}[/bold] sentences · [bold]{rep.words}[/bold] words · "
+            f"[bold]{rep.changed_words}[/bold] should change "
+            f"({rep.changed_words / rep.words if rep.words else 0:.1%}) · "
+            f"{rep.unchanged_words} should not · misaligned sentences {rep.misaligned}"
+        )
+        if rep.changed_words < 1000:
+            console.print(
+                f"[yellow]only {rep.changed_words} changed words: "
+                f"±1 word moves change accuracy by "
+                f"{1 / rep.changed_words if rep.changed_words else 1:.2%}[/yellow]"
+            )
+        headline = Table(title="headline (vs do-nothing baseline)")
+        headline.add_column("metric")
+        headline.add_column("converter", justify="right")
+        headline.add_column("baseline", justify="right")
+        headline.add_column("n", justify="right")
+        headline.add_row(
+            "[bold]change accuracy[/bold] (words that should change)",
+            f"[bold]{rep.change_accuracy:.1%}[/bold]",
+            "0.0%",
+            f"{rep.changed_correct}/{rep.changed_words}",
+        )
+        headline.add_row(
+            "false-positive rate (words that should not change)",
+            f"{rep.false_positive_rate:.1%}",
+            "0.0%",
+            f"{rep.false_positives}/{rep.unchanged_words}",
+        )
+        headline.add_row(
+            "word accuracy (all)",
+            f"{rep.accuracy:.1%}",
+            f"{rep.baseline_accuracy:.1%}",
+            str(rep.words),
+        )
+        headline.add_row(
+            "sentence accuracy",
+            f"{rep.sentence_accuracy:.1%}",
+            f"{rep.baseline_sentence_accuracy:.1%}",
+            str(rep.pairs),
+        )
+        console.print(headline)
+        console.print(
+            f"word-error reduction vs baseline [bold]{rep.error_reduction:.1%}[/bold]"
+            + (f" · round trip {rep.round_trip:.1%}" if rep.round_trip is not None else "")
+            + f" · {rep.mb_per_second:.2f} MB/s"
+        )
+        table = Table(title="coverage by method")
         table.add_column("method")
         table.add_column("count", justify="right")
         table.add_column("share", justify="right")
@@ -260,12 +308,6 @@ def eval_cmd(
             acc = "" if s.accuracy is None else f"{s.accuracy:.1%}"
             table.add_row(m.value, str(s.count), f"{s.share:.1%}", acc)
         console.print(table)
-        console.print(
-            f"word accuracy [bold]{rep.accuracy:.1%}[/bold] · sentence accuracy "
-            f"{rep.sentence_accuracy:.1%} · misaligned {rep.misaligned}"
-            + (f" · round trip {rep.round_trip:.1%}" if rep.round_trip is not None else "")
-            + f" · {rep.mb_per_second:.2f} MB/s"
-        )
         if rep.errors:
             et = Table(title="errors")
             et.add_column("source")
@@ -278,8 +320,17 @@ def eval_cmd(
         payload[d.value] = {
             "pairs": rep.pairs,
             "words": rep.words,
+            "changed_words": rep.changed_words,
+            "unchanged_words": rep.unchanged_words,
+            "misaligned": rep.misaligned,
+            "change_accuracy": rep.change_accuracy,
+            "false_positive_rate": rep.false_positive_rate,
+            "false_positives": rep.false_positives,
             "accuracy": rep.accuracy,
+            "baseline_accuracy": rep.baseline_accuracy,
+            "error_reduction": rep.error_reduction,
             "sentence_accuracy": rep.sentence_accuracy,
+            "baseline_sentence_accuracy": rep.baseline_sentence_accuracy,
             "round_trip": rep.round_trip,
             "mb_per_second": rep.mb_per_second,
             "breakdown": {
