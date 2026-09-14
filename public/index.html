@@ -91,6 +91,15 @@
 
   .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 760px) { .panes { grid-template-columns: 1fr; } button.primary { margin-left: 0; } }
+  @media (max-width: 560px) {
+    .wrap { padding: 20px 14px 20px; }
+    header h1 { font-size: 1.35rem; }
+    .seg { display: flex; width: 100%; border-radius: 14px; }
+    .seg label { flex: 1 1 0; min-width: 0; text-align: center; white-space: normal; border-radius: 11px; padding: 7px 8px; line-height: 1.3; }
+    button.primary { margin-left: auto; }
+    .presets button { padding: 8px 13px; }
+  }
+  @media (hover: none), (max-width: 560px) { kbd { display: none; } }
   .pane { display: flex; flex-direction: column; min-width: 0; }
   .pane h2 { margin: 0 0 6px; font-size: 0.85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   textarea, .rendered {
@@ -192,6 +201,7 @@
       taraskievica: "Ня быў без мяне на сьвяце ў Менску — не магу забыць гэты вечар." },
   ];
   const NAMES = { taraskievica: "Тарашкевіца", narkamauka: "Наркамаўка" };
+  const MAX_CHARS = 50000;  // same limit as belnorm.webapi.MAX_CHARS
   const METHOD_LABEL = { rule: "rule", lexicon: "lexicon entry", identity: "listed as unchanged", unknown: "unchanged", model: "classifier" };
 
   const $ = (id) => document.getElementById(id);
@@ -234,9 +244,23 @@
     last = null; output.value = ""; rendered.textContent = ""; stats.textContent = "";
   }
 
+  function showError(message) {
+    last = null;
+    output.value = ""; rendered.textContent = "";
+    stats.textContent = "";
+    const e = document.createElement("span");
+    e.className = "error";
+    e.textContent = message;
+    stats.appendChild(e);
+  }
+
   async function convert() {
     const text = input.value;
     if (!text.trim()) { clearOutput(); return; }
+    if (text.length > MAX_CHARS) {
+      showError(`Text is ${text.length.toLocaleString("en")} characters; the limit is ${MAX_CHARS.toLocaleString("en")}.`);
+      return;
+    }
     go.disabled = true;
     try {
       const res = await fetch("/api/convert", {
@@ -249,13 +273,7 @@
       last = body;
       render();
     } catch (err) {
-      last = null;
-      output.value = ""; rendered.textContent = "";
-      stats.innerHTML = "";
-      const e = document.createElement("span");
-      e.className = "error";
-      e.textContent = `Conversion failed: ${err.message}`;
-      stats.appendChild(e);
+      showError(`Conversion failed: ${err.message}`);
     } finally {
       go.disabled = false;
     }

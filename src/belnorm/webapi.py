@@ -38,6 +38,11 @@ from belnorm.types import Method, Orthography, TokenKind
 
 MAX_CHARS: Final[int] = 50_000
 MAX_BODY_BYTES: Final[int] = MAX_CHARS * 4 + 4_096  # UTF-8 worst case plus JSON overhead
+#: An oversized body is read and discarded up to this many bytes before the 413
+#: goes out: answering while the client is still uploading resets the connection,
+#: and the client sees a network error instead of the 413.
+DRAIN_LIMIT_BYTES: Final[int] = 16 * 1024 * 1024
+_DRAIN_CHUNK: Final[int] = 64 * 1024
 
 DIRECTIONS: Final[dict[str, Orthography]] = {
     "taraskievica": Orthography.TARASKIEVICA,
@@ -175,7 +180,15 @@ def handle(
         except ValueError:
             raise ApiError(400, "invalid Content-Length") from None
         if length > MAX_BODY_BYTES:
-            raise ApiError(413, "request body too large")
+            remaining = min(length, DRAIN_LIMIT_BYTES)
+            while remaining > 0:
+                chunk = read_body(min(_DRAIN_CHUNK, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+            raise ApiError(
+                413, f"request body too large (text is limited to {MAX_CHARS} characters)"
+            )
         raw = read_body(length)
         try:
             payload = json.loads(raw.decode("utf-8") or "{}")
