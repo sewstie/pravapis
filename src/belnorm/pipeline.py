@@ -1,9 +1,13 @@
-"""The cascade: identity → lexicon → rules → model → passthrough. First hit wins.
+"""The cascade: identity → lexicon → rules → passthrough. First hit wins.
 
 Lexicon runs *before* rules because loanwords are exactly the words the
-phonological rules get wrong (клас → кляса, not клас). The classifier only
-sees words that neither stage touched and that match an ambiguity trigger,
-and its answer is discarded below the confidence threshold.
+phonological rules get wrong (клас → кляса, not клас).
+
+An experimental classifier step (between rules and passthrough) exists behind
+the ``[ml]`` extra and is off by default: it is only built when a config names
+a model explicitly. It sees words that neither stage touched and that match
+an ambiguity trigger, and its answer is discarded below the confidence
+threshold.
 """
 
 from __future__ import annotations
@@ -12,13 +16,12 @@ import logging
 from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 import regex
 
 from belnorm.casing import recase
 from belnorm.config import DEFAULT_AMBIGUITY_TRIGGERS, Config
-from belnorm.disambiguate.predict import Disambiguator
 from belnorm.lexicon.store import Lexicon
 from belnorm.normalize import sanitize
 from belnorm.rules.engine import RuleEngine
@@ -40,6 +43,9 @@ from belnorm.types import (
     TokenExplanation,
     TokenKind,
 )
+
+if TYPE_CHECKING:
+    from belnorm.disambiguate.predict import Disambiguator
 
 log = logging.getLogger(__name__)
 
@@ -95,8 +101,10 @@ class Converter:
         lexicon = Lexicon.load(config.lexicon)
         engine = RuleEngine.from_yaml(*config.rules)
         disambiguator: Disambiguator | None = None
-        if config.model is not None:
+        if config.model is not None:  # explicit opt-in only; Config.default() never sets it
             try:
+                from belnorm.disambiguate.predict import Disambiguator
+
                 disambiguator = Disambiguator.load(
                     config.model, threshold=config.confidence_threshold
                 )
