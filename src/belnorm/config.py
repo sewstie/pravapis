@@ -58,14 +58,20 @@ class Config(BaseModel):
 
     @classmethod
     def default(cls, data_dir: Path | None = None) -> Config:
+        """Lexicon + rules only.
+
+        The classifier is never picked up implicitly, even if a trained model
+        sits in ``data/models/``: on the gold set it made results worse (see
+        README, "Why the classifier was removed"). Opt in with an explicit
+        ``model:`` entry in a config file and ``pip install belnorm[ml]``.
+        """
         base = data_dir or find_data_dir()
         compiled = base / "lexicon.marisa"
         lexicon = compiled if compiled.is_file() else base / "lexicon"
-        model = base / "models" / "disambig.joblib"
         return cls(
             lexicon=lexicon,
             rules=tuple(base / "rules" / name for name in RULE_FILES),
-            model=model if model.is_file() else None,
+            model=None,
         )
 
     @classmethod
