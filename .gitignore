@@ -15,3 +15,5 @@ data/lexicon.marisa
 data/models/
 eval.json
 .benchmarks/
+data/reference/*
+!data/reference/README.md
