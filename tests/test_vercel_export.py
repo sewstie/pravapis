@@ -75,7 +75,7 @@ def test_exported_function_serves_requests(tmp_path: Path) -> None:
 
     status, body, headers = r["n2t"]
     assert status == 200
-    assert body["result"] == "Сьнег і сьвет у Эўропе, плян сыстэмы. Ня быў без мяне."
+    assert body["result"] == "Сьнег і сьвет у Эўропе, плян сыстэмы. Ня быў безь мяне."
     assert body["direction"] == "taraskievica"
     assert body["stats"]["by_method"]["model"] == 0
     assert headers["Cache-Control"] == "no-store"
