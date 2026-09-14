@@ -189,14 +189,18 @@ def error_report(
 
 
 def read_gold(path: Path) -> list[tuple[str, str]]:
-    """``narkamauka<TAB>taraskievica`` lines; blank lines and ``#`` comments skipped."""
+    """``narkamauka<TAB>taraskievica[<TAB>extra columns…]`` lines.
+
+    Blank lines and ``#`` comments are skipped; columns after the second
+    (provenance, review status) are ignored.
+    """
     pairs: list[tuple[str, str]] = []
     with path.open(encoding="utf-8") as fh:
         for raw in fh:
             line = raw.rstrip("\r\n")
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
-            a, _, b = line.partition("\t")
+            a, b, *_ = [*line.split("\t"), ""]
             pairs.append((sanitize(a.strip()), sanitize(b.strip())))
     return pairs
 
