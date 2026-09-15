@@ -13,10 +13,15 @@ right, but Taraškievica *літар* is also the genitive plural of *літар
 
 Entries are lowercased on build; capitalisation is re-applied at lookup time.
 The first entry for a key wins, so put preferred variants first.
+
+The compiled container records a SHA-256 of its TSV sources, so a loader can
+refuse a file built from sources that have since changed (see
+``Lexicon.load(..., sources=...)``).
 """
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,7 +34,15 @@ from belnorm.normalize import sanitize
 from belnorm.tokenize import BELARUSIAN_LETTERS, tokenize
 from belnorm.types import Orthography, TokenKind
 
-LEXICON_MAGIC: Final[bytes] = b"BELNORM1"
+#: v2 container: magic, 32-byte SHA-256 of the sources, u32 forward length, forward, reverse.
+LEXICON_MAGIC: Final[bytes] = b"BELNORM2"
+_OLD_MAGICS: Final[tuple[bytes, ...]] = (b"BELNORM1",)
+_DIGEST_LEN: Final[int] = 32
+
+
+class StaleLexiconError(ValueError):
+    """A compiled lexicon does not match its TSV sources (or predates source hashing)."""
+
 
 _ALLOWED: Final[frozenset[str]] = BELARUSIAN_LETTERS | frozenset("’-")
 _WS: Final[regex.Pattern[str]] = regex.compile(r"\s")
@@ -158,27 +171,60 @@ def build_both(
     return fwd, rev
 
 
-def save_lexicon(fwd: marisa_trie.BytesTrie, rev: marisa_trie.BytesTrie, path: Path) -> None:
-    """Write both tries into one container file: magic, u32 length, fwd bytes, rev bytes."""
+def sources_digest(path: Path) -> bytes:
+    """SHA-256 over the TSV sources: a file, or every ``*.tsv`` in a directory.
+
+    File names and contents both count. Line endings are normalised first, so a
+    CRLF checkout on Windows and an LF checkout on Linux hash the same.
+    """
+    files = sorted(path.glob("*.tsv")) if path.is_dir() else [path]
+    h = hashlib.sha256()
+    for f in files:
+        h.update(f.name.encode("utf-8") + b"\0")
+        h.update(f.read_bytes().replace(b"\r\n", b"\n") + b"\0")
+    return h.digest()
+
+
+def save_lexicon(
+    fwd: marisa_trie.BytesTrie,
+    rev: marisa_trie.BytesTrie,
+    path: Path,
+    *,
+    source_digest: bytes,
+) -> None:
+    """Write both tries and the sources' digest into one container file."""
+    if len(source_digest) != _DIGEST_LEN:
+        raise ValueError("source_digest must be a 32-byte SHA-256 digest")
     fwd_bytes = fwd.tobytes()
     rev_bytes = rev.tobytes()
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as fh:
         fh.write(LEXICON_MAGIC)
+        fh.write(source_digest)
         fh.write(len(fwd_bytes).to_bytes(4, "little"))
         fh.write(fwd_bytes)
         fh.write(rev_bytes)
 
 
-def load_lexicon_file(path: Path) -> tuple[marisa_trie.BytesTrie, marisa_trie.BytesTrie]:
+def load_lexicon_file(
+    path: Path,
+) -> tuple[marisa_trie.BytesTrie, marisa_trie.BytesTrie, bytes]:
+    """Forward trie, reverse trie, and the digest of the sources the file was built from."""
     data = path.read_bytes()
+    if data.startswith(_OLD_MAGICS):
+        raise StaleLexiconError(
+            f"{path}: built by an older belnorm without a source hash; "
+            "rebuild with `belnorm build-lexicon`"
+        )
     if not data.startswith(LEXICON_MAGIC):
         raise ValueError(f"{path}: not a belnorm lexicon file")
     offset = len(LEXICON_MAGIC)
+    digest = data[offset : offset + _DIGEST_LEN]
+    offset += _DIGEST_LEN
     fwd_len = int.from_bytes(data[offset : offset + 4], "little")
     offset += 4
     fwd = marisa_trie.BytesTrie()
     fwd.frombytes(data[offset : offset + fwd_len])
     rev = marisa_trie.BytesTrie()
     rev.frombytes(data[offset + fwd_len :])
-    return fwd, rev
+    return fwd, rev, digest

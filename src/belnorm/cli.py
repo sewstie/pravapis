@@ -187,6 +187,7 @@ def build_lexicon(
         build_from_sources,
         read_sources,
         save_lexicon,
+        sources_digest,
         validate_entries,
     )
 
@@ -198,7 +199,7 @@ def build_lexicon(
         errors.print(f"[red]{len(problems)} problem(s); nothing written[/red]")
         raise typer.Exit(1)
     fwd, rev = build_from_sources(src)
-    save_lexicon(fwd, rev, out)
+    save_lexicon(fwd, rev, out, source_digest=sources_digest(src))
     console.print(
         f"wrote [bold]{out}[/bold]: {len(fwd)} n→t keys, {len(rev)} t→n keys, "
         f"{out.stat().st_size / 1024:.1f} KiB"
@@ -270,6 +271,7 @@ def eval_cmd(
     n_uncertain = sum(r.provenance == UNCERTAIN for r in rows)
     pairs = read_gold(gold, trusted_only=trusted)
     subset = "hand_written only (--trusted)" if trusted else "all except uncertain"
+    console.print(f"lexicon: {converter.lexicon_origin}")
     console.print(
         f"gold rows: {len(rows)} · [yellow]skipped {n_uncertain} uncertain[/yellow]"
         + (
@@ -393,6 +395,7 @@ def eval_cmd(
             "sentence_accuracy": rep.sentence_accuracy,
             "baseline_sentence_accuracy": rep.baseline_sentence_accuracy,
             "subset": subset,
+            "lexicon": converter.lexicon_origin,
             "skipped_uncertain": n_uncertain,
             "round_trip": rep.round_trip,
             "word_round_trip": rep.word_round_trip,

@@ -19,9 +19,11 @@ import marisa_trie
 
 from belnorm.casing import recase
 from belnorm.lexicon.builder import (
+    StaleLexiconError,
     build_both,
     build_from_sources,
     load_lexicon_file,
+    sources_digest,
 )
 from belnorm.types import Orthography
 
@@ -33,10 +35,24 @@ class Lexicon:
 
     # --- construction ---------------------------------------------------------
     @classmethod
-    def load(cls, path: Path) -> Lexicon:
+    def load(cls, path: Path, *, sources: Path | None = None) -> Lexicon:
+        """Load TSV sources, or a compiled container.
+
+        For a compiled container, ``sources`` (the TSV file or directory it was
+        built from) is checked against the digest stored in the file: a mismatch
+        raises :class:`StaleLexiconError` instead of serving outdated entries. With
+        ``sources=None``, or a sources path that does not exist (a deployment that
+        ships only the compiled file), the digest is not checked.
+        """
         if path.is_dir() or path.suffix == ".tsv":
             return cls(*build_from_sources(path))
-        return cls(*load_lexicon_file(path))
+        fwd, rev, digest = load_lexicon_file(path)
+        if sources is not None and sources.exists() and digest != sources_digest(sources):
+            raise StaleLexiconError(
+                f"{path} was built from different sources than {sources}; "
+                "rebuild with `belnorm build-lexicon`"
+            )
+        return cls(fwd, rev)
 
     @classmethod
     def from_pairs(cls, pairs: Iterable[tuple[str, str]]) -> Lexicon:

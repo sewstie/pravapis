@@ -22,6 +22,7 @@ import regex
 
 from belnorm.casing import recase
 from belnorm.config import DEFAULT_AMBIGUITY_TRIGGERS, Config
+from belnorm.lexicon.builder import StaleLexiconError
 from belnorm.lexicon.store import Lexicon
 from belnorm.normalize import sanitize
 from belnorm.rules.engine import RuleEngine
@@ -90,6 +91,8 @@ class Converter:
         codification already allows (Фёдар → Хведар, і → й after a vowel). Off by default;
         see data/NORMS.md, "Policy: optional forms"."""
         self.lexicon = lexicon
+        #: where the lexicon came from, for reports (set by from_config)
+        self.lexicon_origin = "in-memory"
         self.aggressive = aggressive
         self.engine = engine.with_optional(aggressive)
         self.disambiguator = disambiguator
@@ -114,6 +117,7 @@ class Converter:
                 aggressive=aggressive,
             )
             other._variants = self._variants
+            other.lexicon_origin = self.lexicon_origin
             self._variants[aggressive] = other
         return self._variants[aggressive]
 
@@ -125,7 +129,25 @@ class Converter:
             config = path
         else:
             config = Config.load(path)
-        lexicon = Lexicon.load(config.lexicon)
+        compiled = not (config.lexicon.is_dir() or config.lexicon.suffix == ".tsv")
+        checked = config.lexicon_sources is not None and config.lexicon_sources.exists()
+        try:
+            lexicon = Lexicon.load(config.lexicon, sources=config.lexicon_sources)
+            if not compiled:
+                origin = f"TSV sources {config.lexicon}"
+            elif checked:
+                origin = f"compiled {config.lexicon} (hash matches {config.lexicon_sources})"
+            else:
+                origin = f"compiled {config.lexicon} (sources not available, hash not checked)"
+        except StaleLexiconError as exc:
+            # Never serve stale entries. With the sources at hand, rebuild in memory
+            # and say so loudly; without them there is nothing correct to serve.
+            if not checked:
+                raise
+            assert config.lexicon_sources is not None
+            log.warning("%s — using the TSV sources in %s instead", exc, config.lexicon_sources)
+            lexicon = Lexicon.load(config.lexicon_sources)
+            origin = f"TSV sources {config.lexicon_sources} (compiled {config.lexicon} was STALE)"
         engine = RuleEngine.from_yaml(*config.rules)
         stress = StressTable.load(config.stress) if config.stress is not None else None
         disambiguator: Disambiguator | None = None
@@ -138,7 +160,9 @@ class Converter:
                 )
             except Exception as exc:  # fail-safe: rules + lexicon still work
                 log.warning("disambiguation model %s not loaded: %s", config.model, exc)
-        return cls(lexicon, engine, disambiguator, config, stress)
+        conv = cls(lexicon, engine, disambiguator, config, stress)
+        conv.lexicon_origin = origin
+        return conv
 
     # --- introspection --------------------------------------------------------
     @property
