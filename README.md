@@ -47,7 +47,7 @@ change): rows never adjusted after seeing converter output.
 | Word accuracy | 99.4% | 84.6% | 99.4% | 84.6% |
 | Word round trip (there and back) | 99.95% | 100% | 99.97% | 100% |
 
-The full scored set (634 sentences; `converter_checked` rows included, `uncertain` excluded) is
+The full scored set (637 sentences; `converter_checked` rows included, `uncertain` excluded) is
 within 0.4 points of these on every metric. Coverage on it: lexicon 1.6%, rules 13.8%,
 identity 0.7%, unchanged 83.9%. Throughput: **0.98 MB/s** (~75k words/s).
 
@@ -110,7 +110,7 @@ uv sync --extra ml       # + experimental classifier, opt-in only (pip install b
 ```python
 from belnorm import Converter, Orthography, convert
 
-convert("Не быў без мяне", Orthography.TARASKIEVICA)   # 'Ня быў бязь мяне'
+convert("Не быў без мяне", Orthography.TARASKIEVICA)   # 'Ня быў безь мяне'
 
 conv = Converter.from_config()          # loads data/ once; reuse it
 result = conv.convert("сістэма", Orthography.TARASKIEVICA)
