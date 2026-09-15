@@ -37,19 +37,19 @@ Measured with `belnorm eval data/eval/gold.tsv --trusted` and `belnorm bench --s
 a desktop Windows 11 machine, single process, classifier off. Every number sits next to the
 **do-nothing baseline** (return the input unchanged).
 
-The trusted subset is the 577 `hand_written` gold sentences (4,031 words, 620 of which should
+The trusted subset is the 573 `hand_written` gold sentences (3,998 words, 614 of which should
 change): rows never adjusted after seeing converter output.
 
 | | N → T | baseline | T → N | baseline |
 |---|---|---|---|---|
-| **Change accuracy** (words that should change) | **95.5%** (592/620) | 0.0% | **96.0%** (595/620) | 0.0% |
-| False-positive rate (words that should not change) | 0.03% (1/3,411) | 0.0% | 0.0% (0/3,411) | 0.0% |
-| Word accuracy | 99.3% | 84.6% | 99.4% | 84.6% |
-| Word round trip (there and back) | 99.95% | 100% | 99.85% | 100% |
+| **Change accuracy** (words that should change) | **96.1%** (590/614) | 0.0% | **95.9%** (589/614) | 0.0% |
+| False-positive rate (words that should not change) | 0.0% (0/3,384) | 0.0% | 0.0% (0/3,384) | 0.0% |
+| Word accuracy | 99.4% | 84.6% | 99.4% | 84.6% |
+| Word round trip (there and back) | 99.95% | 100% | 99.97% | 100% |
 
 The full scored set (634 sentences; `converter_checked` rows included, `uncertain` excluded) is
-within 0.6 points of these on every metric. Coverage on it: lexicon 1.6%, rules 13.8%,
-identity 0.7%, unchanged 83.9%. Throughput: **1.01 MB/s** (~78k words/s).
+within 0.4 points of these on every metric. Coverage on it: lexicon 1.6%, rules 13.8%,
+identity 0.7%, unchanged 83.9%. Throughput: **0.98 MB/s** (~75k words/s).
 
 не → ня and без → бяз use GrammarDB stress marks (`data/stress/`, CC BY-SA 4.0) to decide
 whether the next word is stressed on its first syllable.
@@ -59,7 +59,7 @@ Caveats:
 - **The gold Taraškievica is not native-reviewed.** It was written by a human reviewer from Klasyčny
   pravapis (2005), sentence by sentence, as word edits on Narkamaŭka text from the Paznaj site.
   Treat the numbers as "agrees with a careful reading of the norm", not as ground truth.
-- 620 changed words is still small: one word moves change accuracy by 0.16 points.
+- 614 changed words is still small: one word moves change accuracy by 0.16 points.
 - Most words are spelled the same in both orthographies, which is why word accuracy starts at
   84.6% for doing nothing and why change accuracy is the headline.
 - Remaining misses are mostly loanwords the rules do not cover (`версія → вэрсія`,
