@@ -200,10 +200,9 @@ REFERENCE_NARKAMAUKA = (
     "краін — Аргенціны, Бельгіі, Арменіі, Германіі, Казахстана, Іспаніі, Кыргызстана, Італіі, "
     "Малдовы, Мексікі, Літвы, Латвіі, Расіі, Польшчы, Украіны, Эстоніі, Швейцарыі і Францыі"
 )
-#: The project owner's reference sentence. краінаў (genitive plural -аў) is a known gap and
-#: й is optional (§13), so both are compared separately.
+#: The project owner's reference sentence. й is optional (§13), so it is compared separately.
 REFERENCE_TARASKIEVICA = (
-    "краін — Аргентыны, Бэльгіі, Армэніі, Нямеччыны, Казахстана, Гішпаніі, Кыргыстана, Італіі, "
+    "краінаў — Аргентыны, Бэльгіі, Армэніі, Нямеччыны, Казахстана, Гішпаніі, Кыргыстана, Італіі, "
     "Малдовы, Мэксыкі, Літвы, Латвіі, Расеі, Польшчы, Украіны, Эстоніі, Швайцарыі і Францыі"
 )
 
@@ -259,3 +258,17 @@ def test_germany_case_chosen_by_preposition(converter: Converter, nark: str, tar
 def test_germany_bare_dative_is_a_known_limitation(converter: Converter) -> None:
     # No preposition: the genitive is chosen, so a verb-governed dative comes out wrong.
     assert converter.convert("дапамагаць Германіі", N2T).text == "дапамагаць Нямеччыны"
+
+
+@pytest.mark.parametrize(
+    ("nark", "tarask"),
+    [
+        ("з 18 краін", "з 18 краінаў"),  # owner's reference; з stays hard before a number
+        ("з краін Еўропы", "з краінаў Эўропы"),
+        ("дзясяткі краін", "дзясяткі краінаў"),
+        ("краіна", "краіна"),  # only the genitive plural differs
+        ("краінам", "краінам"),
+    ],
+)
+def test_krainau_genitive_plural(converter: Converter, nark: str, tarask: str) -> None:
+    _both_ways(converter, nark, tarask)

@@ -280,6 +280,9 @@ are the пісьменнік family above.
 ## Known gaps (not implemented, need the codification)
 
 - **Genitive plural -аў** (хвілін → хвілінаў): no rule, no gold coverage; needs a noun list.
+  Single word added by hand on the project owner's instruction: **краін → краінаў**
+  (`data/lexicon/exceptions.tsv`; "з 18 краінаў", confirmed by baltoslav.eu spot-check). Every
+  other genitive plural is still unchanged.
   The Збор 2005 rules cover spelling only ("выключна артаграмы") and do not settle it.
 
 ## Not a gap: optional forms
