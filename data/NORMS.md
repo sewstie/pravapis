@@ -16,6 +16,25 @@ Citations below are `Збор 2005, §N`.
 `tests/test_norms.py` fails if a rule id in `data/rules/*.yaml` or a pipeline-level rule has
 no entry here, or an entry has no `source` field.
 
+## Policy: optional forms (project-wide)
+
+**Where the codification permits more than one form, the converter does not change the input.**
+Converting a form the norm already allows is a false positive, not an improvement.
+
+- Rules that rewrite an already-valid form are marked `optional: true` in `data/rules/*.yaml`
+  (or run only in aggressive mode, for pipeline-level rules) and are **off by default**.
+- They are applied only on request: `belnorm convert --aggressive`, `belnorm explain
+  --aggressive`, `"aggressive": true` in the HTTP API, `Converter(..., aggressive=True)` or
+  `converter.convert(text, direction, aggressive=True)` in the library.
+- Lexicon entries follow the same policy: no entry may replace a form the codification lists
+  as valid.
+- Not the same as *unresolved* (sources disagree, see below): unresolved words are left
+  unchanged in every mode; optional rewrites are known-valid and available on request.
+
+Optional under this policy: `loan.f_substitution` (§81 Заўвага Б) and `morph.conj_i_j` (§13).
+
+---
+
 Format per rule: `id`, `direction`, what it does, `source`. When a citation is added, replace
 `UNVERIFIED` with e.g. `Збор правілаў 2005, §18, с. 42`. If the text contradicts the rule, note
 it here and fix the rule in the same change.
@@ -32,36 +51,53 @@ it here and fix the rule in the same change.
 
 ### palat.geminate.dz
 - direction: narkamauka → taraskievica
-- does: soft long дз: суддзя → судзьдзя
-- source: UNVERIFIED
+- does: soft long дз: суддзя → судзьдзя, стагоддзе → стагодзьдзе; not at a prefix boundary:
+  аддзел, аддзячыць, паддзець stay unchanged
+- source: Збор 2005, §40 (судзьдзя, стагодзьдзе); §32 and §41 Заўвага А ("Прыстаўкі на -д перад
+  наступным коранем, які пачынаецца на дз-, пішуцца нязьменна: аддзел, аддзячыць, паддзець,
+  Наддзьвіньне"). The prefix boundary is detected from a word-initial list (ад-, пад-, над-,
+  перад-, optionally after па-, за-, на-, вы-, пера-, раз-, ус-, у-, з-).
 
 ### palat.geminate
 - direction: narkamauka → taraskievica
 - does: soft long н, л, з, с, ц, дз are written with ь: насенне → насеньне, жыццё → жыцьцё, вяселле → вясельле
-- source: UNVERIFIED
+- source: Збор 2005, §40 (жалезьзе, калосьсе, асяродзьдзе, жыцьцё, вясельле, гуканьне)
 
 ### palat.assim
 - direction: narkamauka → taraskievica
-- does: з, с, ц, дз take ь before a soft в, м, п, б, л, н, с, з, ц, дз: снег → сьнег, свет → сьвет, дзверы → дзьверы
-- source: Збор 2005, §29 for **з, с** ("Памякчэньне с, з перад наступнымі мяккімі зычнымі
-  (апроч г (ґ), к, х) перадаецца на пісьме ў межах слова": сьвет, сьнег, радасьць, зьвер,
-  зьдзек). The **ц, дз** part is still UNVERIFIED: it falls under §30, audited separately.
+- does: з, с take ь before a soft в, м, п, б, л, н, с, з, ц, дз: снег → сьнег, свет → сьвет
+- source: Збор 2005, §29 ("Памякчэньне с, з перад наступнымі мяккімі зычнымі (апроч г (ґ), к, х)
+  перадаецца на пісьме ў межах слова": сьвет, сьнег, радасьць, зьвер, зьдзек)
+
+### palat.assim.ts_dz
+- direction: narkamauka → taraskievica
+- does: ц, дз take ь only before a soft в: дзверы → дзьверы, цвёрды → цьвёрды; before any other
+  consonant they stay hard: мацнець, пэндзлік, Цнянка
+- source: Збор 2005, §30 ("Зычныя ц, дз перад наступным мяккім в у межах кораня – таксама мяккія:
+  цьвёрды, цьвік, … дзьве, дзьверы") and §30 Заўвага А ("Перад зычнымі (апрача в) … зычныя т, ц,
+  д, дз застаюцца цьвёрдыя: … мацнець, … пэндзлік, … Цнянка"). Before this was split out, the
+  converter wrote мацьнець, пэндзьлік, Цьнянка.
 
 ### palat.ungeminate.dz
 - direction: taraskievica → narkamauka
 - does: reverse of palat.geminate.dz: судзьдзя → суддзя
-- source: UNVERIFIED (mechanical inverse; valid only if palat.geminate.dz is)
+- source: inverse of palat.geminate.dz — Збор 2005, §40
 
 ### palat.ungeminate
 - direction: taraskievica → narkamauka
 - does: reverse of palat.geminate: насеньне → насенне
-- source: UNVERIFIED (mechanical inverse)
+- source: inverse of palat.geminate — Збор 2005, §40
 
 ### palat.unassim
 - direction: taraskievica → narkamauka
-- does: reverse of palat.assim; keeps a lexical ь (пісьмо)
-- source: inverse of palat.assim — Збор 2005, §29 for з, с (§29 Заўвага Б: etymological ь in
-  пісьмо, просьба is not assimilative and stays); ц, дз part UNVERIFIED
+- does: reverse of palat.assim for з, с; keeps a lexical ь (пісьмо)
+- source: inverse of palat.assim — Збор 2005, §29 (§29 Заўвага Б: etymological ь in пісьмо,
+  просьба, дзьме is not assimilative and stays)
+
+### palat.unassim.ts_dz
+- direction: taraskievica → narkamauka
+- does: reverse of palat.assim.ts_dz: дзьверы → дзверы; дзьме keeps its etymological ь
+- source: inverse of palat.assim.ts_dz — Збор 2005, §30
 
 ### palat.unapostrophe
 - direction: taraskievica → narkamauka
@@ -73,30 +109,43 @@ it here and fix the rule in the same change.
 ### loan.eu
 - direction: narkamauka → taraskievica
 - does: word-initial еў → эў: Еўропа → Эўропа
-- source: UNVERIFIED
+- source: Збор 2005, §52 (Эўропа, эўрапейскі, эўфарыя). Over-applies to long-assimilated names the
+  book writes with Е or lists both ways (Еўдакія §29 Заўвага В; Еўфрасіньня побач з Эўфрасіньня
+  §52) — see the optional-forms audit.
 
 ### loan.l_palatalization
 - direction: narkamauka → taraskievica
 - does: soft л in a curated list of Western stems: план → плян, біялогія → біялёгія
 - source: principle — Збор 2005, §55.1 (L soft in Western European loans other than
   anglicisms: плян, кляса, лямпа, блёк, глёбус, лёзунг, ляўрэат, плятформа, салён, лёгіка) with
-  the hard exceptions of §56.2 (лава, ладан, ланцуг, блазан, салдат, матацыкл …). The stem list
-  itself is only partly checked against those examples.
+  the hard exceptions of §56.2 (лава, ладан, ланцуг, блазан, салдат, матацыкл …).
+- stem list, checked word by word against the rules text (spelling dictionaries are absent):
+  - in the book: плян, кляс(а), лямп(а), блёк, глёб(ус), лябарат (§55.1 лябараторыя), блянк,
+    лёзунг, ляўрэат, дыплём, плятформ(а), салён, лёгік(а), -лёгія; клюб (§55.2); лягер (§62
+    example ляг ер); парлямэнт (§11 example парлям энт)
+  - not in the book: лякальны, ляндшафт, балькон, атляс, рэкляма, кілямэтар, кіляграм, калёнія,
+    калёніяльны. Kept (they follow the §55.1 principle for Western loans) but unverified as words.
 
 ### loan.i_to_y
 - direction: narkamauka → taraskievica
 - does: ы after з/с in a curated list of Greco-Latin stems: сістэма → сыстэма, класічны → класычны
-- source: UNVERIFIED (stem list unverified)
+- source: Збор 2005, §67 (сыстэма, сытуацыя, сынонім, сыгнал, клясычны, фізык, візыт, дэпазыт);
+  §66 marks where і stays (расізм, марксізм)
 
 ### loan.f_substitution
 - direction: narkamauka → taraskievica
-- does: х/хв/п for ф in traditional given names: Фёдар → Хведар, Філіп → Піліп
-- source: UNVERIFIED
+- does: **optional** (aggressive mode only): Фёдар → Хведар, Фядос → Хвядос, endings kept
+- source: Збор 2005, §81 Заўвага Б ("Шэраг хрысьціянскіх імёнаў мае некалькі формаў: … Тодар,
+  Фёдар, Хведар, Ходар; … Фядос, Хвядос, Ходас"). Фёдар is a valid form, so the default leaves
+  it. Філіп → Піліп and Фама → Хама were removed: neither is in the book.
 
 ### loan.g_distinction
 - direction: narkamauka → taraskievica
 - does: plosive ґ in a closed list of old borrowings: ганак → ґанак, гузік → ґузік
-- source: UNVERIFIED (stem list unverified)
+- source: UNVERIFIED. The rules text mentions ґ only for foreign proper names, and optionally
+  (§61 "можа перадавацца"). Common words like ґанак, ґузік would be in the spelling dictionaries,
+  which the electronic edition does not contain (see `data/reference/README.md`). Cannot be
+  resolved from the available source.
 
 ### loan.g_remove
 - direction: taraskievica → narkamauka
@@ -106,24 +155,28 @@ it here and fix the rule in the same change.
 ### loan.l_unpalatalization
 - direction: taraskievica → narkamauka
 - does: reverse of loan.l_palatalization on the same stems
-- source: UNVERIFIED (mechanical inverse)
+- source: inverse of loan.l_palatalization — Збор 2005, §55.1, §56.2 (same stem caveats)
 
 ### loan.y_to_i
 - direction: taraskievica → narkamauka
 - does: reverse of loan.i_to_y on the same stems
-- source: UNVERIFIED (mechanical inverse)
+- source: inverse of loan.i_to_y — Збор 2005, §66, §67
 
 ### loan.eu_reverse
 - direction: taraskievica → narkamauka
 - does: word-initial эўр → еўр, except эўрыстыка
-- source: UNVERIFIED (mechanical inverse)
+- source: inverse of loan.eu — Збор 2005, §52
 
 ## Morphology — `data/rules/morphology.yaml`
 
 ### morph.final_tr
 - direction: narkamauka → taraskievica
-- does: epenthetic а in word-final -тр/-др: тэатр → тэатар, цэнтр → цэнтар
-- source: UNVERIFIED
+- does: epenthetic а in word-final -тр/-др: тэатр → тэатар, цэнтр → цэнтар; not in non-traditional
+  proper names (Сартр, Нотр-Дам)
+- source: Збор 2005, §26 (аркестар, літар, мэтар, тэатар, цэнтар, Аляксандар) and §26 Заўвага А
+  ("У нетрадыцыйных уласных назовах tr, dr на пісьме перадаюцца без устаўнога галоснага: Нотр-Дам,
+  Сартр"). Which proper names are non-traditional is not decidable from spelling: they are listed
+  as rule exceptions (сартр, нотр) and the list is open.
 
 ### morph.particle.nya
 - direction: taraskievica → narkamauka
@@ -142,7 +195,15 @@ it here and fix the rule in the same change.
 
 ## Pipeline-level rules — `src/belnorm/rules/morphology.py`
 
-These need the next word, so they run in the pipeline rather than the YAML engine.
+These need the neighbouring word, so they run in the pipeline rather than the YAML engine.
+
+### morph.conj_i_j
+- direction: narkamauka → taraskievica
+- does: **optional** (aggressive mode only): the conjunction/particle і → й after a word ending
+  in a vowel, with only whitespace between: сала і цыбулю → сала й цыбулю. After punctuation it
+  stays і; a word-initial і- is never touched.
+- source: Збор 2005, §13 ("Пасьля словаў, якія канчаюцца на галосны, злучнік і часьцінка і
+  складовае **можа** пераходзіць у й нескладовае … Пачатковае і- … пішацца нязьменна")
 
 ### morph.particle
 - direction: narkamauka → taraskievica
@@ -198,9 +259,8 @@ are the пісьменнік family above.
 
 ## Not a gap: optional forms
 
-- **і → й after a vowel** (мама й тата): Збор 2005, §13 — after a word ending in a vowel the
-  conjunction and particle і "можа пераходзіць у й" (*may* become й); an initial і- of a word is
-  always written і. Leaving і is compliant, so the converter leaves it.
+- **і → й after a vowel** (мама й тата): Збор 2005, §13 — *may*, not *must*. Follows the optional
+  forms policy: left as і by default, applied by `morph.conj_i_j` in aggressive mode.
 
 ## Architectural gap: no morphological layer
 

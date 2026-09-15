@@ -50,15 +50,21 @@ rules:
         - { input: "сіні", expected: "сіні" }
 
   - id: loan.f_substitution
-    description: "Traditional names: Фёдар → Хведар"
+    description: "Traditional names: Фёдар → Хведар, Фядос → Хвядос (optional form)"
     direction: narkamauka_to_taraskievica
     function: "belnorm.rules.loanwords:apply_f_substitution"
+    # Збор 2005 §81 Заўвага Б: Тодар, Фёдар, Хведар, Ходар are all valid; Фёдар needs
+    # no change. Applied only in aggressive mode.
+    optional: true
     priority: 40
     tests:
       positive:
         - { input: "фёдар", expected: "хведар" }
+        - { input: "фёдара", expected: "хведара" }
+        - { input: "фядос", expected: "хвядос" }
       negative:
         - { input: "фабрыка", expected: "фабрыка" }
+        - { input: "філіп", expected: "філіп" }
 
   - id: loan.g_distinction
     description: "Plosive ґ in old borrowings: ганак → ґанак, гузік → ґузік"

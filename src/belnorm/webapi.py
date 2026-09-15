@@ -11,6 +11,7 @@ POST /api/convert, ``Content-Type: application/json``::
 - ``direction``: ``"taraskievica"`` (default) or ``"narkamauka"``
 - ``script``: ``"cyrillic"`` only for now
 - ``explain``: add per-token ``segments`` covering the whole output
+- ``aggressive``: also apply optional transformations (default false)
 
 200::
 
@@ -126,7 +127,13 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
     explain = payload.get("explain", False)
     if not isinstance(explain, bool):
         raise ApiError(400, "explain must be a boolean")
+    aggressive = payload.get("aggressive", False)
+    if not isinstance(aggressive, bool):
+        raise ApiError(400, "aggressive must be a boolean")
 
+    # aggressive: also rewrite forms the codification already allows (Фёдар → Хведар,
+    # і → й after a vowel). Off by default: converting an allowed form is a false positive.
+    converter = converter.variant(aggressive)
     text = sanitize(text)
     result = converter.convert(text, direction)
     by_method = {m.value: 0 for m in Method}
@@ -136,6 +143,7 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
         "result": result.text,
         "direction": direction.value,
+        "aggressive": aggressive,
         "stats": {
             "words": len(result.conversions),
             "changed": sum(by_method.values()),

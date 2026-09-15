@@ -42,6 +42,19 @@ def test_explain_segments_rebuild_the_output(converter: Converter) -> None:
     assert st["by_method"]["lexicon"] + st["by_method"]["rule"] == 5
 
 
+def test_aggressive_field(converter: Converter) -> None:
+    default = convert_payload(converter, {"text": "Фёдар і Мама"})
+    assert default["result"] == "Фёдар і Мама" and default["aggressive"] is False
+    aggressive = convert_payload(converter, {"text": "Фёдар і Мама", "aggressive": True})
+    assert aggressive["result"] == "Хведар і Мама"  # і after a consonant stays
+    assert convert_payload(converter, {"text": "Мама і тата", "aggressive": True})["result"] == (
+        "Мама й тата"
+    )
+    with pytest.raises(ApiError) as exc:
+        convert_payload(converter, {"text": "а", "aggressive": "yes"})
+    assert exc.value.status == 400
+
+
 def test_no_segments_without_explain(converter: Converter) -> None:
     assert "segments" not in convert_payload(converter, {"text": "снег"})
 
