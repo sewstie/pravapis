@@ -108,10 +108,20 @@ it here and fix the rule in the same change.
 
 ### loan.eu
 - direction: narkamauka → taraskievica
-- does: word-initial еў → эў: Еўропа → Эўропа
-- source: Збор 2005, §52 (Эўропа, эўрапейскі, эўфарыя). Over-applies to long-assimilated names the
-  book writes with Е or lists both ways (Еўдакія §29 Заўвага В; Еўфрасіньня побач з Эўфрасіньня
-  §52) — see the optional-forms audit.
+- does: word-initial еў → эў in loanwords and classical/foreign names (Еўропа → Эўропа,
+  Еўклід → Эўклід, Еўфрат → Эўфрат); not in traditional Christian given names (Еўдакія,
+  Еўфрасіння stay)
+- source: Збор 2005, §52 (Greek ευ / Latin eu → эў: эўгеніка, эўфарыя, Эўклід, Эўропа, Эўрыпід,
+  Эўфрат).
+- scope boundary, from the book: §52 excludes "даўно асвоеныя імёны … варыянты адаптацыі", and §72
+  Заўвага А says traditional Christian names are fixed in two forms, with initial [й] and without
+  (Еўдакія – Аўдоцьця; Е(ў)фрасіньня – Эўфрасіньня й Апраска); footnote 68: the Е-/Я- forms come
+  through Church Slavonic mediation. The Е- form is valid, so it stays (optional-forms policy).
+  The boundary is a **lexical class** (traditional Christian given names vs loanwords and classical
+  names), not a spelling pattern: Эўклід and Еўдакія are both capitalised Greek names.
+- implementation — **workaround**: the rule excludes the stems of the class members the book
+  names (`^еў(?!дакі|фрасін)`). Other traditional names starting with Еў- are not covered until a
+  cited source puts them in the class.
 
 ### loan.l_palatalization
 - direction: narkamauka → taraskievica

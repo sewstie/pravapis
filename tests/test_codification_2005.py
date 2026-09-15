@@ -161,3 +161,35 @@ def test_names_left_unchanged(converter: Converter, name: str) -> None:
 )
 def test_names_with_cited_forms(converter: Converter, nark: str, tarask: str) -> None:
     _both_ways(converter, nark, tarask)
+
+
+# --- §52 / §72 Заўвага А: еў → эў scope ----------------------------------------------------------
+@pytest.mark.parametrize(
+    ("nark", "tarask"),
+    [
+        ("Еўропа", "Эўропа"),  # §52
+        ("еўрапейскі", "эўрапейскі"),  # §52
+        ("Еўклід", "Эўклід"),  # §52 classical name
+        ("Еўфрат", "Эўфрат"),  # §52
+    ],
+)
+def test_eu_in_loans_and_classical_names(converter: Converter, nark: str, tarask: str) -> None:
+    assert converter.convert(nark, N2T).text == tarask
+
+
+@pytest.mark.parametrize(
+    ("nark", "tarask"),
+    [
+        ("Еўдакія", "Еўдакія"),
+        ("Еўдакіі", "Еўдакіі"),
+        (
+            "Еўфрасіння",
+            "Еўфрасіньня",
+        ),  # Еў kept; нн → ньн still applies (§40), as the book spells it
+    ],
+)
+def test_eu_kept_in_traditional_christian_names(
+    converter: Converter, nark: str, tarask: str
+) -> None:
+    # §72 Заўвага А: Еўдакія – Аўдоцьця; Е(ў)фрасіньня – Эўфрасіньня (both forms valid)
+    assert converter.convert(nark, N2T).text == tarask
