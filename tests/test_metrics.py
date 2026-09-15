@@ -47,11 +47,16 @@ def test_read_gold_skips_uncertain(tmp_path: Path) -> None:
     tsv = tmp_path / "g.tsv"
     tsv.write_text(
         "# c\nснег\tсьнег\tv0\thand_written\nсвет\tсьвет\tv0\tconverter_checked\n"
-        "не\tня\tv0\tuncertain\nдом\tдом\n",
+        "не\tня\tv0\tuncertain\nдом\tдом\nбез яго\tбезь яго\tv0\tcodification_checked\n",
         encoding="utf-8",
     )
-    assert len(read_gold_rows(tsv)) == 4
-    assert read_gold(tsv) == [("снег", "сьнег"), ("свет", "сьвет"), ("дом", "дом")]
+    assert len(read_gold_rows(tsv)) == 5
+    assert read_gold(tsv) == [
+        ("снег", "сьнег"),
+        ("свет", "сьвет"),
+        ("дом", "дом"),
+        ("без яго", "безь яго"),
+    ]
     assert read_gold(tsv, trusted_only=True) == [("снег", "сьнег")]
 
 
