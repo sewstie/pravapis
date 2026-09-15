@@ -21,16 +21,22 @@ rules:
         - { input: "б’ю", expected: "б’ю" }
 
   - id: palat.geminate.dz
-    description: "Soft geminate дз: суддзя → судзьдзя"
+    description: "Soft geminate дз: суддзя → судзьдзя; not at a prefix boundary (аддзел)"
     direction: narkamauka_to_taraskievica
-    pattern: 'д(?=дз[еёіюяь])'
+    # Збор 2005 §40 (судзьдзя, стагодзьдзе); §32 and §41 Заўвага А: prefixes
+    # ад-/пад-/над-/перад- before дз are written unchanged (аддзел, аддзячыць, паддзець).
+    pattern: '(?<!^(?:па|за|на|вы|пера|раз|ус|у|з)?(?:а|па|на|пера))д(?=дз[еёіюяь])'
     replacement: 'дзь'
     priority: 115
     tests:
       positive:
         - { input: "суддзя", expected: "судзьдзя" }
+        - { input: "стагоддзе", expected: "стагодзьдзе" }
       negative:
         - { input: "падзея", expected: "падзея" }
+        - { input: "аддзел", expected: "аддзел" }
+        - { input: "аддзячыць", expected: "аддзячыць" }
+        - { input: "паддзець", expected: "паддзець" }
 
   - id: palat.geminate
     description: "Soft geminates take ь: насенне → насеньне, жыццё → жыцьцё, вяселле → вясельле"
@@ -51,9 +57,10 @@ rules:
         - { input: "рассада", expected: "рассада" }
 
   - id: palat.assim
-    description: "з с ц дз soften before a soft consonant: снег → сьнег, свет → сьвет, дзверы → дзьверы"
+    description: "з, с soften before a soft consonant (not г, к, х): снег → сьнег, свет → сьвет"
     direction: narkamauka_to_taraskievica
-    pattern: '(дз|[зсц])(?=(?:дз|[вмпблнсзц])[еёіюяь])'
+    # Збор 2005 §29. (?<!д) keeps the з of the digraph дз out; дз and ц are §30.
+    pattern: '((?<!д)з|с)(?=(?:дз|[вмпблнсзц])[еёіюяь])'
     replacement: '\1ь'
     priority: 100
     repeat: true
@@ -64,19 +71,38 @@ rules:
         - { input: "снег", expected: "сьнег" }
         - { input: "свет", expected: "сьвет" }
         - { input: "песня", expected: "песьня" }
-        - { input: "дзверы", expected: "дзьверы" }
         - { input: "свіння", expected: "сьвіння" }
-        - { input: "сцвярджаць", expected: "сьцьвярджаць" }
         - { input: "косць", expected: "косьць" }
         - { input: "здзейсніць", expected: "зьдзейсьніць" }
         - { input: "рассцілаць", expected: "расьсьцілаць" }
       negative:
+        - { input: "дзверы", expected: "дзверы" }
         - { input: "падсекчы", expected: "падсекчы" }
         - { input: "адзначыць", expected: "адзначыць" }
         - { input: "скептык", expected: "скептык" }
         - { input: "склеп", expected: "склеп" }
         - { input: "пісьмо", expected: "пісьмо" }
         - { input: "касьба", expected: "касьба" }
+
+  - id: palat.assim.ts_dz
+    description: "ц, дз soften only before a soft в within a root: дзверы → дзьверы, цвік → цьвік"
+    direction: narkamauka_to_taraskievica
+    # Збор 2005 §30; Заўвага А: before other consonants they stay hard (мацнець, пэндзлік, Цнянка).
+    pattern: '(дз|ц)(?=в[еёіюяь])'
+    replacement: '\1ь'
+    priority: 100
+    repeat: true
+    tests:
+      positive:
+        - { input: "дзверы", expected: "дзьверы" }
+        - { input: "цвік", expected: "цьвік" }
+        - { input: "дзве", expected: "дзьве" }
+        - { input: "сцвярджаць", expected: "сцьвярджаць" }
+      negative:
+        - { input: "мацнець", expected: "мацнець" }
+        - { input: "пэндзлік", expected: "пэндзлік" }
+        - { input: "цнянка", expected: "цнянка" }
+        - { input: "цвыркун", expected: "цвыркун" }
 
   # ---------------------------------------------------------------- T → N
   - id: palat.ungeminate.dz
@@ -107,9 +133,9 @@ rules:
         - { input: "гусь", expected: "гусь" }
 
   - id: palat.unassim
-    description: "Drop assimilative ь before a soft consonant: сьнег → снег; keep genuine ь: пісьмо"
+    description: "Drop assimilative ь of з, с before a soft consonant: сьнег → снег; keep genuine ь: пісьмо"
     direction: taraskievica_to_narkamauka
-    pattern: '(дз|[зсц])ь(?=(?:дз|[вмпблнсзц])[еёіюяь])'
+    pattern: '((?<!д)з|с)ь(?=(?:дз|[вмпблнсзц])[еёіюяь])'
     replacement: '\1'
     priority: 110
     repeat: true
@@ -121,7 +147,6 @@ rules:
       positive:
         - { input: "сьнег", expected: "снег" }
         - { input: "сьвет", expected: "свет" }
-        - { input: "дзьверы", expected: "дзверы" }
         - { input: "сьвіньня", expected: "свіньня" }
         - { input: "косьць", expected: "косць" }
         - { input: "расьсьцілаць", expected: "рассцілаць" }
@@ -130,6 +155,22 @@ rules:
         - { input: "касьба", expected: "касьба" }
         - { input: "восьмы", expected: "восьмы" }
         - { input: "дзень", expected: "дзень" }
+        - { input: "дзьме", expected: "дзьме" }
+
+  - id: palat.unassim.ts_dz
+    description: "Drop the ь of ц, дз before a soft в: дзьверы → дзверы, цьвік → цвік"
+    direction: taraskievica_to_narkamauka
+    pattern: '(дз|ц)ь(?=в[еёіюяь])'
+    replacement: '\1'
+    priority: 110
+    repeat: true
+    tests:
+      positive:
+        - { input: "дзьверы", expected: "дзверы" }
+        - { input: "цьвік", expected: "цвік" }
+      negative:
+        - { input: "дзьме", expected: "дзьме" }
+        - { input: "бацькі", expected: "бацькі" }
 
   - id: palat.unapostrophe
     description: "зь/сь before an iotated vowel is the apostrophe in Narkamaŭka: зьява → з’ява"

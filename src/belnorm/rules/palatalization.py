@@ -37,24 +37,37 @@ GEMINABLE: Final[frozenset[str]] = frozenset({"н", "л", "з", "с", "ц", "д�
 
 _TRIGGER_ALT: Final[str] = "(?:дз|[вмпблнсзц])"
 
+#: Word-initial prefixes ending in д (ад-, пад-, над-, перад-, optionally after
+#: another prefix). At this boundary д + дз is written without ь (Збор 2005,
+#: §32; §41 Заўвага А: аддзел, аддзячыць, паддзець, Наддзьвіньне).
+_D_PREFIX_LOOKBEHIND: Final[str] = r"(?<!^(?:па|за|на|вы|пера|раз|ус|у|з)?(?:а|па|на|пера))"
+
 # --- Narkamaŭka → Taraškievica -------------------------------------------------
-ASSIM_PATTERN: Final[str] = rf"(дз|[зсц])(?={_TRIGGER_ALT}[{SOFTENERS}])"
+#: §29: с, з soften before any following soft consonant except г, к, х.
+#: (?<!д) keeps the з of the digraph дз out of this rule.
+ASSIM_PATTERN: Final[str] = rf"((?<!д)з|с)(?={_TRIGGER_ALT}[{SOFTENERS}])"
+#: §30: ц, дз soften only before a soft в within a root (цьвік, дзьверы);
+#: Заўвага А keeps them hard before other consonants (мацнець, пэндзлік, Цнянка).
+ASSIM_TS_DZ_PATTERN: Final[str] = rf"(дз|ц)(?=в[{SOFTENERS}])"
 GEMINATE_PATTERN: Final[str] = rf"(дз|[нлзсц])(?=\1[{SOFTENERS}])"
-GEMINATE_DZ_PATTERN: Final[str] = rf"д(?=дз[{SOFTENERS}])"  # суддзя → судзьдзя
+GEMINATE_DZ_PATTERN: Final[str] = rf"{_D_PREFIX_LOOKBEHIND}д(?=дз[{SOFTENERS}])"  # суддзя
 APOSTROPHE_PATTERN: Final[str] = rf"([зс])[’'ʼ`‘](?=[{SOFT_VOWELS}])"  # з’ява → зьява
 
 _ASSIM_RE: Final[regex.Pattern[str]] = regex.compile(ASSIM_PATTERN)
+_ASSIM_TS_DZ_RE: Final[regex.Pattern[str]] = regex.compile(ASSIM_TS_DZ_PATTERN)
 _GEM_RE: Final[regex.Pattern[str]] = regex.compile(GEMINATE_PATTERN)
 _GEM_DZ_RE: Final[regex.Pattern[str]] = regex.compile(GEMINATE_DZ_PATTERN)
 _APOS_RE: Final[regex.Pattern[str]] = regex.compile(APOSTROPHE_PATTERN)
 
 # --- Taraškievica → Narkamaŭka -------------------------------------------------
-UNASSIM_PATTERN: Final[str] = rf"(дз|[зсц])ь(?={_TRIGGER_ALT}[{SOFTENERS}])"
+UNASSIM_PATTERN: Final[str] = rf"((?<!д)з|с)ь(?={_TRIGGER_ALT}[{SOFTENERS}])"
+UNASSIM_TS_DZ_PATTERN: Final[str] = rf"(дз|ц)ь(?=в[{SOFTENERS}])"
 UNGEMINATE_PATTERN: Final[str] = rf"(дз|[нлзсц])ь(?=\1[{SOFTENERS}])"
 UNGEMINATE_DZ_PATTERN: Final[str] = rf"дзь(?=дз[{SOFTENERS}])"
 UNAPOSTROPHE_PATTERN: Final[str] = rf"([зс])ь(?=[{SOFT_VOWELS}])"
 
 _UNASSIM_RE: Final[regex.Pattern[str]] = regex.compile(UNASSIM_PATTERN)
+_UNASSIM_TS_DZ_RE: Final[regex.Pattern[str]] = regex.compile(UNASSIM_TS_DZ_PATTERN)
 _UNGEM_RE: Final[regex.Pattern[str]] = regex.compile(UNGEMINATE_PATTERN)
 _UNGEM_DZ_RE: Final[regex.Pattern[str]] = regex.compile(UNGEMINATE_DZ_PATTERN)
 _UNAPOS_RE: Final[regex.Pattern[str]] = regex.compile(UNAPOSTROPHE_PATTERN)
@@ -80,6 +93,7 @@ def mark_assimilative_softness(word: str) -> str:
         (_APOS_RE, r"\1ь"),
         (_GEM_DZ_RE, "дзь"),
         (_GEM_RE, r"\1ь"),
+        (_ASSIM_TS_DZ_RE, r"\1ь"),
         (_ASSIM_RE, r"\1ь"),
     )
 
@@ -92,6 +106,7 @@ def unmark_assimilative_softness(word: str) -> str:
         word,
         (_UNGEM_DZ_RE, "д"),
         (_UNASSIM_RE, r"\1"),
+        (_UNASSIM_TS_DZ_RE, r"\1"),
         (_UNGEM_RE, r"\1"),
     )
     return _UNAPOS_RE.sub(rf"\1{CANONICAL_APOSTROPHE}", word)
@@ -115,4 +130,6 @@ def is_palatalizing_context(word: str, i: int) -> bool:
     after = word[j + len(nxt) : j + len(nxt) + 1]
     if here == "н":
         return nxt == "н" and after in set(SOFTENERS)
+    if here in ("ц", "дз"):  # §30: only before в
+        return nxt == "в" and after in set(SOFTENERS)
     return nxt in SOFT_TRIGGERS and after in set(SOFTENERS)
