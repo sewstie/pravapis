@@ -83,7 +83,7 @@ def _commit() -> str:
 
 def export(out: Path, *, force: bool = False) -> dict[str, int]:
     sys.path.insert(0, str(ROOT / "src"))
-    from belnorm.lexicon.builder import build_from_sources, save_lexicon
+    from belnorm.lexicon.builder import build_from_sources, save_lexicon, sources_digest
 
     api = out / "api"
     vendor = api / "_belnorm"
@@ -109,7 +109,9 @@ def export(out: Path, *, force: bool = False) -> dict[str, int]:
     for name in STRESS_FILES:
         shutil.copy2(DATA / "stress" / name, vendor / "data" / "stress" / name)
     fwd, rev = build_from_sources(DATA / "lexicon")
-    save_lexicon(fwd, rev, vendor / "data" / "lexicon.marisa")
+    save_lexicon(
+        fwd, rev, vendor / "data" / "lexicon.marisa", source_digest=sources_digest(DATA / "lexicon")
+    )
     (vendor / "VERSION").write_text(_commit() + "\n", encoding="utf-8")
 
     shutil.copy2(DEPLOY / "api" / "convert.py", api / "convert.py")

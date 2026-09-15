@@ -44,6 +44,8 @@ class Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     lexicon: Path
+    #: TSV sources a compiled ``lexicon`` must match (checked on load); None skips the check
+    lexicon_sources: Path | None = None
     rules: tuple[Path, ...]
     #: directory built by scripts/build_stress_table.py (GrammarDB stress marks)
     stress: Path | None = None
@@ -73,6 +75,7 @@ class Config(BaseModel):
         stress = base / "stress"
         return cls(
             lexicon=lexicon,
+            lexicon_sources=base / "lexicon" if lexicon == compiled else None,
             rules=tuple(base / "rules" / name for name in RULE_FILES),
             stress=stress if (stress / "first_stressed.marisa").is_file() else None,
             model=None,
@@ -93,6 +96,8 @@ class Config(BaseModel):
             raw["lexicon"] = resolve(str(raw["lexicon"]))
         if "rules" in raw:
             raw["rules"] = tuple(resolve(str(r)) for r in raw["rules"])
+        if raw.get("lexicon_sources"):
+            raw["lexicon_sources"] = resolve(str(raw["lexicon_sources"]))
         if raw.get("stress"):
             raw["stress"] = resolve(str(raw["stress"]))
         if raw.get("model"):

@@ -4,16 +4,21 @@ from pathlib import Path
 
 import pytest
 
+from belnorm.config import Config
 from belnorm.lexicon.builder import (
+    StaleLexiconError,
     align_corpora,
     build_both,
+    build_from_sources,
     build_trie,
     load_lexicon_file,
     read_tsv_pairs,
     save_lexicon,
+    sources_digest,
     validate_entries,
 )
 from belnorm.lexicon.store import Lexicon
+from belnorm.pipeline import Converter
 from belnorm.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
@@ -55,14 +60,92 @@ def test_build_trie_first_wins() -> None:
 def test_save_and_load_roundtrip(tmp_path: Path) -> None:
     fwd, rev = build_both([("клас", "кляса"), ("мінск", "менск")])
     out = tmp_path / "lex.marisa"
-    save_lexicon(fwd, rev, out)
-    f2, r2 = load_lexicon_file(out)
+    save_lexicon(fwd, rev, out, source_digest=bytes(32))
+    f2, r2, digest = load_lexicon_file(out)
     assert f2["клас"] == ["кляса".encode()]
     assert r2["менск"] == ["мінск".encode()]
+    assert digest == bytes(32)
     lex = Lexicon.load(out)
     assert lex.lookup("клас", N2T) == "кляса"
     assert lex.lookup("менск", T2N) == "мінск"
     assert len(lex) == 2
+
+
+def _compile(sources: Path, out: Path) -> None:
+    save_lexicon(*build_from_sources(sources), out, source_digest=sources_digest(sources))
+
+
+def test_compiled_lexicon_matching_sources_loads(tmp_path: Path) -> None:
+    src = tmp_path / "lexicon"
+    src.mkdir()
+    (src / "a.tsv").write_text("клас\tкляса\n", encoding="utf-8")
+    _compile(src, tmp_path / "lex.marisa")
+    assert Lexicon.load(tmp_path / "lex.marisa", sources=src).lookup("клас", N2T) == "кляса"
+
+
+def test_corrupted_source_hash_fails_loudly(tmp_path: Path) -> None:
+    src = tmp_path / "lexicon"
+    src.mkdir()
+    (src / "a.tsv").write_text("клас\tкляса\n", encoding="utf-8")
+    out = tmp_path / "lex.marisa"
+    _compile(src, out)
+    data = bytearray(out.read_bytes())
+    data[len(b"BELNORM2")] ^= 0xFF  # flip the first byte of the stored digest
+    out.write_bytes(bytes(data))
+    with pytest.raises(StaleLexiconError, match="different sources"):
+        Lexicon.load(out, sources=src)
+
+
+def test_edited_sources_make_compiled_lexicon_stale(tmp_path: Path) -> None:
+    # The Фёдар bug: TSV corrected after compiling, compiled file still says Хведар.
+    src = tmp_path / "lexicon"
+    src.mkdir()
+    (src / "names.tsv").write_text("фёдар\tхведар\n", encoding="utf-8")
+    out = tmp_path / "lex.marisa"
+    _compile(src, out)
+    (src / "names.tsv").write_text("# removed: optional form\n", encoding="utf-8")
+    with pytest.raises(StaleLexiconError):
+        Lexicon.load(out, sources=src)
+
+
+def test_line_endings_do_not_change_the_digest(tmp_path: Path) -> None:
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    (a / "x.tsv").write_bytes("клас\tкляса\n".encode())
+    (b / "x.tsv").write_bytes("клас\tкляса\r\n".encode())
+    assert sources_digest(a) == sources_digest(b)
+
+
+def test_old_container_without_hash_is_stale(tmp_path: Path) -> None:
+    old = tmp_path / "old.marisa"
+    old.write_bytes(b"BELNORM1" + bytes(8))
+    with pytest.raises(StaleLexiconError, match="older belnorm"):
+        Lexicon.load(old)
+
+
+def test_converter_never_serves_a_stale_compiled_lexicon(
+    tmp_path: Path, config: Config, caplog: pytest.LogCaptureFixture
+) -> None:
+    src = tmp_path / "lexicon"
+    src.mkdir()
+    (src / "names.tsv").write_text("фёдар\tхведар\n", encoding="utf-8")
+    out = tmp_path / "lex.marisa"
+    _compile(src, out)
+    (src / "names.tsv").write_text("клас\tкляса\n", encoding="utf-8")
+    cfg = config.model_copy(update={"lexicon": out, "lexicon_sources": src})
+    with caplog.at_level("WARNING"):
+        conv = Converter.from_config(cfg)
+    assert "different sources" in caplog.text
+    assert "STALE" in conv.lexicon_origin
+    assert conv.convert("Фёдар і клас", N2T).text == "Фёдар і кляса"
+    # without the sources there is nothing correct to serve: fail
+    (src / "names.tsv").unlink()
+    src.rmdir()
+    cfg_missing = config.model_copy(update={"lexicon": tmp_path / "old.marisa"})
+    (tmp_path / "old.marisa").write_bytes(b"BELNORM1" + bytes(8))
+    with pytest.raises(StaleLexiconError):
+        Converter.from_config(cfg_missing)
 
 
 def test_load_rejects_garbage(tmp_path: Path) -> None:
