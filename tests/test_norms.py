@@ -6,12 +6,13 @@ from pathlib import Path
 
 import regex
 
+from belnorm.lexicon.case_forms import CASE_RULE_ID
 from belnorm.pipeline import PARTICLE_RULE_ID
 from belnorm.rules.engine import RuleEngine
 from belnorm.rules.morphology import CONJ_RULE_ID
 from belnorm.types import Orthography
 
-PIPELINE_RULE_IDS = {PARTICLE_RULE_ID, CONJ_RULE_ID}
+PIPELINE_RULE_IDS = {PARTICLE_RULE_ID, CONJ_RULE_ID, CASE_RULE_ID}
 
 NORMS = Path(__file__).resolve().parent.parent / "data" / "NORMS.md"
 

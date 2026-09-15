@@ -47,6 +47,8 @@ class Config(BaseModel):
     #: TSV sources a compiled ``lexicon`` must match (checked on load); None skips the check
     lexicon_sources: Path | None = None
     rules: tuple[Path, ...]
+    #: case-dependent substitutions (data/lexicon/case/*.tsv), see belnorm.lexicon.case_forms
+    case_forms: Path | None = None
     #: directory built by scripts/build_stress_table.py (GrammarDB stress marks)
     stress: Path | None = None
     model: Path | None = None
@@ -76,6 +78,7 @@ class Config(BaseModel):
         return cls(
             lexicon=lexicon,
             lexicon_sources=base / "lexicon" if lexicon == compiled else None,
+            case_forms=base / "lexicon" / "case" if (base / "lexicon" / "case").is_dir() else None,
             rules=tuple(base / "rules" / name for name in RULE_FILES),
             stress=stress if (stress / "first_stressed.marisa").is_file() else None,
             model=None,
@@ -96,6 +99,8 @@ class Config(BaseModel):
             raw["lexicon"] = resolve(str(raw["lexicon"]))
         if "rules" in raw:
             raw["rules"] = tuple(resolve(str(r)) for r in raw["rules"])
+        if raw.get("case_forms"):
+            raw["case_forms"] = resolve(str(raw["case_forms"]))
         if raw.get("lexicon_sources"):
             raw["lexicon_sources"] = resolve(str(raw["lexicon_sources"]))
         if raw.get("stress"):

@@ -23,6 +23,7 @@ import regex
 from belnorm.casing import recase
 from belnorm.config import DEFAULT_AMBIGUITY_TRIGGERS, Config
 from belnorm.lexicon.builder import StaleLexiconError
+from belnorm.lexicon.case_forms import CASE_RULE_ID, CaseForms
 from belnorm.lexicon.store import Lexicon
 from belnorm.normalize import sanitize
 from belnorm.rules.engine import RuleEngine
@@ -35,7 +36,7 @@ from belnorm.rules.morphology import (
     convert_particle,
 )
 from belnorm.stress import StressTable
-from belnorm.tokenize import context_of, is_belarusian_word, next_word, tokenize
+from belnorm.tokenize import context_of, is_belarusian_word, next_word, previous_word, tokenize
 from belnorm.types import (
     METHOD_PRIORITY,
     Conversion,
@@ -86,6 +87,7 @@ class Converter:
         stress: StressTable | None = None,
         *,
         aggressive: bool = False,
+        case_forms: CaseForms | None = None,
     ):
         """``aggressive`` also applies optional transformations: rewrites of forms the
         codification already allows (Фёдар → Хведар, і → й after a vowel). Off by default;
@@ -98,6 +100,7 @@ class Converter:
         self.disambiguator = disambiguator
         self.config = config
         self.stress = stress
+        self.case_forms = case_forms if case_forms is not None else CaseForms.empty()
         triggers = config.ambiguity_triggers if config else DEFAULT_AMBIGUITY_TRIGGERS
         self._triggers: tuple[regex.Pattern[str], ...] = tuple(regex.compile(t) for t in triggers)
         self._cache: dict[tuple[str, Orthography], Resolved | None] = {}
@@ -115,6 +118,7 @@ class Converter:
                 self.config,
                 self.stress,
                 aggressive=aggressive,
+                case_forms=self.case_forms,
             )
             other._variants = self._variants
             other.lexicon_origin = self.lexicon_origin
@@ -160,7 +164,12 @@ class Converter:
                 )
             except Exception as exc:  # fail-safe: rules + lexicon still work
                 log.warning("disambiguation model %s not loaded: %s", config.model, exc)
-        conv = cls(lexicon, engine, disambiguator, config, stress)
+        case_forms = (
+            CaseForms.load(config.case_forms)
+            if config.case_forms is not None and config.case_forms.exists()
+            else None
+        )
+        conv = cls(lexicon, engine, disambiguator, config, stress, case_forms=case_forms)
         conv.lexicon_origin = origin
         return conv
 
@@ -191,7 +200,9 @@ class Converter:
                 out.append(tok.text)
                 continue
             ctx = context_of(tokens, i)
-            conv = self._cascade(tok, ctx, next_word(tokens, i), direction)
+            conv = self._cascade(
+                tok, ctx, next_word(tokens, i), direction, previous_word(tokens, i)
+            )
             if conv is None:
                 pending.append((len(conversions), i, tok, ctx))
             words.append((i, len(conversions)))
@@ -246,10 +257,18 @@ class Converter:
         for i, tok in enumerate(tokens):
             if tok.kind is not TokenKind.WORD:
                 continue
-            conv = self._convert_token(tok, context_of(tokens, i), next_word(tokens, i), direction)
+            conv = self._convert_token(
+                tok,
+                context_of(tokens, i),
+                next_word(tokens, i),
+                direction,
+                previous_word(tokens, i),
+            )
             traces: tuple[RuleTrace, ...] = ()
             if conv.method in (Method.RULE, Method.MODEL):
                 traces = self._traces_for(tok.text.lower(), conv, direction, next_word(tokens, i))
+            elif conv.rule_id == CASE_RULE_ID:
+                traces = (RuleTrace(CASE_RULE_ID, tok.text.lower(), conv.target.lower()),)
             index[i] = len(explanations)
             out[i] = conv.target
             explanations.append(
@@ -297,9 +316,10 @@ class Converter:
         context: Sequence[Token],
         following: Token | None,
         direction: Orthography,
+        preceding: Token | None = None,
     ) -> Conversion:
         """Full cascade for one token, including a single-word model call."""
-        conv = self._cascade(token, context, following, direction)
+        conv = self._cascade(token, context, following, direction, preceding)
         if conv is not None:
             return conv
         assert self.disambiguator is not None
@@ -325,6 +345,7 @@ class Converter:
         context: Sequence[Token],
         following: Token | None,
         direction: Orthography,
+        preceding: Token | None = None,
     ) -> Conversion | None:
         """Steps 1-3 and 5 of the cascade; None means "ask the classifier" (step 4).
 
@@ -336,6 +357,14 @@ class Converter:
         if not is_belarusian_word(token):
             return Conversion(source, source, Method.UNKNOWN)
         lw = source.lower()
+        if direction is Orthography.TARASKIEVICA and lw in self.case_forms:
+            # One form, several cases, different Taraškievica endings: the preposition
+            # before it decides (Германіі → Нямеччыны / у Нямеччыне).
+            choice = self.case_forms.choose(lw, preceding.text if preceding else None)
+            assert choice is not None
+            return Conversion(
+                source, _recase_like(source, lw, choice[0]), Method.LEXICON, CASE_RULE_ID
+            )
         if lw in CONTEXT_SENSITIVE:
             resolved = self._resolve_clitic(lw, following.text if following else None, direction)
         else:

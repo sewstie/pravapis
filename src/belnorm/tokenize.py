@@ -91,6 +91,16 @@ def context_of(tokens: Sequence[Token], i: int, window: int = 2) -> list[Token]:
     return left + right
 
 
+def previous_word(tokens: Sequence[Token], i: int) -> Token | None:
+    """The last word token before index ``i`` with only whitespace in between."""
+    for j in range(i - 1, -1, -1):
+        if tokens[j].kind is TokenKind.WORD:
+            return tokens[j]
+        if tokens[j].kind is not TokenKind.SPACE:
+            return None
+    return None
+
+
 def next_word(tokens: Sequence[Token], i: int) -> Token | None:
     """The first word token after index ``i`` with only whitespace in between.
 

@@ -207,6 +207,21 @@ it here and fix the rule in the same change.
 
 These need the neighbouring word, so they run in the pipeline rather than the YAML engine.
 
+### lex.case_context
+- direction: narkamauka → taraskievica
+- does: lexical substitutions whose Taraškievica target depends on case, where one Narkamaŭka form
+  covers several cases (`data/lexicon/case/*.tsv`). The preposition before the word decides:
+  у, ў, ва, на, аб, пры, па, к, ка, дзякуючы, насустрач, насуперак → dative/locative target;
+  anything else → genitive. Only entry so far: Германіі → Нямеччыны (сталіца Нямеччыны,
+  да Нямеччыны) / Нямеччыне (у Нямеччыне, па Нямеччыне).
+- source: the forms — GrammarDB RELEASE-202601 paradigm Германія (GS = DS = LS Германіі); the
+  lemma — Збор 2005, §37 (нямецкі – Нямеччына); the declension of Нямеччына is the regular
+  feminine -а one. The preposition → case mapping is ordinary Belarusian grammar, not a rule of the
+  codification.
+- known limitation: a dative governed by a verb, with no preposition, gets the genitive
+  (дапамагаць Германіі → дапамагаць Нямеччыны; should be Нямеччыне). baltoslav.eu makes the same
+  choice there, and also for па.
+
 ### morph.conj_i_j
 - direction: narkamauka → taraskievica
 - does: **optional** (aggressive mode only): the conjunction/particle і → й after a word ending
@@ -315,8 +330,6 @@ Policy: when sources disagree or the annotator is unsure, the word is **not** ad
 lexicon or the rules and passes through unchanged. A missing conversion is better than a
 guessed one. Each item needs the codification (or another cited dictionary) to resolve.
 
-- **Кыргызстан**: Taraškievica sources disagree between *Кыргыстан* and *Кіргізія*. Not in
-  the lexicon; Кыргызстан and its forms pass through unchanged. Not in the Збор 2005 rules.
 - **Softness across a hyphen**: Збор 2005 §29 limits assimilative softness to "у межах слова"
   plus the four prepositions, and endnote xxxviii leaves hyphenation and compound spelling
   outside the rules. Parts of a hyphenated word are converted separately.
@@ -330,6 +343,15 @@ Resolved from this list: **цыкль** does not arise — Збор 2005, §56.2
   `data/lexicon/proper_nouns.tsv`, taken from GrammarDB RELEASE-202601 (paradigms Швейцарыя
   NPIINF2 and швейцарскі ARP) with only the stem changed. Source for the Taraškievica stem:
   Збор 2005, §80 — German ei is written ай (яй) in German loans: Ляйпцыг, Айнштайн, Райх.
+- **Country names in every case form** (`data/lexicon/proper_nouns.tsv`, forms from GrammarDB
+  RELEASE-202601; same paradigm on both sides, so only the stem changes):
+  Аргенціна → Аргентына (Збор 2005 §66), Арменія → Армэнія (§11), Бельгія → Бэльгія,
+  Іспанія → Гішпанія (§33, §64), Кыргызстан → Кыргыстан, Мексіка → Мэксыка (Мексіцы → Мэксыцы),
+  Расія → Расея (§33), Швейцарыя → Швайцарыя (§80). Германія → Нямеччына (§37) has different
+  endings per case: see `lex.case_context`. Бэльгія, Мэксыка and Кыргыстан are not in the rules
+  text; their source is the project owner's reference list (a 2014 zviazda.by sentence in
+  Taraškievica), spot-checked with baltoslav.eu (comparison only, not a data source).
+  **Кыргыстан** was previously unresolved (Кыргыстан vs Кіргізія); resolved on that basis.
 - **Расія → Расея, расійскі → расейскі**: Збор 2005, §33 з) "расейскі (ад Расе[й|а])"; the book
   writes расейскі throughout and never Расія/расійскі.
 - **Personal names** (checked against the rules text, Збор 2005):

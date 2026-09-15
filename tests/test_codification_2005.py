@@ -193,3 +193,69 @@ def test_eu_kept_in_traditional_christian_names(
 ) -> None:
     # §72 Заўвага А: Еўдакія – Аўдоцьця; Е(ў)фрасіньня – Эўфрасіньня (both forms valid)
     assert converter.convert(nark, N2T).text == tarask
+
+
+# --- country names in case forms --------------------------------------------------------------
+REFERENCE_NARKAMAUKA = (
+    "краін — Аргенціны, Бельгіі, Арменіі, Германіі, Казахстана, Іспаніі, Кыргызстана, Італіі, "
+    "Малдовы, Мексікі, Літвы, Латвіі, Расіі, Польшчы, Украіны, Эстоніі, Швейцарыі і Францыі"
+)
+#: The project owner's reference sentence. краінаў (genitive plural -аў) is a known gap and
+#: й is optional (§13), so both are compared separately.
+REFERENCE_TARASKIEVICA = (
+    "краін — Аргентыны, Бэльгіі, Армэніі, Нямеччыны, Казахстана, Гішпаніі, Кыргыстана, Італіі, "
+    "Малдовы, Мэксыкі, Літвы, Латвіі, Расеі, Польшчы, Украіны, Эстоніі, Швайцарыі і Францыі"
+)
+
+
+def test_country_list_reference(converter: Converter) -> None:
+    assert converter.convert(REFERENCE_NARKAMAUKA, N2T).text == REFERENCE_TARASKIEVICA
+    aggressive = converter.convert(REFERENCE_NARKAMAUKA, N2T, aggressive=True).text
+    assert aggressive.endswith("Швайцарыі й Францыі")
+    assert converter.convert(REFERENCE_TARASKIEVICA, T2N).text == REFERENCE_NARKAMAUKA
+
+
+@pytest.mark.parametrize(
+    ("nark", "tarask"),
+    [
+        ("Аргенціна", "Аргентына"),
+        ("у Аргенціне", "у Аргентыне"),
+        ("Аргенціну", "Аргентыну"),
+        ("Арменію", "Армэнію"),
+        ("Бельгіяй", "Бэльгіяй"),
+        ("з Іспаніі", "з Гішпаніі"),
+        ("Кыргызстан", "Кыргыстан"),
+        ("у Кыргызстане", "у Кыргыстане"),
+        ("Кыргызстанам", "Кыргыстанам"),
+        ("у Мексіцы", "у Мэксыцы"),
+        ("Мексіку", "Мэксыку"),
+        ("Расію", "Расею"),
+        ("у Расіі", "у Расеі"),
+        ("Германія", "Нямеччына"),
+        ("Германію", "Нямеччыну"),
+        ("Германіяй", "Нямеччынай"),
+    ],
+)
+def test_country_case_forms(converter: Converter, nark: str, tarask: str) -> None:
+    _both_ways(converter, nark, tarask)
+
+
+@pytest.mark.parametrize(
+    ("nark", "tarask"),
+    [
+        ("сталіца Германіі", "сталіца Нямеччыны"),  # genitive (default)
+        ("да Германіі", "да Нямеччыны"),  # да + genitive
+        ("з Германіі", "з Нямеччыны"),
+        ("у Германіі", "у Нямеччыне"),  # у + locative
+        ("па Германіі", "па Нямеччыне"),  # па + locative/dative
+        ("пры Германіі", "пры Нямеччыне"),
+        ("к Германіі", "к Нямеччыне"),  # к + dative
+    ],
+)
+def test_germany_case_chosen_by_preposition(converter: Converter, nark: str, tarask: str) -> None:
+    _both_ways(converter, nark, tarask)
+
+
+def test_germany_bare_dative_is_a_known_limitation(converter: Converter) -> None:
+    # No preposition: the genitive is chosen, so a verb-governed dative comes out wrong.
+    assert converter.convert("дапамагаць Германіі", N2T).text == "дапамагаць Нямеччыны"
