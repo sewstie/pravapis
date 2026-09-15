@@ -19,7 +19,22 @@ www.svaboda.org і www.pravapis.org"; the authors ask readers to buy the paper e
 pravapis.org itself (download page `download_by.asp`) was not reachable from the build
 machine; the Wayback Machine copies above are the files that page linked to.
 
-The electronic edition contains the rules only. The printed book (158 pp.) also has the
-orthographic dictionaries, which are not in these files.
+## What the electronic edition covers — and what it does not
+
+- **Covered:** the rules, §1–91 (артаграмы 1–91), with their notes and the endnotes (i–xliv).
+- **Absent:** the spelling dictionaries (артаграфічныя слоўнікі), roughly pp. 92–158 of the
+  158-page printed book. The preface says they take up "ці не палову яго аб’ёму".
+
+Consequences for this project:
+
+- Anything settled only by a dictionary entry cannot be verified from these files. In
+  particular **ґ in common words (ґанак, ґузік, ґрунт) and the whole `loan.g_distinction`
+  stem list cannot be resolved**: the rules mention ґ only for foreign proper names, and only as
+  an option (§61).
+- The same holds for individual loanword stems not quoted as examples in the rules (e.g.
+  лякальны, ляндшафт, балькон, атляс, рэкляма, кілямэтар, калёнія) and for most lexicon entries.
+- slounik.org/bkp2005 publishes a dictionary derived from the book (5,123 entries). It has no
+  licence and the content is the authors' copyright: private reference only, like these files,
+  and not a data source for the lexicon.
 
 Cite rules in `data/NORMS.md` as `Збор правілаў 2005, §N` (e.g. §29 Заўвага А).
