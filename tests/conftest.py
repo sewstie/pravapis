@@ -28,6 +28,7 @@ def config() -> Config:
             for n in ("palatalization.yaml", "loanwords.yaml", "morphology.yaml")
         ),
         stress=DATA_DIR / "stress",
+        case_forms=DATA_DIR / "lexicon" / "case",
         model=None,
     )
 
@@ -52,4 +53,9 @@ def lexicon(config: Config) -> Lexicon:
 def converter(
     lexicon: Lexicon, engine: RuleEngine, config: Config, stress: StressTable
 ) -> Converter:
-    return Converter(lexicon, engine, None, config, stress)
+    from belnorm.lexicon.case_forms import CaseForms
+
+    assert config.case_forms is not None
+    return Converter(
+        lexicon, engine, None, config, stress, case_forms=CaseForms.load(config.case_forms)
+    )

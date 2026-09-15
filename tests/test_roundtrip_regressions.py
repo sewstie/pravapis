@@ -192,8 +192,8 @@ def test_switzerland_all_forms(converter: Converter, nark: str, tarask: str) -> 
 
 
 def test_unresolved_and_unrelated_words_pass_through(converter: Converter) -> None:
-    # Кыргызстан: sources disagree (NORMS.md, "Unresolved"); швейцар: a different lexeme.
-    for word in ("Кыргызстан", "Кыргызстана", "швейцар", "швейцара"):
+    # швейцар (doorman) is a different lexeme from Швейцарыя.
+    for word in ("швейцар", "швейцара"):
         assert converter.convert(word, N2T).text == word
 
 

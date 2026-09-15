@@ -51,6 +51,7 @@ RUNTIME_MODULES = (
     "rules/palatalization.py",
     "lexicon/__init__.py",
     "lexicon/store.py",
+    "lexicon/case_forms.py",
     "lexicon/builder.py",
 )
 STRESS_FILES = ("first_stressed.marisa", "proper_first_stressed.marisa", "SOURCE", "README.md")
@@ -108,6 +109,7 @@ def export(out: Path, *, force: bool = False) -> dict[str, int]:
     (vendor / "data" / "stress").mkdir(parents=True)
     for name in STRESS_FILES:
         shutil.copy2(DATA / "stress" / name, vendor / "data" / "stress" / name)
+    shutil.copytree(DATA / "lexicon" / "case", vendor / "data" / "lexicon" / "case")
     fwd, rev = build_from_sources(DATA / "lexicon")
     save_lexicon(
         fwd, rev, vendor / "data" / "lexicon.marisa", source_digest=sources_digest(DATA / "lexicon")
