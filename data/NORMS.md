@@ -4,9 +4,13 @@ Every rule the converter applies must trace to the codification:
 
 > **Беларускі клясычны правапіс: Збор правілаў.** Вільня–Менск, 2005.
 
-The rules below were written from memory of the norm and checked only against a gold set
-written by the same author. Agreement between them proves nothing about the norm, so every
-rule is **UNVERIFIED** until a section of the Збор правілаў is cited in its `source` field.
+The rules below were first written from memory of the norm and checked only against a gold
+set written by the same author. Agreement between them proves nothing about the norm, so a rule
+is **UNVERIFIED** until a section of the Збор правілаў is cited in its `source` field.
+
+Local copy of the rules text: `data/reference/` (git-ignored; see its README for the source
+URLs and checksums). The electronic edition has rules §1–91 and endnotes, not the dictionaries.
+Citations below are `Збор 2005, §N`.
 
 **Policy:** no new rule is added without a citation (section/§ and page) in this file.
 `tests/test_norms.py` fails if a rule id in `data/rules/*.yaml` or a pipeline-level rule has
@@ -23,7 +27,8 @@ it here and fix the rule in the same change.
 ### palat.apostrophe
 - direction: narkamauka → taraskievica
 - does: з/с + apostrophe + iotated vowel is written with ь: з’ява → зьява
-- source: UNVERIFIED
+- source: Збор 2005, §29 ("у т. л. перад [й]: зьезд, … зьява") and §43 (the separating ь
+  after soft з, с before е, ё, ю, я)
 
 ### palat.geminate.dz
 - direction: narkamauka → taraskievica
@@ -38,7 +43,9 @@ it here and fix the rule in the same change.
 ### palat.assim
 - direction: narkamauka → taraskievica
 - does: з, с, ц, дз take ь before a soft в, м, п, б, л, н, с, з, ц, дз: снег → сьнег, свет → сьвет, дзверы → дзьверы
-- source: UNVERIFIED
+- source: Збор 2005, §29 for **з, с** ("Памякчэньне с, з перад наступнымі мяккімі зычнымі
+  (апроч г (ґ), к, х) перадаецца на пісьме ў межах слова": сьвет, сьнег, радасьць, зьвер,
+  зьдзек). The **ц, дз** part is still UNVERIFIED: it falls under §30, audited separately.
 
 ### palat.ungeminate.dz
 - direction: taraskievica → narkamauka
@@ -53,12 +60,13 @@ it here and fix the rule in the same change.
 ### palat.unassim
 - direction: taraskievica → narkamauka
 - does: reverse of palat.assim; keeps a lexical ь (пісьмо)
-- source: UNVERIFIED (mechanical inverse)
+- source: inverse of palat.assim — Збор 2005, §29 for з, с (§29 Заўвага Б: etymological ь in
+  пісьмо, просьба is not assimilative and stays); ц, дз part UNVERIFIED
 
 ### palat.unapostrophe
 - direction: taraskievica → narkamauka
 - does: reverse of palat.apostrophe: зьява → з’ява
-- source: UNVERIFIED (mechanical inverse)
+- source: inverse of palat.apostrophe — Збор 2005, §29, §43
 
 ## Loanwords — `data/rules/loanwords.yaml`
 
@@ -70,7 +78,10 @@ it here and fix the rule in the same change.
 ### loan.l_palatalization
 - direction: narkamauka → taraskievica
 - does: soft л in a curated list of Western stems: план → плян, біялогія → біялёгія
-- source: UNVERIFIED (the stem list itself is also unverified)
+- source: principle — Збор 2005, §55.1 (L soft in Western European loans other than
+  anglicisms: плян, кляса, лямпа, блёк, глёбус, лёзунг, ляўрэат, плятформа, салён, лёгіка) with
+  the hard exceptions of §56.2 (лава, ладан, ланцуг, блазан, салдат, матацыкл …). The stem list
+  itself is only partly checked against those examples.
 
 ### loan.i_to_y
 - direction: narkamauka → taraskievica
@@ -117,17 +128,17 @@ it here and fix the rule in the same change.
 ### morph.particle.nya
 - direction: taraskievica → narkamauka
 - does: standalone ня → не
-- source: UNVERIFIED (inverse of morph.particle)
+- source: inverse of morph.particle — Збор 2005, §3
 
 ### morph.particle.byaz
 - direction: taraskievica → narkamauka
 - does: standalone бяз / бязь → без
-- source: UNVERIFIED (inverse of morph.particle)
+- source: inverse of morph.particle — Збор 2005, §3, §29
 
 ### morph.preposition.z
 - direction: taraskievica → narkamauka
-- does: зь / празь / церазь → з / праз / цераз
-- source: UNVERIFIED (inverse of morph.particle)
+- does: зь / безь / празь / церазь → з / без / праз / цераз
+- source: inverse of morph.particle — Збор 2005, §29
 
 ## Pipeline-level rules — `src/belnorm/rules/morphology.py`
 
@@ -135,18 +146,28 @@ These need the next word, so they run in the pipeline rather than the YAML engin
 
 ### morph.particle
 - direction: narkamauka → taraskievica
-- does: не → ня and без → бяз when the next word is stressed on its first syllable; з, бяз,
-  праз, цераз then take ь before a soft onset (з ім → зь ім, без ліку → бязь ліку). Unstressed
-  без stays без. A next word GrammarDB does not know, or knows as a homograph with stress in
-  different places (ма+е / мае+), leaves the particle unchanged.
-- source: GrammarDB-stress (RELEASE-202601, `data/stress/`) for *where the stress falls*.
-  The phonological conditioning itself — jakanne of не/без before a stressed first syllable,
-  and the ь on з/бяз/праз/цераз before a soft onset — is still UNVERIFIED and wants a
-  citation from the Збор правілаў (2005).
-- open questions the stress data exposed (gold disagrees, codification needed):
-  - не было (было+): stress data says не; gold has ня. Stress may retract onto the particle.
-  - не пойдзем (по+йдзем): stress data says ня; the v0 gold row has не.
-  - без мяне (мяне+): stress data says без; the v0 gold row has бязь.
+- does: не → ня and без → бяз when the next word is stressed on its first syllable; then з,
+  без/бяз, праз, цераз take ь before a soft onset (з ім → зь ім, без ліку → бязь ліку, без мяне →
+  безь мяне), except before an unstressed initial і (з ідэяй, без іголкі). A next word GrammarDB
+  does not know, or knows as a homograph with stress in different places (ма+е / мае+), counts
+  as not first-stressed.
+- source: Збор 2005, §3, §29, §29 Заўвага А; stress position from GrammarDB
+  - Збор 2005, §3: jakanne "у першым складзе перад націскам … Паводле гэтага правіла пішуцца
+    таксама часьцінка не й прыназоўнік без: ня наш, ня по´йдзе, бяз кры´ўды, бязь зьме´наў".
+  - Збор 2005, §29: "Асыміляцыйнае памякчэньне пашыраецца й на прыназоўнікі з, без/бяз, праз,
+    цераз: зь вераю, бязь сьлёз, празь лес, церазь сетку; зь юнаком, бязь і´х …"; the book's own
+    prose writes "безь яго", "безь пераносаў".
+  - Збор 2005, §29 Заўвага А: before an unstressed initial і no [й] develops, so no softening:
+    з ідэяй, без іголкі, праз імглу, цераз ільды.
+  - Where the stress falls: GrammarDB stress marks (RELEASE-202601, `data/stress/`).
+- resolved by the codification (were open questions):
+  - не было → **не было**: было´ is stressed on the second syllable, so не is not in the first
+    syllable before the stress. The attested *ня было* is Tarashkievich's older rule, which also
+    changed the second syllable before the stress ("ня бы-лá"); the 2005 rules dropped it
+    (Збор 2005, endnote xxxi).
+  - не пойдзем → **ня пойдзем** (§3 "ня по´йдзе").
+  - без мяне → **безь мяне**: мяне´ is end-stressed, so no jakanne, but §29 softness applies.
+  - без слёз → **бязь сьлёз** (§29, quoted).
 - representation: stress is read from the next word's *Narkamaŭka* form (GrammarDB is
   Narkamaŭka); the soft onset is read from the next word *already converted to
   Taraškievica*, where assimilative softness is written. Fixed bug: reading the Narkamaŭka
@@ -172,8 +193,14 @@ are the пісьменнік family above.
 
 ## Known gaps (not implemented, need the codification)
 
-- **і → й after a vowel** (мама й тата): no rule, no gold coverage.
 - **Genitive plural -аў** (хвілін → хвілінаў): no rule, no gold coverage; needs a noun list.
+  The Збор 2005 rules cover spelling only ("выключна артаграмы") and do not settle it.
+
+## Not a gap: optional forms
+
+- **і → й after a vowel** (мама й тата): Збор 2005, §13 — after a word ending in a vowel the
+  conjunction and particle і "можа пераходзіць у й" (*may* become й); an initial і- of a word is
+  always written і. Leaving і is compliant, so the converter leaves it.
 
 ## Architectural gap: no morphological layer
 
@@ -219,14 +246,20 @@ lexicon or the rules and passes through unchanged. A missing conversion is bette
 guessed one. Each item needs the codification (or another cited dictionary) to resolve.
 
 - **Кыргызстан**: Taraškievica sources disagree between *Кыргыстан* and *Кіргізія*. Not in
-  the lexicon; Кыргызстан and its forms pass through unchanged.
+  the lexicon; Кыргызстан and its forms pass through unchanged. Not in the Збор 2005 rules.
+- **Softness across a hyphen**: Збор 2005 §29 limits assimilative softness to "у межах слова"
+  plus the four prepositions, and endnote xxxviii leaves hyphenation and compound spelling
+  outside the rules. Parts of a hyphenated word are converted separately.
+
+Resolved from this list: **цыкль** does not arise — Збор 2005, §56.2 lists final -л as hard in
+матацыкл, so цыкл keeps a hard л; no rule or entry was ever added.
 
 ## Lexicon
 
 - **Швейцарыя → Швайцарыя** and **швейцарскі → швайцарскі**: all forms listed in
   `data/lexicon/proper_nouns.tsv`, taken from GrammarDB RELEASE-202601 (paradigms Швейцарыя
   NPIINF2 and швейцарскі ARP) with only the stem changed. Source for the Taraškievica stem:
-  UNVERIFIED like the rest of the lexicon.
+  Збор 2005, §80 — German ei is written ай (яй) in German loans: Ляйпцыг, Айнштайн, Райх.
 
 
 `data/lexicon/*.tsv` entries (loanwords, proper nouns, exceptions) are lexical facts, not
