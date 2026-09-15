@@ -7,17 +7,28 @@ group: loanwords
 rules:
   # ---------------------------------------------------------------- N → T
   - id: loan.eu
-    description: "Word-initial еў → эў: Еўропа → Эўропа"
+    description: "Word-initial еў → эў in loanwords and classical names: Еўропа → Эўропа, Еўклід → Эўклід"
     direction: narkamauka_to_taraskievica
-    pattern: '^еў'
+    # Збор 2005 §52: Greek ευ / Latin eu → эў (эўфарыя, Эўклід, Эўропа, Эўфрат). Out of scope
+    # (§52 "але даўно асвоеныя імёны …"; §72 Заўвага А, footnote 68): traditional Christian
+    # given names, borrowed through Church Slavonic, which keep Е- (Еўдакія – Аўдоцьця,
+    # Е(ў)фрасіньня – Эўфрасіньня). That class is not visible in the spelling, so it is
+    # excluded by the stems of the names the book gives. WORKAROUND: extend the list only
+    # with names the book (or another cited source) puts in that class.
+    pattern: '^еў(?!дакі|фрасін)'
     replacement: 'эў'
     priority: 50
     tests:
       positive:
         - { input: "еўропа", expected: "эўропа" }
         - { input: "еўрапейскі", expected: "эўрапейскі" }
+        - { input: "еўклід", expected: "эўклід" }
+        - { input: "еўфрат", expected: "эўфрат" }
       negative:
         - { input: "леў", expected: "леў" }
+        - { input: "еўдакія", expected: "еўдакія" }
+        - { input: "еўдакіі", expected: "еўдакіі" }
+        - { input: "еўфрасіння", expected: "еўфрасіння" }
 
   - id: loan.l_palatalization
     description: "Soft l in curated Western stems: план → плян, біялогія → біялёгія"
