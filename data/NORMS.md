@@ -320,6 +320,15 @@ Resolved from this list: **цыкль** does not arise — Збор 2005, §56.2
   `data/lexicon/proper_nouns.tsv`, taken from GrammarDB RELEASE-202601 (paradigms Швейцарыя
   NPIINF2 and швейцарскі ARP) with only the stem changed. Source for the Taraškievica stem:
   Збор 2005, §80 — German ei is written ай (яй) in German loans: Ляйпцыг, Айнштайн, Райх.
+- **Расія → Расея, расійскі → расейскі**: Збор 2005, §33 з) "расейскі (ад Расе[й|а])"; the book
+  writes расейскі throughout and never Расія/расійскі.
+- **Personal names** (checked against the rules text, Збор 2005):
+  - removed, contradicted: леанід → лявон (§48: "Лявон … Але: Леанід").
+  - removed, optional forms (policy): дзмітрый → зьміцер (§17 lists Дзьмітры – Зьміцер),
+    валерый → валер (§17 Валеры – Валер), павел → павал (§55.1 Заўвага А: Павал, Павел).
+  - replaced by the §17 base form: дзмітрый → дзьмітры, валерый → валеры (юрый → юры already).
+  - removed, not in the book: кірыл → кірыла, афанасій → апанас, іосіф → язэп, фама → хама
+    (§81 Заўвага Б has Тамаш, Хама, but not Фама).
 
 
 `data/lexicon/*.tsv` entries (loanwords, proper nouns, exceptions) are lexical facts, not

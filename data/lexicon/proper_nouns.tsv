@@ -58,16 +58,13 @@
 аляксандр	аляксандар
 міхаіл	міхал	n2t
 уладзімір	уладзімер
-дзмітрый	зьміцер
+# §17 ("у форме безь й … паасобныя ўсходнехрысьціянскія імёны: Валеры, Георгі, Дзьмітры, …, Юры"):
+# the base forms. The adapted forms Зьміцер, Валер (§17) and Павал (§55.1 Заўвага А) are also
+# valid, so they are not substituted (NORMS.md, optional forms). Леанід stays (§48 "Але: Леанід").
 юрый	юры
-кірыл	кірыла
-павел	павал
-валерый	валер
-леанід	лявон
+дзмітрый	дзьмітры
+валерый	валеры
 ілья	ільля
-афанасій	апанас
-фама	хама
-іосіф	язэп
 # --- Швейцарыя → Швайцарыя: stem swap only, endings unchanged.
 # Forms: GrammarDB RELEASE-202601, paradigms Швейцарыя (NPIINF2) and швейцарскі (ARP).
 # Only these exact forms; швейцар (doorman) is a different lexeme and is not touched.
