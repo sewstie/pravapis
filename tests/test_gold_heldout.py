@@ -6,7 +6,7 @@ from pathlib import Path
 
 import regex
 
-from belnorm.metrics import read_gold
+from belnorm.metrics import PROVENANCES, read_gold
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLD = ROOT / "data" / "eval" / "gold.tsv"
@@ -53,9 +53,7 @@ def test_gold_rows_are_well_formed() -> None:
             continue
         cols = line.split("\t")
         assert len(cols) == 4, f"line {i}: expected 4 columns"
-        assert cols[3] in {"hand_written", "converter_checked", "uncertain"}, (
-            f"line {i}: provenance {cols[3]!r}"
-        )
+        assert cols[3] in PROVENANCES, f"line {i}: provenance {cols[3]!r}"
 
 
 def test_provenance_filters() -> None:

@@ -259,7 +259,10 @@ def error_report(
 
 HAND_WRITTEN = "hand_written"
 CONVERTER_CHECKED = "converter_checked"
+#: corrected against Збор правілаў 2005 after the converter disagreed: scored, not --trusted
+CODIFICATION_CHECKED = "codification_checked"
 UNCERTAIN = "uncertain"
+PROVENANCES = frozenset({HAND_WRITTEN, CONVERTER_CHECKED, CODIFICATION_CHECKED, UNCERTAIN})
 
 
 @dataclass(frozen=True, slots=True)
