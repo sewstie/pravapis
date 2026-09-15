@@ -82,6 +82,24 @@ CLITICS: Final[frozenset[str]] = frozenset(
 )
 
 
+#: Optional (aggressive mode only): conjunction/particle і → й after a vowel.
+CONJ_RULE_ID: Final[str] = "morph.conj_i_j"
+
+
+def conjunction_i_to_j(word: str, previous_output: str) -> str | None:
+    """Збор 2005, §13: after a word ending in a vowel, the conjunction і *may* become й.
+
+    Optional, so the pipeline applies it only in aggressive mode. ``word`` is the
+    standalone token (і / І); ``previous_output`` is the preceding word as written in
+    the output. Returns й / Й, or None when the rule does not apply.
+    """
+    if word not in ("і", "І") or not previous_output:
+        return None
+    if previous_output[-1].lower() not in VOWELS:
+        return None
+    return "й" if word == "і" else "Й"
+
+
 def syllable_count(word: str) -> int:
     return sum(1 for c in word.lower() if c in VOWELS)
 

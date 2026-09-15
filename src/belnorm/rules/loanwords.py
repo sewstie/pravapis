@@ -88,20 +88,16 @@ _I_RULES: Final[tuple[tuple[regex.Pattern[str], str], ...]] = tuple(
 # --- Еўропа → Эўропа ---------------------------------------------------------------
 _EU_RE: Final[regex.Pattern[str]] = regex.compile(r"^еў")
 
-# --- ф → х / хв in traditional Christian names ---------------------------------------
+# --- ф → хв in traditional Christian names (OPTIONAL) ----------------------------------
+# Збор 2005, §81 Заўвага Б lists several valid forms side by side: "Тодар, Фёдар, Хведар,
+# Ходар; … Фядос, Хвядос, Ходас". Фёдар is already correct, so this rewrite is optional
+# and runs only in aggressive mode. Only names the book lists are here: Філіп → Піліп and
+# Фама → Хама are not in the book and were removed.
 _F_NAMES: Final[dict[str, str]] = {
     "фёдар": "хведар",
-    "фёдара": "хведара",
-    "фёдару": "хведару",
-    "фёдарам": "хведарам",
-    "фёдары": "хведары",
     "фядос": "хвядос",
-    "фама": "хама",
-    "фаміч": "хаміч",
-    "філіп": "піліп",
-    "фядора": "хвядора",
 }
-_F_RE: Final[regex.Pattern[str]] = regex.compile(r"^(?:фёдар|фядос|фядор|фаміч|філіп)")
+_F_RE: Final[regex.Pattern[str]] = regex.compile(r"^(?:фёдар|фядос)")
 
 # --- ґ in a closed set of old Polish/German borrowings ----------------------------------
 _G_STEMS: Final[str] = "|".join(
@@ -191,7 +187,7 @@ def apply_eu_prefix(word: str) -> str:
 
 
 def apply_f_substitution(word: str) -> str:
-    """фёдар → хведар, фама → хама (traditional given names only)."""
+    """фёдар → хведар, фядос → хвядос, with endings kept (optional; §81 Заўвага Б)."""
     if word in _F_NAMES:
         return _F_NAMES[word]
     m = _F_RE.match(word)

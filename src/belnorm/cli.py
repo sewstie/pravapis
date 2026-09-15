@@ -51,6 +51,14 @@ ToOption = Annotated[
     str,
     typer.Option("--to", "-t", help="Target orthography: taraskievica (t) or narkamauka (n)."),
 ]
+AggressiveOption = Annotated[
+    bool,
+    typer.Option(
+        "--aggressive",
+        help="Also apply optional transformations: forms the codification already allows "
+        "(Фёдар → Хведар, і → й after a vowel). Off by default.",
+    ),
+]
 ConfigOption = Annotated[
     Path | None,
     typer.Option("--config", "-c", help="YAML config; defaults to the bundled data/ directory."),
@@ -103,10 +111,11 @@ def convert(
     stats: Annotated[
         bool, typer.Option("--stats", help="Print per-method counts to stderr.")
     ] = False,
+    aggressive: AggressiveOption = False,
 ) -> None:
     """Convert text between orthographies."""
     direction = _direction(to)
-    converter = _converter(config)
+    converter = _converter(config).variant(aggressive)
     source = _read_input(text, file)
 
     totals: dict[Method, int] = dict.fromkeys(Method, 0)
@@ -148,10 +157,11 @@ def explain(
     text: Annotated[str, typer.Argument(help="Word or sentence to explain.")],
     to: ToOption = "taraskievica",
     config: ConfigOption = None,
+    aggressive: AggressiveOption = False,
 ) -> None:
     """Show how each word was resolved: lexicon hit, rules fired, or model score."""
     direction = _direction(to)
-    converter = _converter(config)
+    converter = _converter(config).variant(aggressive)
     table = Table(title=f"→ {direction.value}", show_lines=False)
     table.add_column("source", style="bold")
     table.add_column("target", style="green")

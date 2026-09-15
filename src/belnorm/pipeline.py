@@ -26,9 +26,11 @@ from belnorm.lexicon.store import Lexicon
 from belnorm.normalize import sanitize
 from belnorm.rules.engine import RuleEngine
 from belnorm.rules.morphology import (
+    CONJ_RULE_ID,
     PARTICLES_N2T,
     PARTICLES_T2N,
     SOFTENING_PREPOSITIONS,
+    conjunction_i_to_j,
     convert_particle,
 )
 from belnorm.stress import StressTable
@@ -81,17 +83,39 @@ class Converter:
         disambiguator: Disambiguator | None = None,
         config: Config | None = None,
         stress: StressTable | None = None,
+        *,
+        aggressive: bool = False,
     ):
+        """``aggressive`` also applies optional transformations: rewrites of forms the
+        codification already allows (Фёдар → Хведар, і → й after a vowel). Off by default;
+        see data/NORMS.md, "Policy: optional forms"."""
         self.lexicon = lexicon
-        self.engine = engine
+        self.aggressive = aggressive
+        self.engine = engine.with_optional(aggressive)
         self.disambiguator = disambiguator
         self.config = config
         self.stress = stress
         triggers = config.ambiguity_triggers if config else DEFAULT_AMBIGUITY_TRIGGERS
         self._triggers: tuple[regex.Pattern[str], ...] = tuple(regex.compile(t) for t in triggers)
         self._cache: dict[tuple[str, Orthography], Resolved | None] = {}
+        self._variants: dict[bool, Converter] = {aggressive: self}
         if disambiguator is not None and config is not None:
             disambiguator.threshold = config.confidence_threshold
+
+    def variant(self, aggressive: bool) -> Converter:
+        """This converter with optional transformations on or off (shares lexicon and stress)."""
+        if aggressive not in self._variants:
+            other = Converter(
+                self.lexicon,
+                self.engine,
+                self.disambiguator,
+                self.config,
+                self.stress,
+                aggressive=aggressive,
+            )
+            other._variants = self._variants
+            self._variants[aggressive] = other
+        return self._variants[aggressive]
 
     @classmethod
     def from_config(cls, path: Path | Config | None = None) -> Converter:
@@ -125,11 +149,16 @@ class Converter:
         return any(t.search(word) for t in self._triggers)
 
     # --- text-level API -------------------------------------------------------
-    def convert(self, text: str, direction: Orthography) -> ConversionResult:
+    def convert(
+        self, text: str, direction: Orthography, *, aggressive: bool | None = None
+    ) -> ConversionResult:
+        if aggressive is not None and aggressive != self.aggressive:
+            return self.variant(aggressive).convert(text, direction)
         text = sanitize(text)
         tokens = tokenize(text)
         conversions: list[Conversion | None] = []
         out: list[str] = []
+        words: list[tuple[int, int]] = []  # (token index, conversion index)
         # Words the deterministic stages could not resolve are batched through
         # the classifier once per call: one predict_proba, not one per word.
         pending: list[tuple[int, int, Token, list[Token]]] = []
@@ -141,6 +170,7 @@ class Converter:
             conv = self._cascade(tok, ctx, next_word(tokens, i), direction)
             if conv is None:
                 pending.append((len(conversions), i, tok, ctx))
+            words.append((i, len(conversions)))
             conversions.append(conv)
             out.append(tok.text if conv is None else conv.target)
         if pending:
@@ -150,6 +180,10 @@ class Converter:
                 conv = self._from_prediction(tok, pred, score, direction)
                 conversions[ci] = conv
                 out[ti] = conv.target
+        for ti, new in self._optional_conjunctions(tokens, out, direction):
+            ci = next(c for t, c in words if t == ti)
+            out[ti] = new
+            conversions[ci] = Conversion(tokens[ti].text, new, Method.RULE, CONJ_RULE_ID)
         done = [c for c in conversions if c is not None]
         stats: dict[Method, int] = dict.fromkeys(Method, 0)
         for c in done:
@@ -157,21 +191,34 @@ class Converter:
         return ConversionResult("".join(out), tuple(done), stats)
 
     def convert_word(
-        self, word: str, direction: Orthography, context: Sequence[Token] = ()
+        self,
+        word: str,
+        direction: Orthography,
+        context: Sequence[Token] = (),
+        *,
+        aggressive: bool | None = None,
     ) -> Conversion:
         """Convert one word.
 
         ``context`` tokens positioned after the word count as its right context.
         """
+        if aggressive is not None and aggressive != self.aggressive:
+            return self.variant(aggressive).convert_word(word, direction, context)
         word = sanitize(word)
         token = Token(word, 0, len(word), TokenKind.WORD)
         right = [t for t in context if t.kind is TokenKind.WORD and t.start >= token.end]
         return self._convert_token(token, context, right[0] if right else None, direction)
 
-    def explain(self, text: str, direction: Orthography) -> list[TokenExplanation]:
+    def explain(
+        self, text: str, direction: Orthography, *, aggressive: bool | None = None
+    ) -> list[TokenExplanation]:
+        if aggressive is not None and aggressive != self.aggressive:
+            return self.variant(aggressive).explain(text, direction)
         text = sanitize(text)
         tokens = tokenize(text)
         explanations: list[TokenExplanation] = []
+        out = [t.text for t in tokens]
+        index: dict[int, int] = {}  # token index -> explanation index
         for i, tok in enumerate(tokens):
             if tok.kind is not TokenKind.WORD:
                 continue
@@ -179,12 +226,45 @@ class Converter:
             traces: tuple[RuleTrace, ...] = ()
             if conv.method in (Method.RULE, Method.MODEL):
                 traces = self._traces_for(tok.text.lower(), conv, direction, next_word(tokens, i))
+            index[i] = len(explanations)
+            out[i] = conv.target
             explanations.append(
                 TokenExplanation(
                     conv.source, conv.target, conv.method, conv.rule_id, conv.confidence, traces
                 )
             )
+        for ti, new in self._optional_conjunctions(tokens, out, direction):
+            src = tokens[ti].text
+            explanations[index[ti]] = TokenExplanation(
+                src, new, Method.RULE, CONJ_RULE_ID, 1.0, (RuleTrace(CONJ_RULE_ID, src, new),)
+            )
         return explanations
+
+    def _optional_conjunctions(
+        self, tokens: Sequence[Token], out: Sequence[str], direction: Orthography
+    ) -> list[tuple[int, str]]:
+        """Aggressive mode only: і → й after a word ending in a vowel (Збор 2005, §13).
+
+        ``out`` holds each token's converted text. Only whitespace may separate the two
+        words; after punctuation the conjunction stays і, as §13 requires.
+        """
+        if not self.aggressive or direction is not Orthography.TARASKIEVICA:
+            return []
+        changes: list[tuple[int, str]] = []
+        prev: int | None = None
+        for i, tok in enumerate(tokens):
+            if tok.kind is TokenKind.WORD:
+                if prev is not None and all(
+                    tokens[j].kind is TokenKind.SPACE for j in range(prev + 1, i)
+                ):
+                    new = conjunction_i_to_j(tok.text, out[prev])
+                    if new is not None:
+                        changes.append((i, new))
+                        out = [*out[:i], new, *out[i + 1 :]]
+                prev = i
+            elif tok.kind is not TokenKind.SPACE:
+                prev = None
+        return changes
 
     # --- the cascade ----------------------------------------------------------
     def _convert_token(
@@ -370,5 +450,5 @@ def default_converter() -> Converter:
     return Converter.from_config()
 
 
-def convert(text: str, direction: Orthography) -> str:
-    return default_converter().convert(text, direction).text
+def convert(text: str, direction: Orthography, *, aggressive: bool = False) -> str:
+    return default_converter().convert(text, direction, aggressive=aggressive).text

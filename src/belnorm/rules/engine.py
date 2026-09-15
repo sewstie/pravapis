@@ -80,6 +80,9 @@ class Rule:
     exceptions: frozenset[str] = field(default_factory=frozenset)
     description: str = ""
     tests: tuple[RuleTest, ...] = ()
+    #: the codification permits both the input and the output form; applied only
+    #: in aggressive mode (see data/NORMS.md, "Policy: optional forms")
+    optional: bool = False
 
     def transform(self, word: str) -> str:
         if word in self.exceptions:
@@ -164,6 +167,7 @@ def _parse_rule(raw: dict[str, Any], default_direction: Orthography | None) -> R
         exceptions=frozenset(str(e).lower() for e in exceptions_raw),
         description=str(raw.get("description", "")),
         tests=_parse_tests(raw.get("tests")),
+        optional=bool(raw.get("optional", False)),
     )
 
 
@@ -215,15 +219,21 @@ def validate_rule_set(rules: Sequence[Rule]) -> list[str]:
 
 
 class RuleEngine:
-    def __init__(self, rules: Iterable[Rule]):
+    def __init__(self, rules: Iterable[Rule], *, include_optional: bool = False):
         self._rules: tuple[Rule, ...] = tuple(rules)
+        self.include_optional = include_optional
         problems = validate_rule_set(self._rules)
         if problems:
             raise RuleError("; ".join(problems))
         self._by_direction: dict[Orthography, tuple[Rule, ...]] = {
             d: tuple(
                 sorted(
-                    (r for r in self._rules if r.direction is d), key=lambda r: (-r.priority, r.id)
+                    (
+                        r
+                        for r in self._rules
+                        if r.direction is d and (include_optional or not r.optional)
+                    ),
+                    key=lambda r: (-r.priority, r.id),
                 )
             )
             for d in Orthography
@@ -239,14 +249,22 @@ class RuleEngine:
             rules.extend(load_rules(path))
         return cls(rules)
 
+    def with_optional(self, include: bool = True) -> RuleEngine:
+        """The same rule set, applying optional rules or not."""
+        if include == self.include_optional:
+            return self
+        return RuleEngine(self._rules, include_optional=include)
+
     @property
     def rules(self) -> tuple[Rule, ...]:
+        """Every loaded rule, optional ones included (applied or not)."""
         return self._rules
 
     def __len__(self) -> int:
         return len(self._rules)
 
     def rules_for(self, direction: Orthography) -> list[Rule]:
+        """Rules applied in ``direction`` (optional ones only when included)."""
         return list(self._by_direction[direction])
 
     def get(self, rule_id: str) -> Rule | None:

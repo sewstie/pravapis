@@ -8,6 +8,10 @@ import regex
 
 from belnorm.pipeline import PARTICLE_RULE_ID
 from belnorm.rules.engine import RuleEngine
+from belnorm.rules.morphology import CONJ_RULE_ID
+from belnorm.types import Orthography
+
+PIPELINE_RULE_IDS = {PARTICLE_RULE_ID, CONJ_RULE_ID}
 
 NORMS = Path(__file__).resolve().parent.parent / "data" / "NORMS.md"
 
@@ -21,7 +25,7 @@ def _entries() -> dict[str, str]:
 
 def test_every_rule_has_a_norms_entry(engine: RuleEngine) -> None:
     entries = _entries()
-    ids = {r.id for r in engine.rules} | {PARTICLE_RULE_ID}
+    ids = {r.id for r in engine.rules} | PIPELINE_RULE_IDS
     missing = sorted(ids - set(entries))
     assert not missing, f"rules without a data/NORMS.md entry: {missing}"
 
@@ -33,6 +37,17 @@ def test_every_entry_has_a_source(engine: RuleEngine) -> None:
 
 
 def test_no_stale_entries(engine: RuleEngine) -> None:
-    ids = {r.id for r in engine.rules} | {PARTICLE_RULE_ID}
+    ids = {r.id for r in engine.rules} | PIPELINE_RULE_IDS
     stale = sorted(set(_entries()) - ids)
     assert not stale, f"NORMS.md documents rules that no longer exist: {stale}"
+
+
+def test_optional_rules_are_documented_as_optional(engine: RuleEngine) -> None:
+    """Policy: every optional rule's NORMS entry says so, and it is off by default."""
+    entries = _entries()
+    optional = {r.id for r in engine.rules if r.optional} | {CONJ_RULE_ID}
+    assert optional, "expected at least one optional rule"
+    for rule_id in optional:
+        assert "**optional**" in entries[rule_id], rule_id
+    applied = {r.id for d in Orthography for r in engine.rules_for(d)}
+    assert not (optional & applied), "optional rules must be off in the default engine"
