@@ -12,6 +12,12 @@ rules:
     pattern: '([тд])р$'
     replacement: '\1ар'
     priority: 30
+    # Збор 2005 §26 Заўвага А: non-traditional proper names keep tr, dr without the
+    # inserted vowel (Нотр-Дам, Сартр). Not decidable from spelling: listed by hand.
+    # Hyphenated words are converted part by part, so Нотр-Дам is listed as нотр.
+    exceptions:
+      - сартр
+      - нотр
     tests:
       positive:
         - { input: "тэатр", expected: "тэатар" }
@@ -20,6 +26,8 @@ rules:
         - { input: "кадр", expected: "кадар" }
       negative:
         - { input: "тэатры", expected: "тэатры" }
+        - { input: "сартр", expected: "сартр" }
+        - { input: "нотр", expected: "нотр" }
         - { input: "вецер", expected: "вецер" }
 
   # ---------------------------------------------------------------- T → N
