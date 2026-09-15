@@ -131,3 +131,33 @@ def test_default_converter_is_not_aggressive(converter: Converter) -> None:
     assert converter.aggressive is False
     assert converter.variant(True).aggressive is True
     assert converter.variant(True).variant(False) is converter
+
+
+# --- lexicon: personal names ------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Леанід",  # §48 "Але: Леанід"
+        "Павел",  # §55.1 Заўвага А: Павал, Павел both valid
+        "Кірыл",  # not in the book
+        "Афанасій",  # not in the book
+        "Іосіф",  # not in the book
+        "Фама",  # not in the book
+    ],
+)
+def test_names_left_unchanged(converter: Converter, name: str) -> None:
+    assert converter.convert(name, N2T).text == name
+
+
+@pytest.mark.parametrize(
+    ("nark", "tarask"),
+    [
+        ("Дзмітрый", "Дзьмітры"),  # §17 base form, not the optional Зьміцер
+        ("Валерый", "Валеры"),  # §17 base form, not the optional Валер
+        ("Юрый", "Юры"),  # §17
+        ("Расія", "Расея"),  # §33 з) расейскі (ад Расе[й|а])
+        ("расійскі", "расейскі"),
+    ],
+)
+def test_names_with_cited_forms(converter: Converter, nark: str, tarask: str) -> None:
+    _both_ways(converter, nark, tarask)
