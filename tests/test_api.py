@@ -5,8 +5,8 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from belnorm.api.main import create_app
-from belnorm.config import Config
+from pravapis.api.main import create_app
+from pravapis.config import Config
 
 
 @pytest.fixture(scope="module")

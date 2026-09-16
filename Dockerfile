@@ -10,19 +10,19 @@ COPY src ./src
 COPY data ./data
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev \
- && uv run belnorm build-lexicon data/lexicon --out data/lexicon.marisa
+ && uv run pravapis build-lexicon data/lexicon --out data/lexicon.marisa
 
 FROM python:3.12-slim
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" \
-    BELNORM_DATA_DIR=/app/data \
+    PRAVAPIS_DATA_DIR=/app/data \
     PYTHONUTF8=1 \
     PYTHONUNBUFFERED=1
 COPY --from=build /app/.venv ./.venv
 COPY --from=build /app/src ./src
 COPY --from=build /app/data ./data
-RUN useradd --create-home belnorm && chown -R belnorm /app
-USER belnorm
+RUN useradd --create-home pravapis && chown -R pravapis /app
+USER pravapis
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health')"
-CMD ["uvicorn", "belnorm.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "pravapis.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,17 +1,18 @@
-"""The standalone Vercel function: api/convert.py over belnorm.webapi."""
+"""The standalone Vercel function: api/convert.py over pravapis.webapi."""
 
 from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from belnorm.pipeline import Converter
-from belnorm.webapi import ApiError, convert_payload, cors_headers, handle
+from pravapis.pipeline import Converter
+from pravapis.webapi import ApiError, convert_payload, cors_headers, handle
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -146,11 +147,11 @@ out = {
     # larger than MAX_BODY_BYTES: must be a JSON 413, not a connection reset
     "huge": call("POST", {"text": "снег " * 80_000}, **{"Content-Type": "application/json"}),
 }
-import belnorm
-out["belnorm_file"] = belnorm.__file__
+import pravapis
+out["pravapis_file"] = pravapis.__file__
 out["heavy"] = sorted(m for m in sys.modules if m.split(".")[0] in
     {"fastapi", "starlette", "uvicorn", "typer", "rich", "sklearn", "joblib", "pandas"}
-    or m.startswith(("belnorm.disambiguate", "belnorm.api", "belnorm.cli", "belnorm.metrics")))
+    or m.startswith(("pravapis.disambiguate", "pravapis.api", "pravapis.cli", "pravapis.metrics")))
 srv.shutdown()
 print(json.dumps(out, ensure_ascii=False))
 """
@@ -162,6 +163,9 @@ def test_root_function_over_http() -> None:
         capture_output=True,
         text=True,
         encoding="utf-8",
+        # The driver prints Cyrillic; without this the child encodes stdout with the
+        # console codepage (cp1252 on Windows) and dies before it can answer.
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         check=True,
         timeout=120,
     )
@@ -175,7 +179,7 @@ def test_root_function_over_http() -> None:
     assert r["preflight"][2]["Access-Control-Allow-Origin"] == "http://localhost:3000"
     assert r["huge"][0] == 413
     assert "too large" in r["huge"][1]["error"]
-    assert Path(r["belnorm_file"]).is_relative_to(ROOT / "src")
+    assert Path(r["pravapis_file"]).is_relative_to(ROOT / "src")
     assert r["heavy"] == []
 
 

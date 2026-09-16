@@ -11,11 +11,11 @@ from typing import Any
 
 import pytest
 
-from belnorm.config import Config
-from belnorm.metrics import read_gold
-from belnorm.pipeline import Converter
-from belnorm.tokenize import tokenize
-from belnorm.types import Orthography
+from pravapis.config import Config
+from pravapis.metrics import read_gold
+from pravapis.pipeline import Converter
+from pravapis.tokenize import tokenize
+from pravapis.types import Orthography
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 

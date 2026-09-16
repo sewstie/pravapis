@@ -30,13 +30,14 @@ from typing import Final
 import marisa_trie
 import regex
 
-from belnorm.normalize import sanitize
-from belnorm.tokenize import BELARUSIAN_LETTERS, tokenize
-from belnorm.types import Orthography, TokenKind
+from pravapis.normalize import sanitize
+from pravapis.tokenize import BELARUSIAN_LETTERS, tokenize
+from pravapis.types import Orthography, TokenKind
 
 #: v2 container: magic, 32-byte SHA-256 of the sources, u32 forward length, forward, reverse.
-LEXICON_MAGIC: Final[bytes] = b"BELNORM2"
-_OLD_MAGICS: Final[tuple[bytes, ...]] = (b"BELNORM1",)
+LEXICON_MAGIC: Final[bytes] = b"PRAVAPIS2"
+#: Containers written before the project was renamed, or before source hashing.
+_OLD_MAGICS: Final[tuple[bytes, ...]] = (b"PRAVAPIS1", b"BELNORM2", b"BELNORM1")
 _DIGEST_LEN: Final[int] = 32
 
 
@@ -213,11 +214,11 @@ def load_lexicon_file(
     data = path.read_bytes()
     if data.startswith(_OLD_MAGICS):
         raise StaleLexiconError(
-            f"{path}: built by an older belnorm without a source hash; "
-            "rebuild with `belnorm build-lexicon`"
+            f"{path}: built by an older pravapis (or by belnorm, before the rename); "
+            "rebuild with `pravapis build-lexicon`"
         )
     if not data.startswith(LEXICON_MAGIC):
-        raise ValueError(f"{path}: not a belnorm lexicon file")
+        raise ValueError(f"{path}: not a pravapis lexicon file")
     offset = len(LEXICON_MAGIC)
     digest = data[offset : offset + _DIGEST_LEN]
     offset += _DIGEST_LEN

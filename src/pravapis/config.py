@@ -9,7 +9,7 @@ from typing import Any, Final
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator
 
-ENV_DATA_DIR: Final[str] = "BELNORM_DATA_DIR"
+ENV_DATA_DIR: Final[str] = "PRAVAPIS_DATA_DIR"
 
 #: Words matching any of these (lowercase) patterns are handed to the classifier
 #: when neither the lexicon nor the rules changed them. They mark the alternations
@@ -30,7 +30,7 @@ RULE_FILES: Final[tuple[str, ...]] = (
 
 
 def find_data_dir() -> Path:
-    """``$BELNORM_DATA_DIR``, else the repository ``data/`` next to ``src/``, else ``./data``."""
+    """``$PRAVAPIS_DATA_DIR``, else the repository ``data/`` next to ``src/``, else ``./data``."""
     env = os.environ.get(ENV_DATA_DIR)
     if env:
         return Path(env)
@@ -47,7 +47,7 @@ class Config(BaseModel):
     #: TSV sources a compiled ``lexicon`` must match (checked on load); None skips the check
     lexicon_sources: Path | None = None
     rules: tuple[Path, ...]
-    #: case-dependent substitutions (data/lexicon/case/*.tsv), see belnorm.lexicon.case_forms
+    #: case-dependent substitutions (data/lexicon/case/*.tsv), see pravapis.lexicon.case_forms
     case_forms: Path | None = None
     #: directory built by scripts/build_stress_table.py (GrammarDB stress marks)
     stress: Path | None = None
@@ -69,7 +69,7 @@ class Config(BaseModel):
         The classifier is never picked up implicitly, even if a trained model
         sits in ``data/models/``: on the gold set it made results worse (see
         README, "Why the classifier was removed"). Opt in with an explicit
-        ``model:`` entry in a config file and ``pip install belnorm[ml]``.
+        ``model:`` entry in a config file and ``pip install pravapis[ml]``.
         """
         base = data_dir or find_data_dir()
         compiled = base / "lexicon.marisa"

@@ -1,11 +1,11 @@
-# Deploying belnorm as `/api/convert` in the Paznaj Next.js app
+# Deploying pravapis as `/api/convert` in the Paznaj Next.js app
 
 One Vercel project, one domain: a Python serverless function sits next to the Next.js
 app. No separate service, no CORS.
 
 ## Build the files
 
-From the belnorm repo:
+From the pravapis repo:
 
 ```bash
 python scripts/export_vercel.py /path/to/paznaj          # e.g. E:\coding\project
@@ -18,16 +18,16 @@ paznaj/
 ├── requirements.txt                 # Python deps for the function (pinned)
 └── api/
     ├── convert.py                   # the function → POST /api/convert
-    └── _belnorm/                    # vendored; "_" = not a function
-        ├── VERSION                  # belnorm commit it was exported from
-        ├── belnorm/                 # runtime subset: pipeline, rules, lexicon store, stress
+    └── _pravapis/                    # vendored; "_" = not a function
+        ├── VERSION                  # pravapis commit it was exported from
+        ├── pravapis/                 # runtime subset: pipeline, rules, lexicon store, stress
         └── data/
             ├── lexicon.marisa       # compiled from data/lexicon/*.tsv
             ├── rules/*.yaml
             └── stress/              # GrammarDB first-stress tables + CC BY-SA attribution
 ```
 
-Re-run the export after every belnorm change; do not edit `api/_belnorm/` by hand. The
+Re-run the export after every pravapis change; do not edit `api/_pravapis/` by hand. The
 existing Next.js routes in `src/app/api/` are untouched; Next.js owns `src/app/api/*`,
 Vercel's Python runtime owns the root `api/*.py` files.
 
@@ -45,7 +45,7 @@ Vercel's Python runtime owns the root `api/*.py` files.
 
 Measured on the exported files and on the manylinux wheels unpacked. The 640 KB stress
 table fits comfortably; no subset is needed. pydantic (6.8 MB installed) is only there
-because `belnorm.config` uses it and could be dropped later if size ever matters.
+because `pravapis.config` uses it and could be dropped later if size ever matters.
 
 **Keep the rest of the repo out of the function bundle.** Paznaj's `public/` is 78 MB of
 audio. Suggested `vercel.json` (merge with your own config):
@@ -96,7 +96,7 @@ switch is the URL:
 const response = await fetch("/api/convert", { ... body: JSON.stringify({ text, script }) });
 ```
 
-Łacinka output (`script: "latin"`) has no belnorm equivalent yet; keep the current route
+Łacinka output (`script: "latin"`) has no pravapis equivalent yet; keep the current route
 for that case or hide the option. The current `/api/taraskievica` route scrapes
 baltoslav.eu, which should not stay as a data source.
 
@@ -111,10 +111,10 @@ from convert import handler; HTTPServer(('127.0.0.1', 5328), handler).serve_fore
 curl -s localhost:5328 -H 'content-type: application/json' -d '{"text":"снег"}'
 ```
 
-`tests/test_vercel_export.py` in the belnorm repo exports into a temp dir, serves the real
+`tests/test_vercel_export.py` in the pravapis repo exports into a temp dir, serves the real
 handler and checks every status code.
 
 ## Licence
 
-`api/_belnorm/data/stress/` is derived from GrammarDB (Aleś Bułojčyk, Uładzimir Koščanka),
+`api/_pravapis/data/stress/` is derived from GrammarDB (Aleś Bułojčyk, Uładzimir Koščanka),
 CC BY-SA 4.0; its README carries the attribution and must ship with it.

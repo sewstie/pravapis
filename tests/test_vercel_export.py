@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -41,11 +42,11 @@ out = {
     "bad_ctype": call("POST", b"text=snieh", "application/x-www-form-urlencoded"),
     "get": call("GET"),
 }
-import belnorm
-out["belnorm_file"] = belnorm.__file__
+import pravapis
+out["pravapis_file"] = pravapis.__file__
 out["loaded"] = sorted(m for m in sys.modules if m.split(".")[0] in
     {"fastapi", "starlette", "uvicorn", "typer", "rich", "sklearn", "joblib", "pandas"}
-    or m.startswith(("belnorm.disambiguate", "belnorm.api", "belnorm.cli", "belnorm.metrics")))
+    or m.startswith(("pravapis.disambiguate", "pravapis.api", "pravapis.cli", "pravapis.metrics")))
 srv.shutdown()
 print(json.dumps(out, ensure_ascii=False))
 """
@@ -68,6 +69,9 @@ def test_exported_function_serves_requests(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         encoding="utf-8",
+        # The driver prints Cyrillic; without this the child encodes stdout with the
+        # console codepage (cp1252 on Windows) and dies before it can answer.
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         check=True,
         timeout=120,
     )
@@ -90,7 +94,7 @@ def test_exported_function_serves_requests(tmp_path: Path) -> None:
     assert r["get"][0] == 405 and r["get"][2]["Allow"] == "POST, OPTIONS"
 
     # the vendored copy is what ran, and nothing heavy came along
-    assert Path(r["belnorm_file"]).is_relative_to(out_dir / "api" / "_belnorm")
+    assert Path(r["pravapis_file"]).is_relative_to(out_dir / "api" / "_pravapis")
     assert r["loaded"] == []
 
 
@@ -100,4 +104,4 @@ def test_export_payload_is_small(tmp_path: Path) -> None:
     assert total < 2 * 1024 * 1024  # lexicon + rules + stress + code
     names = {p.name for p in (out_dir / "api").rglob("*")}
     assert not names & {"disambiguate", "cli.py", "metrics.py", "main.py", "routes.py"}
-    assert (out_dir / "api" / "_belnorm" / "data" / "stress" / "README.md").is_file()  # CC BY-SA
+    assert (out_dir / "api" / "_pravapis" / "data" / "stress" / "README.md").is_file()  # CC BY-SA

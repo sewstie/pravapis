@@ -20,14 +20,14 @@ from typing import TYPE_CHECKING, Final
 
 import regex
 
-from belnorm.casing import recase
-from belnorm.config import DEFAULT_AMBIGUITY_TRIGGERS, Config
-from belnorm.lexicon.builder import StaleLexiconError
-from belnorm.lexicon.case_forms import CASE_RULE_ID, CaseForms
-from belnorm.lexicon.store import Lexicon
-from belnorm.normalize import sanitize
-from belnorm.rules.engine import RuleEngine
-from belnorm.rules.morphology import (
+from pravapis.casing import recase
+from pravapis.config import DEFAULT_AMBIGUITY_TRIGGERS, Config
+from pravapis.lexicon.builder import StaleLexiconError
+from pravapis.lexicon.case_forms import CASE_RULE_ID, CaseForms
+from pravapis.lexicon.store import Lexicon
+from pravapis.normalize import sanitize
+from pravapis.rules.engine import RuleEngine
+from pravapis.rules.morphology import (
     CONJ_RULE_ID,
     PARTICLES_N2T,
     PARTICLES_T2N,
@@ -35,9 +35,9 @@ from belnorm.rules.morphology import (
     conjunction_i_to_j,
     convert_particle,
 )
-from belnorm.stress import StressTable
-from belnorm.tokenize import context_of, is_belarusian_word, next_word, previous_word, tokenize
-from belnorm.types import (
+from pravapis.stress import StressTable
+from pravapis.tokenize import context_of, is_belarusian_word, next_word, previous_word, tokenize
+from pravapis.types import (
     METHOD_PRIORITY,
     Conversion,
     ConversionResult,
@@ -50,7 +50,7 @@ from belnorm.types import (
 )
 
 if TYPE_CHECKING:
-    from belnorm.disambiguate.predict import Disambiguator
+    from pravapis.disambiguate.predict import Disambiguator
 
 log = logging.getLogger(__name__)
 
@@ -157,7 +157,7 @@ class Converter:
         disambiguator: Disambiguator | None = None
         if config.model is not None:  # explicit opt-in only; Config.default() never sets it
             try:
-                from belnorm.disambiguate.predict import Disambiguator
+                from pravapis.disambiguate.predict import Disambiguator
 
                 disambiguator = Disambiguator.load(
                     config.model, threshold=config.confidence_threshold

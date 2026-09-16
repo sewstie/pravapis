@@ -1,6 +1,6 @@
 version: "1.0"
 group: assimilative_softness
-# Reference implementation: src/belnorm/rules/palatalization.py — the tests
+# Reference implementation: src/pravapis/rules/palatalization.py — the tests
 # assert the two agree on every generated word. Rules apply to lowercase words,
 # highest priority first; `repeat` re-applies a rule until it stops changing
 # the word (softness propagates leftward: свіння → свіньня → сьвіньня).

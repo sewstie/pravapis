@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from belnorm.lexicon.store import Lexicon
-from belnorm.pipeline import Converter
-from belnorm.rules import loanwords, morphology
-from belnorm.stress import StressTable
-from belnorm.types import Orthography
+from pravapis.lexicon.store import Lexicon
+from pravapis.pipeline import Converter
+from pravapis.rules import loanwords, morphology
+from pravapis.stress import StressTable
+from pravapis.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA
@@ -156,7 +156,7 @@ def test_one_way_lexicon_entries(tmp_path: Path) -> None:
 
 
 def test_bad_direction_flag_is_rejected(tmp_path: Path) -> None:
-    from belnorm.lexicon.builder import read_tsv_pairs
+    from pravapis.lexicon.builder import read_tsv_pairs
 
     tsv = tmp_path / "lex.tsv"
     tsv.write_text("літр\tлітар\tboth\n", encoding="utf-8")

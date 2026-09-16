@@ -2,7 +2,7 @@ version: "1.0"
 group: morphology
 # Small deterministic morphological differences. The contextual clitic rules
 # (не → ня, без → бяз/бязь, з → зь before a soft onset) need the *next* word
-# and live in src/belnorm/rules/morphology.py; only their reverse forms are
+# and live in src/pravapis/rules/morphology.py; only their reverse forms are
 # context-free and appear here.
 rules:
   # ---------------------------------------------------------------- N → T

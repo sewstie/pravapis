@@ -18,7 +18,7 @@ from typing import Final
 
 import regex
 
-from belnorm.normalize import CANONICAL_APOSTROPHE
+from pravapis.normalize import CANONICAL_APOSTROPHE
 
 SOFT_VOWELS: Final[str] = "еёіюя"
 SOFTENERS: Final[str] = SOFT_VOWELS + "ь"

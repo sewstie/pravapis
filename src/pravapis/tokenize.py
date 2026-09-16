@@ -13,7 +13,7 @@ from typing import Final
 
 import regex
 
-from belnorm.types import Token, TokenKind
+from pravapis.types import Token, TokenKind
 
 APOSTROPHE_CLASS: Final[str] = "’'ʼ`‘"
 

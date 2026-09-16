@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from belnorm.rules.morphology import is_first_syllable_stressed, syllable_count
-from belnorm.types import Token, TokenKind
+from pravapis.rules.morphology import is_first_syllable_stressed, syllable_count
+from pravapis.types import Token, TokenKind
 
 
 def char_ngrams(word: str, n: int = 3) -> list[str]:

@@ -21,11 +21,11 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from belnorm.normalize import sanitize
-from belnorm.pipeline import Converter
-from belnorm.rules.engine import RuleEngine
-from belnorm.tokenize import tokenize
-from belnorm.types import Conversion, Method, Orthography, TokenKind
+from pravapis.normalize import sanitize
+from pravapis.pipeline import Converter
+from pravapis.rules.engine import RuleEngine
+from pravapis.tokenize import tokenize
+from pravapis.types import Conversion, Method, Orthography, TokenKind
 
 
 @dataclass(frozen=True, slots=True)

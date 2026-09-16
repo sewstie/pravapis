@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from belnorm.cli import app
+from pravapis.cli import app
 
 ROOT = Path(__file__).resolve().parent.parent
 

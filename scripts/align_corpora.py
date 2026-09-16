@@ -13,10 +13,10 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from belnorm.config import Config
-from belnorm.lexicon.builder import align_corpora
-from belnorm.rules.engine import RuleEngine
-from belnorm.types import Orthography
+from pravapis.config import Config
+from pravapis.lexicon.builder import align_corpora
+from pravapis.rules.engine import RuleEngine
+from pravapis.types import Orthography
 
 
 def main(argv: list[str]) -> int:

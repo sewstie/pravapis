@@ -6,8 +6,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from belnorm import __version__
-from belnorm.api.schemas import (
+from pravapis import __version__
+from pravapis.api.schemas import (
     BatchConvertRequest,
     BatchConvertResponse,
     ConvertRequest,
@@ -18,9 +18,9 @@ from belnorm.api.schemas import (
     StatsResponse,
     TokenExplanation,
 )
-from belnorm.normalize import sanitize
-from belnorm.pipeline import Converter
-from belnorm.types import ConversionResult, Orthography
+from pravapis.normalize import sanitize
+from pravapis.pipeline import Converter
+from pravapis.types import ConversionResult, Orthography
 
 router = APIRouter()
 

@@ -1,4 +1,4 @@
-"""Core value types shared by every layer of belnorm.
+"""Core value types shared by every layer of pravapis.
 
 Everything here is immutable and slotted: the pipeline allocates one
 ``Conversion`` per word token, so keeping these tiny matters.

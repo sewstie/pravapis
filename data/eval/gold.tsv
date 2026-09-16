@@ -12,7 +12,7 @@
 #                             (author-owned); Taraškievica written by hand
 # provenance  hand_written      = Taraškievica written from the norm by hand and never
 #                                 changed after seeing converter output. Not yet reviewed
-#                                 by a native speaker. `belnorm eval --trusted` scores only these.
+#                                 by a native speaker. `pravapis eval --trusted` scores only these.
 #             converter_checked = at least one word changed after comparing against
 #                                 converter output; biased toward the converter
 #             codification_checked = corrected against Збор правілаў 2005 after the converter

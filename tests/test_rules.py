@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from belnorm.rules import loanwords, morphology
-from belnorm.rules.engine import Rule, RuleEngine, RuleError, RuleTest, validate_rule_set
-from belnorm.rules.palatalization import (
+from pravapis.rules import loanwords, morphology
+from pravapis.rules.engine import Rule, RuleEngine, RuleError, RuleTest, validate_rule_set
+from pravapis.rules.palatalization import (
     is_palatalizing_context,
     mark_assimilative_softness,
     unmark_assimilative_softness,
 )
-from belnorm.stress import StressTable
-from belnorm.types import Orthography
+from pravapis.stress import StressTable
+from pravapis.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA

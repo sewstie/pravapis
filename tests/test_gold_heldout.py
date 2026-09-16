@@ -6,16 +6,16 @@ from pathlib import Path
 
 import regex
 
-from belnorm.metrics import PROVENANCES, read_gold
+from pravapis.metrics import PROVENANCES, read_gold
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLD = ROOT / "data" / "eval" / "gold.tsv"
 
 #: Code that builds the lexicon or trains the model must never open the gold set.
 TRAINING_CODE = (
-    ROOT / "src" / "belnorm" / "lexicon" / "builder.py",
-    ROOT / "src" / "belnorm" / "disambiguate" / "train.py",
-    ROOT / "src" / "belnorm" / "disambiguate" / "features.py",
+    ROOT / "src" / "pravapis" / "lexicon" / "builder.py",
+    ROOT / "src" / "pravapis" / "disambiguate" / "train.py",
+    ROOT / "src" / "pravapis" / "disambiguate" / "features.py",
     ROOT / "scripts" / "build_lexicon.py",
     ROOT / "scripts" / "train_model.py",
     ROOT / "scripts" / "align_corpora.py",
@@ -57,7 +57,7 @@ def test_gold_rows_are_well_formed() -> None:
 
 
 def test_provenance_filters() -> None:
-    from belnorm.metrics import read_gold_rows
+    from pravapis.metrics import read_gold_rows
 
     rows = read_gold_rows(GOLD)
     counts = {p: sum(r.provenance == p for r in rows) for p in ("uncertain", "hand_written")}

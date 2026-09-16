@@ -4,20 +4,20 @@ from pathlib import Path
 
 import pytest
 
-from belnorm.config import Config
-from belnorm.disambiguate.features import (
+from pravapis.config import Config
+from pravapis.disambiguate.features import (
     char_ngrams,
     extract_features,
     prefix_features,
     suffix_features,
 )
-from belnorm.disambiguate.labels import KEEP, LABELS, apply_label, derive_label
-from belnorm.disambiguate.train import derive_label_with_rules, load_training_pairs, locate
-from belnorm.lexicon.store import Lexicon
-from belnorm.pipeline import Converter
-from belnorm.rules.engine import RuleEngine
-from belnorm.tokenize import tokenize
-from belnorm.types import Method, Orthography, Token, TokenKind
+from pravapis.disambiguate.labels import KEEP, LABELS, apply_label, derive_label
+from pravapis.disambiguate.train import derive_label_with_rules, load_training_pairs, locate
+from pravapis.lexicon.store import Lexicon
+from pravapis.pipeline import Converter
+from pravapis.rules.engine import RuleEngine
+from pravapis.tokenize import tokenize
+from pravapis.types import Method, Orthography, Token, TokenKind
 
 sklearn = pytest.importorskip("sklearn")
 N2T = Orthography.TARASKIEVICA
@@ -98,7 +98,7 @@ def test_load_training_pairs(engine: RuleEngine, data_dir: Path) -> None:
 
 @pytest.fixture(scope="module")
 def trained(engine: RuleEngine, data_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
-    from belnorm.disambiguate import train as tr
+    from pravapis.disambiguate import train as tr
 
     X, y = load_training_pairs(data_dir / "eval" / "ambiguous.tsv", engine)
     model = tr.train(X, y)
@@ -112,7 +112,7 @@ def trained(engine: RuleEngine, data_dir: Path, tmp_path_factory: pytest.TempPat
 def test_model_in_cascade(
     trained: Path, lexicon: Lexicon, engine: RuleEngine, config: Config
 ) -> None:
-    from belnorm.disambiguate.predict import Disambiguator
+    from pravapis.disambiguate.predict import Disambiguator
 
     cfg = config.model_copy(update={"model": trained})
     converter = Converter(lexicon, engine, Disambiguator.load(trained), cfg)
@@ -130,7 +130,7 @@ def test_model_in_cascade(
 
 
 def test_unconfident_prediction_is_silence(trained: Path) -> None:
-    from belnorm.disambiguate.predict import Disambiguator
+    from pravapis.disambiguate.predict import Disambiguator
 
     d = Disambiguator.load(trained, threshold=1.01)  # nothing can pass
     word, score = d.predict(Token("лабірынт", 0, 8, TokenKind.WORD), [])

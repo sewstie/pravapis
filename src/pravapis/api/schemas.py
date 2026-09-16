@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from belnorm.types import Method, Orthography
+from pravapis.types import Method, Orthography
 
 MAX_TEXT_LENGTH = 50_000
 MAX_BATCH = 100

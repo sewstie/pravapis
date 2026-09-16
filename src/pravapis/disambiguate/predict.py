@@ -11,9 +11,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
 
-from belnorm.disambiguate.features import extract_features
-from belnorm.disambiguate.labels import KEEP, apply_label
-from belnorm.types import Orthography, Token
+from pravapis.disambiguate.features import extract_features
+from pravapis.disambiguate.labels import KEEP, apply_label
+from pravapis.types import Orthography, Token
 
 CONFIDENCE_THRESHOLD: Final[float] = 0.75
 
@@ -38,7 +38,7 @@ class Disambiguator:
         try:
             import joblib
         except ImportError as exc:  # pragma: no cover
-            raise RuntimeError("install belnorm[ml] to load the disambiguation model") from exc
+            raise RuntimeError("install pravapis[ml] to load the disambiguation model") from exc
         payload = joblib.load(path)
         if isinstance(payload, dict) and "model" in payload:
             return cls(payload["model"], threshold=threshold, version=str(payload.get("version")))

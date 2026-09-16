@@ -4,8 +4,8 @@ from itertools import pairwise
 
 import pytest
 
-from belnorm.tokenize import context_of, detokenize, is_belarusian_word, next_word, tokenize
-from belnorm.types import Token, TokenKind
+from pravapis.tokenize import context_of, detokenize, is_belarusian_word, next_word, tokenize
+from pravapis.types import Token, TokenKind
 
 
 def kinds(text: str) -> list[tuple[str, TokenKind]]:

@@ -5,7 +5,7 @@ and re-applies the query's capitalisation pattern to the result, so
 ``Мінск`` → ``Менск`` and ``МІНСК`` → ``МЕНСК`` without storing either.
 
 ``Lexicon.load`` accepts either a compiled ``.marisa`` container (built by
-``belnorm build-lexicon``) or a directory / single ``.tsv`` file, in which
+``pravapis build-lexicon``) or a directory / single ``.tsv`` file, in which
 case the tries are built in memory. The latter is what makes the dev loop
 "edit TSV, rerun tests" and is exactly what phase 1 needed.
 """
@@ -17,15 +17,15 @@ from pathlib import Path
 
 import marisa_trie
 
-from belnorm.casing import recase
-from belnorm.lexicon.builder import (
+from pravapis.casing import recase
+from pravapis.lexicon.builder import (
     StaleLexiconError,
     build_both,
     build_from_sources,
     load_lexicon_file,
     sources_digest,
 )
-from belnorm.types import Orthography
+from pravapis.types import Orthography
 
 
 class Lexicon:
@@ -50,7 +50,7 @@ class Lexicon:
         if sources is not None and sources.exists() and digest != sources_digest(sources):
             raise StaleLexiconError(
                 f"{path} was built from different sources than {sources}; "
-                "rebuild with `belnorm build-lexicon`"
+                "rebuild with `pravapis build-lexicon`"
             )
         return cls(fwd, rev)
 

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from belnorm.config import Config
-from belnorm.lexicon.builder import (
+from pravapis.config import Config
+from pravapis.lexicon.builder import (
     StaleLexiconError,
     align_corpora,
     build_both,
@@ -17,9 +17,9 @@ from belnorm.lexicon.builder import (
     sources_digest,
     validate_entries,
 )
-from belnorm.lexicon.store import Lexicon
-from belnorm.pipeline import Converter
-from belnorm.types import Orthography
+from pravapis.lexicon.store import Lexicon
+from pravapis.pipeline import Converter
+from pravapis.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA
@@ -90,7 +90,7 @@ def test_corrupted_source_hash_fails_loudly(tmp_path: Path) -> None:
     out = tmp_path / "lex.marisa"
     _compile(src, out)
     data = bytearray(out.read_bytes())
-    data[len(b"BELNORM2")] ^= 0xFF  # flip the first byte of the stored digest
+    data[len(b"PRAVAPIS2")] ^= 0xFF  # flip the first byte of the stored digest
     out.write_bytes(bytes(data))
     with pytest.raises(StaleLexiconError, match="different sources"):
         Lexicon.load(out, sources=src)
@@ -119,8 +119,8 @@ def test_line_endings_do_not_change_the_digest(tmp_path: Path) -> None:
 
 def test_old_container_without_hash_is_stale(tmp_path: Path) -> None:
     old = tmp_path / "old.marisa"
-    old.write_bytes(b"BELNORM1" + bytes(8))
-    with pytest.raises(StaleLexiconError, match="older belnorm"):
+    old.write_bytes(b"PRAVAPIS1" + bytes(8))
+    with pytest.raises(StaleLexiconError, match="older pravapis"):
         Lexicon.load(old)
 
 
@@ -143,7 +143,7 @@ def test_converter_never_serves_a_stale_compiled_lexicon(
     (src / "names.tsv").unlink()
     src.rmdir()
     cfg_missing = config.model_copy(update={"lexicon": tmp_path / "old.marisa"})
-    (tmp_path / "old.marisa").write_bytes(b"BELNORM1" + bytes(8))
+    (tmp_path / "old.marisa").write_bytes(b"PRAVAPIS1" + bytes(8))
     with pytest.raises(StaleLexiconError):
         Converter.from_config(cfg_missing)
 
@@ -151,7 +151,7 @@ def test_converter_never_serves_a_stale_compiled_lexicon(
 def test_load_rejects_garbage(tmp_path: Path) -> None:
     bad = tmp_path / "bad.marisa"
     bad.write_bytes(b"nope")
-    with pytest.raises(ValueError, match="not a belnorm lexicon"):
+    with pytest.raises(ValueError, match="not a pravapis lexicon"):
         Lexicon.load(bad)
 
 

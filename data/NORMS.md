@@ -23,7 +23,7 @@ Converting a form the norm already allows is a false positive, not an improvemen
 
 - Rules that rewrite an already-valid form are marked `optional: true` in `data/rules/*.yaml`
   (or run only in aggressive mode, for pipeline-level rules) and are **off by default**.
-- They are applied only on request: `belnorm convert --aggressive`, `belnorm explain
+- They are applied only on request: `pravapis convert --aggressive`, `pravapis explain
   --aggressive`, `"aggressive": true` in the HTTP API, `Converter(..., aggressive=True)` or
   `converter.convert(text, direction, aggressive=True)` in the library.
 - Lexicon entries follow the same policy: no entry may replace a form the codification lists
@@ -203,7 +203,7 @@ it here and fix the rule in the same change.
 - does: зь / безь / празь / церазь → з / без / праз / цераз
 - source: inverse of morph.particle — Збор 2005, §29
 
-## Pipeline-level rules — `src/belnorm/rules/morphology.py`
+## Pipeline-level rules — `src/pravapis/rules/morphology.py`
 
 These need the neighbouring word, so they run in the pipeline rather than the YAML engine.
 

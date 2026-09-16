@@ -1,6 +1,6 @@
 # narkamauka<TAB>genitive<TAB>dative_locative
 # One Narkamaŭka form, several cases, different Taraškievica endings per case. Loaded by
-# belnorm.lexicon.case_forms; the preposition before the word picks the column.
+# pravapis.lexicon.case_forms; the preposition before the word picks the column.
 # Forms: GrammarDB RELEASE-202601 paradigm Германія (NPIINF2: GS = DS = LS Германіі).
 # Target: Нямеччына (Збор 2005 §37: "нямецкі – Нямеччына"), feminine -а declension.
 германіі	нямеччыны	нямеччыне

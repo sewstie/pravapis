@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from belnorm.metrics import evaluate, word_accuracy
-from belnorm.pipeline import Converter
-from belnorm.types import Orthography
+from pravapis.metrics import evaluate, word_accuracy
+from pravapis.pipeline import Converter
+from pravapis.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
 
@@ -42,7 +42,7 @@ def test_false_positive_is_counted(converter: Converter) -> None:
 
 
 def test_read_gold_skips_uncertain(tmp_path: Path) -> None:
-    from belnorm.metrics import read_gold, read_gold_rows
+    from pravapis.metrics import read_gold, read_gold_rows
 
     tsv = tmp_path / "g.tsv"
     tsv.write_text(
@@ -61,7 +61,7 @@ def test_read_gold_skips_uncertain(tmp_path: Path) -> None:
 
 
 def test_word_round_trip_both_starts(converter: Converter) -> None:
-    from belnorm.metrics import round_trip_failures
+    from pravapis.metrics import round_trip_failures
 
     n_words, failures = round_trip_failures(["снег і свет"], converter)
     assert (n_words, failures) == (3, [])

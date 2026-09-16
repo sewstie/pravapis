@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
-from belnorm.normalize import sanitize
+from pravapis.normalize import sanitize
 
 CASE_RULE_ID: Final[str] = "lex.case_context"
 

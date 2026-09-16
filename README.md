@@ -1,11 +1,11 @@
-﻿# belnorm
+﻿# pravapis
 
 Bidirectional Belarusian orthography converter — **Narkamaŭka ↔ Taraškievica** — built as a
 cascade of a lexicon and a declarative rule engine. Ships as a Python library, a CLI and a
 FastAPI service.
 
 ```
-$ belnorm convert "Снег і свет у Еўропе, план сістэмы" --to taraskievica
+$ pravapis convert "Снег і свет у Еўропе, план сістэмы" --to taraskievica
 Сьнег і сьвет у Эўропе, плян сыстэмы
 ```
 
@@ -24,16 +24,16 @@ The lexicon comes before the rules because loanwords are exactly what the rules 
 Words that neither stage resolves are left unchanged: leaving a word alone is better than
 getting it wrong.
 
-An experimental classifier exists in `src/belnorm/disambiguate/` but is **off by default** and
+An experimental classifier exists in `src/pravapis/disambiguate/` but is **off by default** and
 not part of the architecture above; see [Why the classifier was removed](#why-the-classifier-was-removed).
 
 Rules live in `data/rules/*.yaml` and include inline positive/negative test cases. The test
 suite runs those cases and checks that the YAML agrees with the pure-Python reference
-implementations in `src/belnorm/rules/`.
+implementations in `src/pravapis/rules/`.
 
 ## Results
 
-Measured with `belnorm eval data/eval/gold.tsv --trusted` and `belnorm bench --size 10mb` on
+Measured with `pravapis eval data/eval/gold.tsv --trusted` and `pravapis bench --size 10mb` on
 a desktop Windows 11 machine, single process, classifier off. Every number sits next to the
 **do-nothing baseline** (return the input unchanged).
 
@@ -107,13 +107,13 @@ which the л/э/ы loanword rules consult before firing.
 
 ```bash
 uv sync                  # core: rules + lexicon
-uv sync --extra ml       # + experimental classifier, opt-in only (pip install belnorm[ml])
+uv sync --extra ml       # + experimental classifier, opt-in only (pip install pravapis[ml])
 ```
 
 ## Library
 
 ```python
-from belnorm import Converter, Orthography, convert
+from pravapis import Converter, Orthography, convert
 
 convert("Не быў без мяне", Orthography.TARASKIEVICA)   # 'Ня быў безь мяне'
 
@@ -125,15 +125,15 @@ result.text, result.stats, result.conversions
 ## CLI
 
 ```bash
-belnorm convert "снег" --to taraskievica
-belnorm convert --file in.txt --out out.txt --to narkamauka
-cat in.txt | belnorm convert --to taraskievica
-belnorm explain "сімвал" --to taraskievica
-belnorm build-lexicon data/lexicon/ --out data/lexicon.marisa
-belnorm eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, compares subsets
-belnorm eval data/eval/gold.tsv --trusted          # hand_written rows only
-belnorm bench --size 10mb
-belnorm serve
+pravapis convert "снег" --to taraskievica
+pravapis convert --file in.txt --out out.txt --to narkamauka
+cat in.txt | pravapis convert --to taraskievica
+pravapis explain "сімвал" --to taraskievica
+pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
+pravapis eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, compares subsets
+pravapis eval data/eval/gold.tsv --trusted          # hand_written rows only
+pravapis bench --size 10mb
+pravapis serve
 ```
 
 ## HTTP API
@@ -149,13 +149,13 @@ belnorm serve
 The lexicon and rules are loaded once in the FastAPI lifespan handler.
 
 ```bash
-docker build -t belnorm .
-docker run -p 8000:8000 belnorm
+docker build -t pravapis .
+docker run -p 8000:8000 pravapis
 curl -X POST localhost:8000/v1/convert -H 'content-type: application/json' \
      -d '{"text": "план", "direction": "taraskievica"}'
 ```
 
-Set `BELNORM_DATA_DIR` to point at a different `data/` directory.
+Set `PRAVAPIS_DATA_DIR` to point at a different `data/` directory.
 
 ## Serverless deployment (Vercel)
 
@@ -164,15 +164,15 @@ function at `/api/convert`. No FastAPI, no build step.
 
 | File | Role |
 |---|---|
-| `api/convert.py` | Vercel Python function; thin `BaseHTTPRequestHandler` over `belnorm.webapi` |
-| `src/belnorm/webapi.py` | validation, CORS, JSON shapes (stdlib + the converter only) |
+| `api/convert.py` | Vercel Python function; thin `BaseHTTPRequestHandler` over `pravapis.webapi` |
+| `src/pravapis/webapi.py` | validation, CORS, JSON shapes (stdlib + the converter only) |
 | `requirements.txt` | runtime deps for the function: regex, marisa-trie, PyYAML, pydantic |
 | `vercel.json` | static output from `public/`; tests, benchmarks, scripts, `data/eval` excluded from the function bundle |
-| `public/index.html` | demo page (single file, no framework) |
+| `public/index.html` | the page at `/`: a plain form, single file, no framework |
 
 `POST /api/convert` takes `{"text", "direction", "explain"}` and returns `{"result",
 "direction", "stats"}`, plus `segments` (every word with its method, rule id and rule trace)
-when `explain` is true. Cross-origin calls are allowed from `https://paznaj.by`,
+when `explain` is true. The page itself sends only `text` and `direction`. Cross-origin calls are allowed from `https://paznaj.by`,
 `https://www.paznaj.by` and `http://localhost` / `http://127.0.0.1` on any port; `OPTIONS`
 preflight is answered with 204.
 
@@ -182,7 +182,7 @@ the lexicon from `data/lexicon/*.tsv` at cold start (a few milliseconds at its c
 
 ### Vercel dashboard steps
 
-1. Push this repository to GitHub (it has no remote yet).
+1. Push this repository to GitHub (`origin` is already `sewstie/pravapis`).
 2. **Add New… → Project → Import** the repository.
 3. **Framework Preset: Other.** Root Directory: the repository root. Leave Build Command and
    Install Command empty/default. Output Directory is set to `public` by `vercel.json`.
@@ -204,7 +204,7 @@ python scripts/serve_local.py --port 3000   # public/ at /, the function at /api
 ```
 
 `scripts/export_vercel.py` still exists for embedding the function in another repository
-(vendored under `api/_belnorm/`); it is not used by the standalone deployment.
+(vendored under `api/_pravapis/`); it is not used by the standalone deployment.
 
 ## Development
 
@@ -227,10 +227,10 @@ data/rules/      YAML rules (palatalization, loanwords, morphology)
 data/lexicon/    TSV sources → data/lexicon.marisa
 data/eval/       gold.tsv (held out, with provenance), roundtrip_corpus.txt,
                  ambiguous.tsv (experimental classifier training)
-src/belnorm/     normalize, tokenize, rules/, lexicon/, stress, pipeline, metrics, webapi,
+src/pravapis/    normalize, tokenize, rules/, lexicon/, stress, pipeline, metrics, webapi,
                  api/ (FastAPI), cli, disambiguate/ (experimental, off by default)
 api/             Vercel function (convert.py)
-public/          demo page served at /
+public/          the conversion form served at /
 data/stress/     GrammarDB first-syllable stress tables (CC BY-SA 4.0)
 tests/           pytest + hypothesis
 benchmarks/      pytest-benchmark

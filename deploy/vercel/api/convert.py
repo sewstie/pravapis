@@ -1,9 +1,9 @@
 """Vendored variant of the /api/convert function (for embedding in another repo).
 
-The standalone deployment uses api/convert.py at the belnorm repo root. This copy
+The standalone deployment uses api/convert.py at the pravapis repo root. This copy
 is produced by scripts/export_vercel.py for a host project: it imports the
-converter from api/_belnorm/ (leading underscore: not a function). Request
-handling, validation and CORS live in belnorm.webapi, shared by both.
+converter from api/_pravapis/ (leading underscore: not a function). Request
+handling, validation and CORS live in pravapis.webapi, shared by both.
 """
 
 from __future__ import annotations
@@ -13,13 +13,13 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
-VENDOR = Path(__file__).resolve().parent / "_belnorm"
+VENDOR = Path(__file__).resolve().parent / "_pravapis"
 if str(VENDOR) not in sys.path:
     sys.path.insert(0, str(VENDOR))
 
-from belnorm.config import Config  # noqa: E402
-from belnorm.pipeline import Converter  # noqa: E402
-from belnorm.webapi import handle  # noqa: E402
+from pravapis.config import Config  # noqa: E402
+from pravapis.pipeline import Converter  # noqa: E402
+from pravapis.webapi import handle  # noqa: E402
 
 # Built once per cold start, reused by every request on this instance.
 CONVERTER = Converter.from_config(Config.default(VENDOR / "data"))

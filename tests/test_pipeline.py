@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from belnorm import convert as module_convert
-from belnorm.lexicon.store import Lexicon
-from belnorm.pipeline import Converter
-from belnorm.rules.engine import RuleEngine
-from belnorm.tokenize import tokenize
-from belnorm.types import Method, Orthography
+from pravapis import convert as module_convert
+from pravapis.lexicon.store import Lexicon
+from pravapis.pipeline import Converter
+from pravapis.rules.engine import RuleEngine
+from pravapis.tokenize import tokenize
+from pravapis.types import Method, Orthography
 
 N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA

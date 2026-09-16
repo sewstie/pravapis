@@ -42,7 +42,7 @@ from typing import Any, Final
 import regex
 import yaml
 
-from belnorm.types import Orthography, RuleTrace
+from pravapis.types import Orthography, RuleTrace
 
 _DIRECTION_ALIASES: Final[dict[str, Orthography]] = {
     "taraskievica": Orthography.TARASKIEVICA,

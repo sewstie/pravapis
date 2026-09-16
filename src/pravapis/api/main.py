@@ -3,7 +3,7 @@
 The lexicon, rules and (optional) model are loaded exactly once, inside the
 lifespan handler, and attached to ``app.state``. Run with::
 
-    uvicorn belnorm.api.main:app --host 0.0.0.0 --port 8000
+    uvicorn pravapis.api.main:app --host 0.0.0.0 --port 8000
 """
 
 from __future__ import annotations
@@ -16,14 +16,14 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from belnorm import __version__
-from belnorm.api.routes import router
-from belnorm.config import Config
-from belnorm.pipeline import Converter
+from pravapis import __version__
+from pravapis.api.routes import router
+from pravapis.config import Config
+from pravapis.pipeline import Converter
 
 log = logging.getLogger(__name__)
 
-ENV_CONFIG = "BELNORM_CONFIG"
+ENV_CONFIG = "PRAVAPIS_CONFIG"
 
 
 def _resolve_config(config: Config | Path | None) -> Config:
@@ -43,7 +43,7 @@ def create_app(config: Config | Path | None = None) -> FastAPI:
         app.state.converter = converter
         app.state.config = resolved
         log.info(
-            "belnorm %s ready: %s, %d rules, model=%s",
+            "pravapis %s ready: %s, %d rules, model=%s",
             __version__,
             converter.lexicon,
             len(converter.engine),
@@ -52,7 +52,7 @@ def create_app(config: Config | Path | None = None) -> FastAPI:
         yield
 
     app = FastAPI(
-        title="belnorm",
+        title="pravapis",
         description="Bidirectional Belarusian orthography converter (Narkamaŭka ↔ Taraškievica)",
         version=__version__,
         lifespan=lifespan,

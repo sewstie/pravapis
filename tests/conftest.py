@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from belnorm.config import Config
-from belnorm.lexicon.store import Lexicon
-from belnorm.pipeline import Converter
-from belnorm.rules.engine import RuleEngine
-from belnorm.stress import StressTable
+from pravapis.config import Config
+from pravapis.lexicon.store import Lexicon
+from pravapis.pipeline import Converter
+from pravapis.rules.engine import RuleEngine
+from pravapis.stress import StressTable
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -53,7 +53,7 @@ def lexicon(config: Config) -> Lexicon:
 def converter(
     lexicon: Lexicon, engine: RuleEngine, config: Config, stress: StressTable
 ) -> Converter:
-    from belnorm.lexicon.case_forms import CaseForms
+    from pravapis.lexicon.case_forms import CaseForms
 
     assert config.case_forms is not None
     return Converter(

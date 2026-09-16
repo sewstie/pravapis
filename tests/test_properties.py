@@ -12,12 +12,12 @@ from __future__ import annotations
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 
-from belnorm.normalize import sanitize
-from belnorm.pipeline import Converter
-from belnorm.rules.engine import RuleEngine
-from belnorm.rules.palatalization import mark_assimilative_softness, unmark_assimilative_softness
-from belnorm.tokenize import detokenize, tokenize
-from belnorm.types import Orthography, TokenKind
+from pravapis.normalize import sanitize
+from pravapis.pipeline import Converter
+from pravapis.rules.engine import RuleEngine
+from pravapis.rules.palatalization import mark_assimilative_softness, unmark_assimilative_softness
+from pravapis.tokenize import detokenize, tokenize
+from pravapis.types import Orthography, TokenKind
 
 N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA
@@ -91,7 +91,7 @@ def test_preposition_softness_follows_converted_next_word(
     The palatalization bug class (зллю, без слёз): a condition evaluated on the
     Narkamaŭka form, where assimilative softness is not written.
     """
-    from belnorm.rules.morphology import CLITICS, _soft_onset, _unstressed_initial_i
+    from pravapis.rules.morphology import CLITICS, _soft_onset, _unstressed_initial_i
 
     assume(w not in CLITICS)
     out = converter.convert(f"{prep} {w}", N2T)

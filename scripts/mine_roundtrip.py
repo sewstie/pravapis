@@ -13,8 +13,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from belnorm.metrics import RoundTripFailure, round_trip_failures
-from belnorm.pipeline import Converter
+from pravapis.metrics import RoundTripFailure, round_trip_failures
+from pravapis.pipeline import Converter
 
 ROOT = Path(__file__).resolve().parent.parent
 

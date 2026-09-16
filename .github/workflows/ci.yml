@@ -25,9 +25,9 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
-      - run: uv run pytest --cov=belnorm --cov-report=term-missing
-      - run: uv run belnorm build-lexicon data/lexicon --out data/lexicon.marisa
-      - run: uv run belnorm eval data/eval/gold.tsv --json eval.json
+      - run: uv run pytest --cov=pravapis --cov-report=term-missing
+      - run: uv run pravapis build-lexicon data/lexicon --out data/lexicon.marisa
+      - run: uv run pravapis eval data/eval/gold.tsv --json eval.json
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest'
         with:
@@ -44,6 +44,6 @@ jobs:
         with:
           context: .
           push: false
-          tags: belnorm:ci
+          tags: pravapis:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max

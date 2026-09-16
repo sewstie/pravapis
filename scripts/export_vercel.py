@@ -9,13 +9,13 @@ Writes:
       requirements.txt              pinned runtime deps (refuses to overwrite without --force)
       api/
         convert.py                  the function: POST /api/convert
-        _belnorm/                   vendored, not a function (leading underscore)
-          belnorm/                  runtime subset of the package
+        _pravapis/                   vendored, not a function (leading underscore)
+          pravapis/                  runtime subset of the package
           data/
             lexicon.marisa          compiled from data/lexicon/*.tsv
             rules/*.yaml
             stress/                 GrammarDB first-stress tables + CC BY-SA attribution
-          VERSION                   belnorm git commit the copy was made from
+          VERSION                   pravapis git commit the copy was made from
 
 Left out on purpose: the FastAPI app, the CLI, metrics, and the experimental
 disambiguate/ package (no [ml] extra, no BelVoice data). Prints a size report.
@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "src" / "belnorm"
+SRC = ROOT / "src" / "pravapis"
 DATA = ROOT / "data"
 DEPLOY = ROOT / "deploy" / "vercel"
 
@@ -84,10 +84,10 @@ def _commit() -> str:
 
 def export(out: Path, *, force: bool = False) -> dict[str, int]:
     sys.path.insert(0, str(ROOT / "src"))
-    from belnorm.lexicon.builder import build_from_sources, save_lexicon, sources_digest
+    from pravapis.lexicon.builder import build_from_sources, save_lexicon, sources_digest
 
     api = out / "api"
-    vendor = api / "_belnorm"
+    vendor = api / "_pravapis"
     req = out / "requirements.txt"
     if (
         req.exists()
@@ -99,7 +99,7 @@ def export(out: Path, *, force: bool = False) -> dict[str, int]:
         shutil.rmtree(vendor)
 
     for rel in RUNTIME_MODULES:
-        dst = vendor / "belnorm" / rel
+        dst = vendor / "pravapis" / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SRC / rel, dst)
 
@@ -121,7 +121,7 @@ def export(out: Path, *, force: bool = False) -> dict[str, int]:
 
     return {
         "handler": _size(api / "convert.py"),
-        "code": _size(vendor / "belnorm"),
+        "code": _size(vendor / "pravapis"),
         "lexicon": _size(vendor / "data" / "lexicon.marisa"),
         "rules": _size(vendor / "data" / "rules"),
         "stress": _size(vendor / "data" / "stress"),

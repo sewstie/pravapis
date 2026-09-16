@@ -32,10 +32,10 @@ from typing import Any, Final
 
 import regex
 
-from belnorm.normalize import sanitize
-from belnorm.pipeline import Converter
-from belnorm.tokenize import tokenize
-from belnorm.types import Method, Orthography, TokenKind
+from pravapis.normalize import sanitize
+from pravapis.pipeline import Converter
+from pravapis.tokenize import tokenize
+from pravapis.types import Method, Orthography, TokenKind
 
 MAX_CHARS: Final[int] = 50_000
 MAX_BODY_BYTES: Final[int] = MAX_CHARS * 4 + 4_096  # UTF-8 worst case plus JSON overhead

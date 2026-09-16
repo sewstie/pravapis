@@ -12,7 +12,7 @@ The label is derived automatically (``labels.derive_label``): which edit
 operation, followed by the deterministic rules, turns ``source`` into
 ``target``. Rows no operation explains are skipped and reported.
 
-Requires the ``ml`` extra: ``pip install belnorm[ml]``.
+Requires the ``ml`` extra: ``pip install pravapis[ml]``.
 """
 
 from __future__ import annotations
@@ -23,13 +23,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from belnorm import __version__
-from belnorm.disambiguate.features import extract_features
-from belnorm.disambiguate.labels import KEEP, LABELS, PARTICLE, apply_label
-from belnorm.normalize import sanitize
-from belnorm.rules.engine import RuleEngine
-from belnorm.tokenize import context_of, tokenize
-from belnorm.types import Orthography, Token, TokenKind
+from pravapis import __version__
+from pravapis.disambiguate.features import extract_features
+from pravapis.disambiguate.labels import KEEP, LABELS, PARTICLE, apply_label
+from pravapis.normalize import sanitize
+from pravapis.rules.engine import RuleEngine
+from pravapis.tokenize import context_of, tokenize
+from pravapis.types import Orthography, Token, TokenKind
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def _require_sklearn() -> Any:
     try:
         import sklearn
     except ImportError as exc:  # pragma: no cover - exercised only without the extra
-        raise MissingMLDependency("install belnorm[ml] to train or load the model") from exc
+        raise MissingMLDependency("install pravapis[ml] to train or load the model") from exc
     return sklearn
 
 

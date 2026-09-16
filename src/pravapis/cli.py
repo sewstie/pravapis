@@ -1,14 +1,14 @@
 """Command-line interface (typer + rich).
 
-belnorm convert "снег" --to taraskievica
-belnorm convert --file in.txt --out out.txt --to narkamauka
-echo "снег" | belnorm convert --to t
-belnorm explain "сімвал" --to taraskievica
-belnorm build-lexicon data/lexicon/ --out data/lexicon.marisa
-belnorm train data/eval/ambiguous.tsv --out data/models/disambig.joblib
-belnorm eval data/eval/gold.tsv
-belnorm bench --size 10mb
-belnorm serve --port 8000
+pravapis convert "снег" --to taraskievica
+pravapis convert --file in.txt --out out.txt --to narkamauka
+echo "снег" | pravapis convert --to t
+pravapis explain "сімвал" --to taraskievica
+pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
+pravapis train data/eval/ambiguous.tsv --out data/models/disambig.joblib
+pravapis eval data/eval/gold.tsv
+pravapis bench --size 10mb
+pravapis serve --port 8000
 """
 
 from __future__ import annotations
@@ -24,10 +24,10 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from belnorm import __version__
-from belnorm.config import Config
-from belnorm.pipeline import Converter
-from belnorm.types import Method, Orthography
+from pravapis import __version__
+from pravapis.config import Config
+from pravapis.pipeline import Converter
+from pravapis.types import Method, Orthography
 
 app = typer.Typer(
     help="Bidirectional Belarusian orthography converter (Narkamaŭka ↔ Taraškievica).",
@@ -183,7 +183,7 @@ def build_lexicon(
     strict: Annotated[bool, typer.Option("--strict", help="Fail on warnings too.")] = False,
 ) -> None:
     """Compile TSV sources into the marisa-trie lexicon file."""
-    from belnorm.lexicon.builder import (
+    from pravapis.lexicon.builder import (
         build_from_sources,
         read_sources,
         save_lexicon,
@@ -214,9 +214,9 @@ def train(
     folds: Annotated[int, typer.Option(help="Cross-validation folds.")] = 5,
     seed: Annotated[int, typer.Option()] = 42,
 ) -> None:
-    r"""Train the disambiguation classifier (requires belnorm\[ml])."""
-    from belnorm.disambiguate import train as tr
-    from belnorm.rules.engine import RuleEngine
+    r"""Train the disambiguation classifier (requires pravapis\[ml])."""
+    from pravapis.disambiguate import train as tr
+    from pravapis.rules.engine import RuleEngine
 
     cfg = Config.load(config) if config else Config.default()
     engine = RuleEngine.from_yaml(*cfg.rules)
@@ -264,7 +264,7 @@ def eval_cmd(
     are scored and the hand_written subset is scored alongside for comparison;
     ``--trusted`` scores only that subset.
     """
-    from belnorm.metrics import HAND_WRITTEN, UNCERTAIN, evaluate, read_gold, read_gold_rows
+    from pravapis.metrics import HAND_WRITTEN, UNCERTAIN, evaluate, read_gold, read_gold_rows
 
     converter = _converter(config)
     rows = read_gold_rows(gold)
@@ -453,7 +453,7 @@ def bench(
     ] = None,
 ) -> None:
     """Measure throughput in MB/s on a synthetic corpus of the given size."""
-    from belnorm.metrics import read_gold
+    from pravapis.metrics import read_gold
 
     converter = _converter(config)
     target = _parse_size(size)
@@ -488,13 +488,13 @@ def serve(
     import uvicorn
 
     if config is not None:
-        os.environ["BELNORM_CONFIG"] = str(config)
-    uvicorn.run("belnorm.api.main:app", host=host, port=port)
+        os.environ["PRAVAPIS_CONFIG"] = str(config)
+    uvicorn.run("pravapis.api.main:app", host=host, port=port)
 
 
 @app.command()
 def version() -> None:
-    console.print(f"belnorm {__version__}")
+    console.print(f"pravapis {__version__}")
 
 
 if __name__ == "__main__":  # pragma: no cover

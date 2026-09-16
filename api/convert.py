@@ -2,7 +2,7 @@
 
 Deployed straight from this repository: the package is imported from src/,
 the lexicon, rules and stress tables from data/. All request handling lives in
-belnorm.webapi; this file only adapts it to BaseHTTPRequestHandler.
+pravapis.webapi; this file only adapts it to BaseHTTPRequestHandler.
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from belnorm.config import Config  # noqa: E402
-from belnorm.pipeline import Converter  # noqa: E402
-from belnorm.webapi import handle  # noqa: E402
+from pravapis.config import Config  # noqa: E402
+from pravapis.pipeline import Converter  # noqa: E402
+from pravapis.webapi import handle  # noqa: E402
 
 # Built once per cold start, reused by every request on this instance.
 CONVERTER = Converter.from_config(Config.default(ROOT / "data"))

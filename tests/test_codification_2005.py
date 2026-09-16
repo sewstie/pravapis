@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import pytest
 
-from belnorm.pipeline import Converter
-from belnorm.rules import loanwords
-from belnorm.types import Orthography
+from pravapis.pipeline import Converter
+from pravapis.rules import loanwords
+from pravapis.types import Orthography
 
 N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA

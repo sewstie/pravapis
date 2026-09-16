@@ -13,7 +13,7 @@ Assimilative softness (§29) extends to the prepositions *з, без/бяз, п�
 
 Both need the next word, so they run in the pipeline rather than the per-word
 rule engine. Stress is not written in Belarusian text; it comes from GrammarDB
-stress marks (``belnorm.stress.StressTable``). Without a table only two facts
+stress marks (``pravapis.stress.StressTable``). Without a table only two facts
 are used: a monosyllabic content word is stressed on its only syllable, and ё
 is always stressed. Anything else counts as not first-stressed.
 """
@@ -22,9 +22,9 @@ from __future__ import annotations
 
 from typing import Final
 
-from belnorm.rules.palatalization import SOFT_TRIGGERS, SOFT_VOWELS, SOFTENERS
-from belnorm.stress import StressTable
-from belnorm.types import Orthography
+from pravapis.rules.palatalization import SOFT_TRIGGERS, SOFT_VOWELS, SOFTENERS
+from pravapis.stress import StressTable
+from pravapis.types import Orthography
 
 VOWELS: Final[frozenset[str]] = frozenset("аеёіоуыэюя")
 

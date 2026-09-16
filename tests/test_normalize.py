@@ -4,7 +4,7 @@ import unicodedata
 
 import pytest
 
-from belnorm.normalize import (
+from pravapis.normalize import (
     fold_homoglyphs,
     normalize_apostrophes,
     sanitize,
