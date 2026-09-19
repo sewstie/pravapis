@@ -7,6 +7,7 @@ pravapis explain "сімвал" --to taraskievica
 pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
 pravapis train data/eval/ambiguous.tsv --out data/models/disambig.joblib
 pravapis eval data/eval/gold.tsv
+pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
 pravapis bench --size 10mb
 pravapis serve --port 8000
 """
@@ -20,12 +21,24 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
 from pravapis import __version__
 from pravapis.config import Config
+from pravapis.metrics import (
+    PROPOSED,
+    UNSCORED,
+    audit_changes,
+    audit_precision,
+    merge_audit,
+    read_audit,
+    read_corpus,
+    read_gold_origin,
+    write_audit,
+)
 from pravapis.pipeline import Converter
 from pravapis.types import Method, Orthography, Script
 
@@ -330,16 +343,25 @@ def eval_cmd(
     are scored and the hand_written subset is scored alongside for comparison;
     ``--trusted`` scores only that subset.
     """
-    from pravapis.metrics import HAND_WRITTEN, UNCERTAIN, evaluate, read_gold, read_gold_rows
+    from pravapis.metrics import HAND_WRITTEN, evaluate, read_gold, read_gold_rows
 
     converter = _converter(config)
     rows = read_gold_rows(gold)
-    n_uncertain = sum(r.provenance == UNCERTAIN for r in rows)
+    origin = read_gold_origin(gold)
+    n_uncertain = sum(r.provenance in UNSCORED for r in rows)
     pairs = read_gold(gold, trusted_only=trusted)
-    subset = "hand_written only (--trusted)" if trusted else "all except uncertain"
+    subset = "hand_written only (--trusted)" if trusted else "all except uncertain/proposed"
     console.print(f"lexicon: {converter.lexicon_origin}")
+    if origin is None:
+        console.print(
+            "[yellow]no `# origin:` header: cannot tell which direction is independent "
+            "evidence and which is derived[/yellow]"
+        )
+    else:
+        console.print(f"gold authored in: [bold]{origin.value}[/bold]")
     console.print(
-        f"gold rows: {len(rows)} · [yellow]skipped {n_uncertain} uncertain[/yellow]"
+        f"gold rows: {len(rows)} · [yellow]skipped {n_uncertain} "
+        f"uncertain/proposed[/yellow]"
         + (
             f" · skipped {len(rows) - n_uncertain - len(pairs)} non-hand_written"
             if trusted
@@ -351,8 +373,17 @@ def eval_cmd(
     directions = list(Orthography) if direction.lower() == "both" else [_direction(direction)]
     payload: dict[str, object] = {}
     divergences: list[str] = []
+    if not pairs:
+        n_proposed = sum(r.provenance == PROPOSED for r in rows)
+        console.print(
+            f"[yellow]nothing to score: {n_proposed} of {len(rows)} rows are unreviewed "
+            "converter proposals.[/yellow] Scoring a proposal against the converter that "
+            "wrote it returns 100% by construction, so `proposed` rows never count. "
+            "Review them and change `proposed` to `hand_written`."
+        )
+        raise typer.Exit(0)
     for d in directions:
-        rep = evaluate(converter, pairs, d, error_limit=show_errors)
+        rep = evaluate(converter, pairs, d, error_limit=show_errors, origin=origin)
         console.rule(f"→ {d.value}")
         console.print(
             f"gold set: [bold]{rep.pairs}[/bold] sentences · [bold]{rep.words}[/bold] words · "
@@ -366,7 +397,24 @@ def eval_cmd(
                 f"±1 word moves change accuracy by "
                 f"{1 / rep.changed_words if rep.changed_words else 1:.2%}[/yellow]"
             )
-        headline = Table(title="headline (vs do-nothing baseline)")
+        if rep.origin is None:
+            label, caveat = "headline (vs do-nothing baseline)", ""
+        elif rep.is_independent:
+            label = "headline — accuracy (vs do-nothing baseline)"
+            caveat = ""
+        else:
+            label = "headline — SELF-CONSISTENCY, not accuracy"
+            caveat = (
+                f"[yellow]The gold was authored in {rep.origin.value}, so the "
+                f"{rep.origin.opposite.value} input scored here was derived from it. This "
+                "measures whether the converter can undo a transformation produced by the "
+                "same reading of the norm it implements — not whether it is right. For an "
+                f"independent → {rep.direction.value} figure see data/eval/tarask/ "
+                "(`pravapis audit`).[/yellow]"
+            )
+        if caveat:
+            console.print(caveat)
+        headline = Table(title=label)
         headline.add_column("metric")
         headline.add_column("converter", justify="right")
         headline.add_column("baseline", justify="right")
@@ -407,7 +455,9 @@ def eval_cmd(
             f" · {rep.mb_per_second:.2f} MB/s"
         )
         if trusted_pairs is not None:
-            tr = evaluate(converter, trusted_pairs, d, error_limit=0, round_trip=False)
+            tr = evaluate(
+                converter, trusted_pairs, d, error_limit=0, round_trip=False, origin=origin
+            )
             cmp = Table(title="hand_written subset vs scored set")
             cmp.add_column("metric")
             cmp.add_column("scored", justify="right")
@@ -459,6 +509,8 @@ def eval_cmd(
             "baseline_accuracy": rep.baseline_accuracy,
             "error_reduction": rep.error_reduction,
             "sentence_accuracy": rep.sentence_accuracy,
+            "origin": rep.origin.value if rep.origin else None,
+            "independent": rep.is_independent,
             "baseline_sentence_accuracy": rep.baseline_sentence_accuracy,
             "subset": subset,
             "lexicon": converter.lexicon_origin,
@@ -508,6 +560,72 @@ def _parse_size(value: str) -> int:
         if v.endswith(suffix):
             return int(float(v[: -len(suffix)]) * mult)
     return int(v)
+
+
+@app.command()
+def audit(
+    corpus: Annotated[Path, typer.Argument(help="Corpus TSV: sentence<TAB>article<TAB>revid.")],
+    to: ToOption = "narkamauka",
+    out: Annotated[
+        Path | None, typer.Option("--out", "-o", help="Audit TSV to create or update.")
+    ] = None,
+    config: ConfigOption = None,
+    top: Annotated[int, typer.Option("--top", help="How many rows to print.")] = 25,
+) -> None:
+    """Precision audit: every distinct change the converter makes, for review.
+
+    Scores what the gold set cannot. data/eval/gold.tsv is Narkamaŭka in origin — its
+    Taraškievica side was derived from the Narkamaŭka side — so scoring T → N on it
+    measures self-consistency. This runs the converter over text nobody derived and
+    lists each distinct change, most frequent first, for a human to mark ok / wrong /
+    unsure. Re-running keeps verdicts already recorded.
+    """
+    direction = _direction(to)
+    converter = _converter(config)
+    rows = read_corpus(corpus)
+    if not rows:
+        errors.print(f"[red]{corpus} has no sentences[/red]")
+        raise typer.Exit(2)
+
+    fresh = audit_changes(converter, [r.sentence for r in rows], direction)
+    merged = merge_audit(fresh, read_audit(out)) if out is not None else fresh
+    report = audit_precision(merged)
+
+    if out is not None:
+        write_audit(merged, out)
+
+    table = Table(title=f"distinct changes → {direction.value} (top {top})", box=box.SIMPLE)
+    table.add_column("n", justify="right")
+    table.add_column("source")
+    table.add_column("target")
+    table.add_column("rule")
+    table.add_column("verdict")
+    for row in merged[:top]:
+        table.add_row(str(row.count), row.source, row.target, row.rule, row.verdict or "—")
+    console.print(table)
+
+    summary = Table(title="audit", box=box.SIMPLE)
+    summary.add_column("metric")
+    summary.add_column("rows", justify="right")
+    summary.add_column("tokens", justify="right")
+    summary.add_row("ok", str(report.ok_rows), str(report.ok_tokens))
+    summary.add_row("wrong", str(report.wrong_rows), str(report.wrong_tokens))
+    summary.add_row("unsure", str(report.unsure_rows), str(report.unsure_tokens))
+    summary.add_row("not reviewed", str(report.unreviewed_rows), str(report.unreviewed_tokens))
+    summary.add_row("total", str(report.distinct), str(report.tokens))
+    console.print(summary)
+
+    if report.precision is None:
+        console.print(
+            "[yellow]precision: nothing reviewed yet[/yellow] — fill in the `verdict` "
+            f"column of {out or 'the audit file'} (ok / wrong / unsure)"
+        )
+    else:
+        console.print(
+            f"precision [bold]{report.precision:.1%}[/bold] "
+            f"({report.ok_tokens}/{report.scored_tokens} reviewed tokens) · "
+            f"{report.reviewed_share:.0%} of changed tokens reviewed"
+        )
 
 
 @app.command()

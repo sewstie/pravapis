@@ -50,13 +50,26 @@ change): rows never adjusted after seeing converter output.
 
 | | N → T | baseline | T → N | baseline |
 |---|---|---|---|---|
-| **Change accuracy** (words that should change) | **96.7%** (591/611) | 0.0% | **96.7%** (591/611) | 0.0% |
-| False-positive rate (words that should not change) | 0.0% (0/3,376) | 0.0% | 0.0% (0/3,376) | 0.0% |
-| Word accuracy | 99.5% | 84.7% | 99.5% | 84.7% |
+| **Change accuracy** (words that should change) | **96.7%** (591/611) | 0.0% | 96.7%\* (591/611) | 0.0% |
+| False-positive rate (words that should not change) | 0.0% (0/3,376) | 0.0% | 0.0%\* (0/3,376) | 0.0% |
+| Word accuracy | 99.5% | 84.7% | 99.5%\* | 84.7% |
 | Word round trip (there and back) | 99.95% | 100% | 99.95% | 100% |
 
-The two directions are now symmetric. They were not before: the reverse loanword rules
-were inverse transducers guessing which `ь` to remove (`балькон → балкон` must drop one,
+**\* The T → N column is self-consistency, not accuracy.** `gold.tsv` declares
+`# origin: narkamauka`: its Narkamaŭka side is the original and its Taraškievica side was
+written from it by applying the 2005 norm. Scoring T → N on it therefore asks whether the
+converter can undo a transformation produced by the same reading of the norm it
+implements. That is worth knowing and it is not nothing — but it is not evidence that
+T → N is *right*, and the two columns landing on an identical 96.7% with identical
+denominators is the tell. `pravapis eval` prints this caveat itself, from the file's own
+header, so a future edit cannot quietly drop it.
+
+For an independent figure the converter is measured on **genuine Taraškievica** —
+sentences from be-tarask.wikipedia.org that nobody derived from Narkamaŭka
+(`data/eval/tarask/`, CC BY-SA 4.0). See [Independent T → N](#independent-t--n).
+
+The directions did diverge before Phase A: the reverse loanword rules were inverse
+transducers guessing which `ь` to remove (`балькон → балкон` must drop one,
 `лякальна → лакальна` must not, and the string does not say which), which cost them
 recall of 0.22 and 0.36. T → N is now a stem substitution derived from the forward
 inventory, so it cannot disagree with it, and its recall is 1.0.
@@ -91,6 +104,40 @@ Caveats:
   (`сімвал → сымбаль`), and one grammatical-gender change (`Аналіз паказаў → Аналіза
   паказала`) that a word-level converter cannot make. The first class is the one that
   shrinks by adding data — see `scripts/mine_loan_stems.py`.
+
+## Independent T → N
+
+Everything above comes from one gold set whose Taraškievica side is derived. To measure
+T → N on text a Taraškievica writer actually produced, `data/eval/tarask/` holds
+sentences sampled from be-tarask.wikipedia.org, each with its article and revision id.
+Only sentences carrying a Taraškievica marker are kept — an assimilative `ь`, a loan
+`э`/`ы`, a `ґ` — because a sentence that reads identically in both orthographies would
+pad the denominator with words that cannot change either way.
+
+```bash
+python scripts/fetch_tarask_corpus.py --sentences 400     # 437 sentences, 73 articles
+pravapis audit data/eval/tarask/corpus.tsv --to narkamauka     --out data/eval/tarask/audit.tsv
+```
+
+**Precision audit.** The converter changes 634 tokens across those sentences, which
+collapse to **431 distinct changes** — one row per `(source, target, rule)`, ranked by
+frequency. That is the unit a human can judge; judging tokens would mean reading the
+same change hundreds of times. Mark each `ok` / `wrong` / `unsure`, and precision is the
+token-weighted `ok / (ok + wrong)`, reported beside the share still unreviewed. Re-running
+the audit keeps verdicts already recorded, re-counts against the current converter, and
+drops changes it no longer makes.
+
+**Status: 0 of 431 reviewed.** `pravapis audit` reports precision as *unknown* rather
+than 0% or 100%, and the CI gate is inert until there are verdicts to hold.
+
+**Recall** needs gold, so `scripts/propose_gold_t2n.py` samples the corpus and drafts the
+Narkamaŭka side for each sentence into `data/eval/tarask/gold_t2n.tsv`
+(`# origin: taraskievica` — the mirror of `gold.tsv`). Those rows carry provenance
+`proposed` and **are never scored**: a converter proposal scored against the converter
+returns 100% by construction. They exist so a reviewer corrects a draft instead of
+composing from scratch. Promote a row by fixing its Narkamaŭka side and changing
+`proposed` to `hand_written`; until then `pravapis eval` says plainly that there is
+nothing to score.
 
 ## Why the classifier was removed
 
@@ -214,6 +261,7 @@ pravapis explain "сімвал" --to taraskievica
 pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
 pravapis eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, compares subsets
 pravapis eval data/eval/gold.tsv --trusted          # hand_written rows only
+pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
 pravapis bench --size 10mb
 pravapis serve
 ```
@@ -312,8 +360,10 @@ data/rules/      YAML rules (palatalization, loanwords, morphology)
 data/translit/   Łacinka + official-2007 scheme tables, with inline tests
 data/lexicon/    TSV sources → data/lexicon.marisa
 data/lexicon/stems/  stem etymology inventory (loan / native) gating the loanword rules
-data/eval/       gold.tsv (held out, with provenance), roundtrip_corpus.txt,
-                 ambiguous.tsv (experimental classifier training)
+data/eval/       gold.tsv (held out, with provenance and an origin header),
+                 roundtrip_corpus.txt, ambiguous.tsv (classifier training)
+data/eval/tarask/  genuine Taraškievica from be-tarask (CC BY-SA 4.0): corpus.tsv,
+                 audit.tsv, gold_t2n.tsv — independent T → N evaluation
 src/pravapis/    normalize, tokenize, rules/, lexicon/, translit/, stress, pipeline,
                  metrics, webapi, api/ (FastAPI), cli,
                  disambiguate/ (experimental, off by default)

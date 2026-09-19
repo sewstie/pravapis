@@ -1,4 +1,10 @@
 ﻿# narkamauka<TAB>taraskievica<TAB>source<TAB>provenance
+# origin: narkamauka
+#   The Narkamaŭka side is the original (Paznaj site content); the Taraškievica side was
+#   written from it by applying Збор правілаў 2005. So N → T scored here is accuracy,
+#   while T → N is self-consistency: it asks whether the converter can undo a
+#   transformation derived from the same reading of the norm it implements. For an
+#   independent T → N figure see data/eval/tarask/.
 # HELD OUT. Never read by lexicon building, rule tests, or model training
 # (enforced by tests/test_gold_heldout.py).
 #
