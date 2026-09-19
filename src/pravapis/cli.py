@@ -27,7 +27,7 @@ from rich.table import Table
 from pravapis import __version__
 from pravapis.config import Config
 from pravapis.pipeline import Converter
-from pravapis.types import Method, Orthography
+from pravapis.types import Method, Orthography, Script
 
 app = typer.Typer(
     help="Bidirectional Belarusian orthography converter (Narkamaŭka ↔ Taraškievica).",
@@ -86,6 +86,15 @@ def _direction(value: str) -> Orthography:
 
 def _converter(config: Path | None) -> Converter:
     return Converter.from_config(config)
+
+
+def _script(name: str) -> Script:
+    try:
+        return Script(name.strip().lower())
+    except ValueError:
+        choices = ", ".join(s.value for s in Script)
+        errors.print(f"[red]unknown script {name!r}; choose one of: {choices}[/red]")
+        raise typer.Exit(2) from None
 
 
 def _read_input(text: str | None, file: Path | None) -> str:
@@ -150,6 +159,63 @@ def convert(
         errors.print(
             "  ".join(f"{m.value}={n} ({n / words:.0%})" for m, n in totals.items() if n),
         )
+
+
+@app.command()
+def translit(
+    text: Annotated[
+        str | None, typer.Argument(help="Text to transliterate (or use --file / stdin).")
+    ] = None,
+    to: Annotated[
+        str,
+        typer.Option("--to", help="Target script: lacinka, official, or cyrillic."),
+    ] = "lacinka",
+    from_: Annotated[
+        str | None,
+        typer.Option("--from", help="Source script when reading Latin back (lacinka)."),
+    ] = None,
+    no_convert: Annotated[
+        bool,
+        typer.Option(
+            "--no-convert",
+            help="Transliterate the input as given, without converting orthography first.",
+        ),
+    ] = False,
+    orthography: Annotated[
+        str | None,
+        typer.Option("--orthography", help="With --from: orthography to produce."),
+    ] = None,
+    file: Annotated[Path | None, typer.Option("--file", "-f", help="Input file.")] = None,
+    out: Annotated[Path | None, typer.Option("--out", "-o", help="Output file.")] = None,
+    config: ConfigOption = None,
+) -> None:
+    """Transliterate between Cyrillic and Latin.
+
+    Łacinka is paired with Taraškievica and the 2007 romanisation with Narkamaŭka,
+    because each shares that orthography's treatment of softness. The paired
+    conversion runs first unless --no-convert is given:
+
+        pravapis translit "снег" --to lacinka               # śnieh
+        pravapis translit "снег" --to lacinka --no-convert  # snieh
+        pravapis translit "снег" --to official              # snieh
+        pravapis translit "śnieh" --from lacinka            # сьнег
+    """
+    converter = _converter(config)
+    source = _read_input(text, file)
+
+    if from_ is not None:
+        script = _script(from_)
+        direction = _direction(orthography) if orthography else None
+        output = converter.read_script(source, script, direction)
+    else:
+        output = converter.render(source, _script(to), convert=not no_convert)
+
+    if out is not None:
+        out.write_text(output, encoding="utf-8")
+    else:
+        sys.stdout.write(output)
+        if text is not None and not output.endswith("\n"):
+            sys.stdout.write("\n")
 
 
 @app.command()

@@ -1,9 +1,14 @@
-version: "1.0"
+version: "2.0"
 group: loanwords
-# Loanword adaptation. Most of these alternations are lexically conditioned
-# (план → плян but лапа → лапа), so the function-backed rules only fire on
-# curated stem lists (src/pravapis/rules/loanwords.py); everything else is the
-# lexicon's job. Only ґ → г and Еў ↔ Эў are genuinely regular.
+# Loanword adaptation. Every alternation here is regular *given* that the word is a
+# Western borrowing — Збор 2005 §11б states the э rule as a plain phonological
+# condition, and §55.1/§56.2 do the same for soft л. What is not recoverable from
+# the spelling is the etymology itself, so these rules are gated on the stem
+# inventory in data/lexicon/stems/stems.tsv via `requires_class` + `alternation`,
+# and each transducer rewrites only inside the matched stem.
+#
+# Only ґ → г and Еў ↔ Эў need no etymology: ґ occurs solely in loans, and еў- is
+# regular by position.
 rules:
   # ---------------------------------------------------------------- N → T
   - id: loan.eu
@@ -13,8 +18,7 @@ rules:
     # (§52 "але даўно асвоеныя імёны …"; §72 Заўвага А, footnote 68): traditional Christian
     # given names, borrowed through Church Slavonic, which keep Е- (Еўдакія – Аўдоцьця,
     # Е(ў)фрасіньня – Эўфрасіньня). That class is not visible in the spelling, so it is
-    # excluded by the stems of the names the book gives. WORKAROUND: extend the list only
-    # with names the book (or another cited source) puts in that class.
+    # excluded by the stems of the names the book gives.
     pattern: '^еў(?!дакі|фрасін)'
     replacement: 'эў'
     priority: 50
@@ -30,10 +34,27 @@ rules:
         - { input: "еўдакіі", expected: "еўдакіі" }
         - { input: "еўфрасіння", expected: "еўфрасіння" }
 
+  - id: loan.stem_target
+    description: "Stems the regular alternations cannot derive: каланіял → калёніял"
+    direction: narkamauka_to_taraskievica
+    # Narkamaŭka akanne wrote the etymological о of колон- as а, so no rule conditioned
+    # on the Narkamaŭka spelling can recover калёніял. The 6th column of stems.tsv
+    # carries the target directly.
+    function: "pravapis.rules.loanwords:apply_stem_target"
+    requires_class: loan
+    priority: 45
+    tests:
+      positive:
+        - { input: "каланіяльны", expected: "калёніяльны" }
+      negative:
+        - { input: "план", expected: "план" }
+
   - id: loan.l_palatalization
-    description: "Soft l in curated Western stems: план → плян, біялогія → біялёгія"
+    description: "Soft l in Western stems: план → плян, біялогія → біялёгія"
     direction: narkamauka_to_taraskievica
     function: "pravapis.rules.loanwords:apply_l_palatalization"
+    requires_class: loan
+    alternation: l
     priority: 40
     tests:
       positive:
@@ -44,21 +65,57 @@ rules:
       negative:
         - { input: "лапа", expected: "лапа" }
         - { input: "падлогі", expected: "падлогі" }
+        - { input: "класці", expected: "класці" }
 
   - id: loan.i_to_y
-    description: "ы after dentals in Greco-Latin stems: сістэма → сыстэма"
+    description: "ы after hard dentals in Greco-Latin stems: сістэма → сыстэма"
     direction: narkamauka_to_taraskievica
     function: "pravapis.rules.loanwords:apply_i_to_y"
+    requires_class: loan
+    alternation: i
     priority: 40
     tests:
       positive:
         - { input: "сістэма", expected: "сыстэма" }
         - { input: "прэзідэнт", expected: "прэзыдэнт" }
         - { input: "фізіка", expected: "фізыка" }
-        - { input: "класічны", expected: "класычны" }
       negative:
         - { input: "сіла", expected: "сіла" }
         - { input: "сіні", expected: "сіні" }
+        - { input: "марксізм", expected: "марксізм" }
+
+  - id: loan.e_to_eh
+    description: "э after consonants in borrowings: сезон → сэзон, версія → вэрсія"
+    direction: narkamauka_to_taraskievica
+    # Збор 2005 §11б: "У пазычаньнях і вытворных ад іх словах … Літара э пішацца …
+    # б) пасьля зычных, акрамя л і заднеязычных (г (ґ), к, х)".
+    # §12 Заўвага Б lists the assimilated borrowings that keep е; they are the
+    # exceptions below.
+    function: "pravapis.rules.loanwords:apply_e_to_eh"
+    requires_class: loan
+    alternation: e
+    priority: 40
+    exceptions:
+      - блюзьнер
+      - жаўнер
+      - касінер
+      - каўнер
+      - кушнер
+      - манер
+      - манера
+      - шынель
+    tests:
+      positive:
+        - { input: "сезон", expected: "сэзон" }
+        - { input: "версія", expected: "вэрсія" }
+        - { input: "аперацыя", expected: "апэрацыя" }
+        - { input: "метро", expected: "мэтро" }
+        - { input: "дакумент", expected: "дакумэнт" }
+      negative:
+        - { input: "мера", expected: "мера" }
+        - { input: "серада", expected: "серада" }
+        - { input: "неба", expected: "неба" }
+        - { input: "месяц", expected: "месяц" }
 
   - id: loan.f_substitution
     description: "Traditional names: Фёдар → Хведар, Фядос → Хвядос (optional form)"
@@ -80,16 +137,18 @@ rules:
   - id: loan.g_distinction
     description: "Plosive ґ in old borrowings: ганак → ґанак, гузік → ґузік"
     direction: narkamauka_to_taraskievica
+    # UNVERIFIED as a class (see data/NORMS.md): every stem is provenance `uncertain`
+    # in stems.tsv, so this rule currently never fires. It is kept, with its stems,
+    # so that a citation is the only thing needed to turn it back on.
     function: "pravapis.rules.loanwords:apply_g_distinction"
+    requires_class: loan
+    alternation: g
     priority: 40
     tests:
-      positive:
-        - { input: "ганак", expected: "ґанак" }
-        - { input: "гузік", expected: "ґузік" }
-        - { input: "грунт", expected: "ґрунт" }
       negative:
         - { input: "гара", expected: "гара" }
         - { input: "гуска", expected: "гуска" }
+        - { input: "ганак", expected: "ганак" }
 
   # ---------------------------------------------------------------- T → N
   - id: loan.g_remove
@@ -102,36 +161,36 @@ rules:
       positive:
         - { input: "ґанак", expected: "ганак" }
 
-  - id: loan.l_unpalatalization
-    description: "Reverse of loan.l_palatalization on the same stems: плян → план"
+  - id: loan.stem_reverse
+    description: "Taraškievica loan stem back to its Narkamaŭka form: плян → план, сыстэма → сістэма, сэзон → сезон"
     direction: taraskievica_to_narkamauka
-    function: "pravapis.rules.loanwords:remove_l_palatalization"
-    # Above loan.y_to_i so клясычны → класычны → класічны.
+    # The reverse index is derived from the forward one and every entry carries its
+    # Narkamaŭka stem, so this is a substitution rather than an inverse transducer —
+    # see data/NORMS.md, "Etymology is data". An inverse transducer cannot work here:
+    # балькон → балкон must drop a ь and лякальн → лакальн must keep one, and the
+    # string does not say which.
+    function: "pravapis.rules.loanwords:apply_stem_target"
+    requires_class: loan
     priority: 45
     tests:
       positive:
         - { input: "плян", expected: "план" }
-        - { input: "лябараторыі", expected: "лабараторыі" }
-        - { input: "тэхналёгій", expected: "тэхналогій" }
-        - { input: "кілямэтраў", expected: "кіламетраў" }
+        - { input: "лябараторыя", expected: "лабараторыя" }
+        - { input: "лякальна", expected: "лакальна" }
+        - { input: "балькон", expected: "балкон" }
+        - { input: "сыстэму", expected: "сістэму" }
+        - { input: "сынонімы", expected: "сінонімы" }
+        - { input: "сэзон", expected: "сезон" }
+        - { input: "вэрсія", expected: "версія" }
+        - { input: "дакумэнт", expected: "дакумент" }
+        - { input: "калёніяльны", expected: "каланіяльны" }
       negative:
         - { input: "салёны", expected: "салёны" }
         - { input: "лёгкі", expected: "лёгкі" }
-
-  - id: loan.y_to_i
-    description: "Reverse of loan.i_to_y on the same stems: сыстэма → сістэма"
-    direction: taraskievica_to_narkamauka
-    function: "pravapis.rules.loanwords:remove_i_to_y"
-    priority: 40
-    tests:
-      positive:
-        - { input: "сыстэму", expected: "сістэму" }
-        - { input: "сынонімы", expected: "сінонімы" }
-        - { input: "апазыцыя", expected: "апазіцыя" }
-        - { input: "класычнага", expected: "класічнага" }
-      negative:
         - { input: "сыры", expected: "сыры" }
         - { input: "сын", expected: "сын" }
+        - { input: "лес", expected: "лес" }
+        - { input: "мера", expected: "мера" }
 
   - id: loan.eu_reverse
     description: "Word-initial эўр → еўр: Эўропа → Еўропа"

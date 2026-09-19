@@ -10,11 +10,14 @@ from pathlib import Path
 
 import pytest
 
+from pravapis.lexicon.stems import WordClass, read_stem_sources, validate_stems
 from pravapis.lexicon.store import Lexicon
 from pravapis.pipeline import Converter
 from pravapis.rules import loanwords, morphology
+from pravapis.rules.engine import RuleEngine
 from pravapis.stress import StressTable
 from pravapis.types import Orthography
+from tests.conftest import DATA_DIR
 
 N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA
@@ -123,26 +126,55 @@ def test_convert_particle_bez_unstressed_softens(stress: StressTable) -> None:
     assert morphology.convert_particle("з", "ідэяй", N2T, stress, "ідэяй") is None
 
 
-def test_every_forward_loan_stem_has_a_reverse() -> None:
-    skipped = loanwords._L_REVERSE_SKIP | loanwords._I_REVERSE_SKIP
-    for rules, forward, reverse in (
-        (loanwords._L_RULES, loanwords.apply_l_palatalization, loanwords.remove_l_palatalization),
-        (loanwords._I_RULES, loanwords.apply_i_to_y, loanwords.remove_i_to_y),
-    ):
-        for pattern, repl in rules:
-            if repl in skipped:
-                continue
-            # a sample word: the stem with its capture groups dropped, plus an ending
-            stem = pattern.pattern.lstrip("^").split("(?")[0]
-            stem = stem.replace("(а|апа|кампа|экспа|прапа|дыспа|пра)?", "")
-            word = {"логі": "біялогія"}.get(stem, stem + "а")
-            if forward(word) == word:
-                continue  # the lookahead excludes this synthetic ending
-            assert reverse(forward(word)) == word, (pattern.pattern, word)
+def test_every_forward_loan_stem_has_a_reverse(engine: RuleEngine) -> None:
+    """Every loan stem must survive N → T → N.
+
+    The reverse index is derived from the forward one, so this is really a test that
+    the derivation and the transducers agree. Forward-only stems (``l:n2t``) are
+    excluded by construction: they exist precisely because their reverse is ambiguous.
+    """
+    entries = read_stem_sources(DATA_DIR / "lexicon" / "stems")
+    for entry in entries:
+        if entry.cls is not WordClass.LOAN or not entry.applied:
+            continue
+        if entry.alternations - entry.forward_only != entry.alternations:
+            continue
+        word = {"логі": "біялогія", "пазіц": "апазіцыя", "мент": "дакумент"}.get(
+            entry.stem, entry.stem + "а"
+        )
+        there = engine.apply(word, N2T)[0]
+        if there == word:
+            continue  # nothing fired on this synthetic ending
+        back = engine.apply(there, T2N)[0]
+        assert back == word, f"{entry.stem}: {word} -> {there} -> {back}"
 
 
-def test_salty_is_not_a_salon() -> None:
-    assert loanwords.remove_l_palatalization("салёны") == "салёны"
+def test_no_two_stems_derive_to_the_same_reverse_key() -> None:
+    """A shared reverse key would make T → N pick a target at random."""
+    entries = read_stem_sources(DATA_DIR / "lexicon" / "stems")
+    assert not loanwords.reverse_collisions(entries)
+
+
+def test_stems_file_is_valid() -> None:
+    entries = read_stem_sources(DATA_DIR / "lexicon" / "stems")
+    assert not validate_stems(entries)
+
+
+def test_salty_is_not_a_salon(engine: RuleEngine) -> None:
+    """салён- is forward-only: салон → салён, but салёны (salty) stays put."""
+    assert engine.apply("салон", N2T)[0] == "салён"
+    assert engine.apply("салёны", T2N)[0] == "салёны"
+
+
+def test_false_friends_are_beaten_by_longer_native_stems(engine: RuleEngine) -> None:
+    """The longest-match rule replaces every lookahead the old stem regexes carried.
+
+    Assimilative softness still applies — класці → класьці is correct Taraškievica — so
+    this asserts that no *loanword* rule fired, not that the word is untouched.
+    """
+    for word in ("класці", "кладзіце", "падлогі", "лапа", "сіла", "серада", "мера"):
+        fired = engine.apply(word, N2T)[1]
+        assert not [r for r in fired if r.startswith("loan.")], (word, fired)
 
 
 def test_one_way_lexicon_entries(tmp_path: Path) -> None:

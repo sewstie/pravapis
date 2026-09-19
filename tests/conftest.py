@@ -5,10 +5,13 @@ from pathlib import Path
 import pytest
 
 from pravapis.config import Config
+from pravapis.lexicon.stems import StemIndex
 from pravapis.lexicon.store import Lexicon
 from pravapis.pipeline import Converter
 from pravapis.rules.engine import RuleEngine
+from pravapis.rules.loanwords import build_stem_indexes
 from pravapis.stress import StressTable
+from pravapis.types import Orthography
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -29,6 +32,7 @@ def config() -> Config:
         ),
         stress=DATA_DIR / "stress",
         case_forms=DATA_DIR / "lexicon" / "case",
+        stems=DATA_DIR / "lexicon" / "stems",
         model=None,
     )
 
@@ -40,8 +44,13 @@ def stress(config: Config) -> StressTable:
 
 
 @pytest.fixture(scope="session")
-def engine(config: Config) -> RuleEngine:
-    return RuleEngine.from_yaml(*config.rules)
+def stem_indexes(config: Config) -> dict[Orthography, StemIndex]:
+    return build_stem_indexes(config.stems)
+
+
+@pytest.fixture(scope="session")
+def engine(config: Config, stem_indexes: dict[Orthography, StemIndex]) -> RuleEngine:
+    return RuleEngine.from_yaml(*config.rules, stems=stem_indexes)
 
 
 @pytest.fixture(scope="session")

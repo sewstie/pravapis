@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from pravapis.types import Method, Orthography
+from pravapis.types import Method, Orthography, Script
 
 MAX_TEXT_LENGTH = 50_000
 MAX_BATCH = 100
@@ -16,6 +16,35 @@ class ConvertRequest(BaseModel):
     text: str = Field(max_length=MAX_TEXT_LENGTH)
     direction: Orthography
     explain: bool = False
+
+
+class TransliterateRequest(BaseModel):
+    """Script conversion. ``script`` is the target; ``from_script`` reads Latin back.
+
+    ``convert`` controls the orthography step: Łacinka is paired with Taraškievica and
+    the 2007 romanisation with Narkamaŭka, so by default the text is converted to the
+    paired orthography before transliteration (снег → śnieh). Set it false to
+    transliterate the input exactly as given (снег → snieh).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    text: str = Field(max_length=MAX_TEXT_LENGTH)
+    script: Script = Script.LACINKA
+    from_script: Script | None = None
+    convert: bool = True
+    direction: Orthography | None = None
+
+
+class TransliterateResponse(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    text: str
+    script: Script
+    #: the orthography the text passed through, or None when convert was false
+    direction: Orthography | None = None
+    #: graphemes the scheme could not render faithfully (a bare ь, foreign letters)
+    unresolved: list[str] = Field(default_factory=list)
 
 
 class BatchConvertRequest(BaseModel):

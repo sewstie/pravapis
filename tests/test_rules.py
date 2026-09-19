@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from pravapis.lexicon.stems import StemMatch, WordClass
 from pravapis.rules import loanwords, morphology
 from pravapis.rules.engine import Rule, RuleEngine, RuleError, RuleTest, validate_rule_set
 from pravapis.rules.palatalization import (
@@ -92,7 +93,7 @@ def test_every_rule_has_tests(engine: RuleEngine) -> None:
 def test_embedded_rule_tests(engine: RuleEngine) -> None:
     failures: list[str] = []
     for rule, case in _rule_cases(engine):
-        got = rule.transform(case.input)
+        got = rule.transform(case.input, engine.stem_match(case.input, rule.direction))
         if got != case.expected:
             kind = "positive" if case.positive else "negative"
             failures.append(
@@ -117,8 +118,10 @@ def test_embedded_rule_tests(engine: RuleEngine) -> None:
         ("клас", "кляс"),
     ],
 )
-def test_l_palatalization(word: str, expected: str) -> None:
-    assert loanwords.apply_l_palatalization(word) == expected
+def test_l_palatalization(word: str, expected: str, engine: RuleEngine) -> None:
+    match = engine.stem_match(word, N2T)
+    assert match is not None, f"{word!r} is in no stems.tsv entry"
+    assert loanwords.apply_l_palatalization(word, match) == expected
 
 
 @pytest.mark.parametrize(
@@ -132,8 +135,10 @@ def test_l_palatalization(word: str, expected: str) -> None:
         ("сіні", "сіні"),
     ],
 )
-def test_i_to_y(word: str, expected: str) -> None:
-    assert loanwords.apply_i_to_y(word) == expected
+def test_i_to_y(word: str, expected: str, engine: RuleEngine) -> None:
+    match = engine.stem_match(word, N2T)
+    assert match is not None, f"{word!r} is in no stems.tsv entry"
+    assert loanwords.apply_i_to_y(word, match) == expected
 
 
 def test_eu_prefix() -> None:
@@ -148,11 +153,19 @@ def test_f_substitution() -> None:
 
 
 def test_g_distinction_roundtrip() -> None:
+    """ґ is UNVERIFIED, so its stems are provenance `uncertain` and never reach the
+    engine. The transducer itself must still round-trip when handed a match."""
     for word in ("ганак", "гузік", "грунт", "гвалт"):
-        g = loanwords.apply_g_distinction(word)
+        match = StemMatch(word, WordClass.LOAN, frozenset({"g"}), 0, len(word))
+        g = loanwords.apply_g_distinction(word, match)
         assert g.startswith("ґ")
         assert loanwords.remove_g_distinction(g) == word
-    assert loanwords.apply_g_distinction("гара") == "гара"
+
+
+def test_uncertain_stems_never_fire(engine: RuleEngine) -> None:
+    """Provenance `uncertain` rows are parsed but not applied: ганак stays ганак."""
+    assert engine.stem_match("ганак", N2T) is None
+    assert engine.apply("ганак", N2T)[0] == "ганак"
 
 
 # --- morphology / particles --------------------------------------------------------------

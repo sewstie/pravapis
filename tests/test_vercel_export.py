@@ -35,6 +35,7 @@ out = {
     "t2n": call("POST", {"text": "Сьнег і сьвет", "direction": "narkamauka"}),
     "empty": call("POST", {"text": "   "}),
     "latin": call("POST", {"text": "снег", "script": "latin"}),
+    "lacinka": call("POST", {"text": "снег", "script": "lacinka"}),
     "bad_dir": call("POST", {"text": "снег", "direction": "x"}),
     "not_str": call("POST", {"text": 5}),
     "too_long": call("POST", {"text": "а" * 50_001}),
@@ -85,7 +86,9 @@ def test_exported_function_serves_requests(tmp_path: Path) -> None:
     assert headers["Cache-Control"] == "no-store"
     assert r["t2n"][0] == 200 and r["t2n"][1]["result"] == "Снег і свет"
     assert r["empty"][0] == 200 and r["empty"][1]["result"] == "   "
-    assert r["latin"][0] == 422
+    assert r["latin"][0] == 400  # "latin" is not a script name
+    # the bundled function transliterates too, which means it ships data/translit/
+    assert r["lacinka"][0] == 200 and r["lacinka"][1]["result"] == "śnieh"
     assert r["bad_dir"][0] == 400
     assert r["not_str"][0] == 400
     assert r["too_long"][0] == 413

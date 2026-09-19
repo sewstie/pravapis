@@ -1,0 +1,189 @@
+# stem	class	alternations	source	provenance	[target]
+#
+# The etymology fact the loanword rules need: is this stem a Western borrowing?
+# See src/pravapis/lexicon/stems.py for the format and data/NORMS.md for the policy.
+#
+# alternations: l (soft л, §55.1/§56.2)  i (і→ы, §67)  e (е→э, §11б)
+#               g (г→ґ)  eu (еў→эў, §52)
+# provenance:   cited | reviewed | derived | uncertain   — uncertain never fires
+# A leading '-' marks an unanchored stem (may match anywhere in the word).
+# The optional 6th column is for stems the regular alternations cannot derive.
+#
+# LONGEST MATCH WINS. That is how false friends are handled: native `класц` beats
+# loan `клас` on класці, so no rule needs a lookahead.
+
+# ============================================================ loan: soft л (§55.1, §56.2)
+план	loan	l	Збор 2005 §55.1	cited
+клас	loan	l	Збор 2005 §55.1	cited
+класі	loan	l,i	Збор 2005 §55.1, §67	cited
+ламп	loan	l	Збор 2005 §55.1	cited
+клуб	loan	l	Збор 2005 §55.1	cited
+блок	loan	l	Збор 2005 §55.1	cited
+глоб	loan	l	Збор 2005 §55.1	cited
+глаб	loan	l	Збор 2005 §55.1	cited
+лабарат	loan	l	Збор 2005 §55.1	cited
+бланк	loan	l	Збор 2005 §55.1	cited
+лозунг	loan	l	Збор 2005 §55.1	cited
+лакальн	loan	l	Збор 2005 §55.1	cited
+ландшафт	loan	l	Збор 2005 §55.1	cited
+лагер	loan	l	Збор 2005 §55.1	cited
+лаўрэат	loan	l	Збор 2005 §55.1	cited
+балкон	loan	l	Збор 2005 §55.1	cited
+атлас	loan	l	Збор 2005 §55.1	cited
+дыплам	loan	l	Збор 2005 §55.1	cited
+дыплом	loan	l	Збор 2005 §55.1	cited
+платформ	loan	l	Збор 2005 §55.1	cited
+рэклам	loan	l	Збор 2005 §55.1	cited
+кілаграм	loan	l	Збор 2005 §55.1	cited
+калоні	loan	l	Збор 2005 §55.1	cited
+# Taraškievica салён- is also the native adjective "salty", so the reverse is ambiguous
+# and is deliberately not derived (the project leaves ambiguous forms alone).
+салон	loan	l:n2t	Збор 2005 §55.1	cited
+логік	loan	l	Збор 2005 §55.1	cited
+-логі	loan	l	Збор 2005 §55.1	cited
+# akanne wrote the etymological о as а, so no rule conditioned on the Narkamaŭka
+# spelling can recover калёніял; it needs the explicit target.
+каланіял	loan	-	Збор 2005 §55.1	cited	калёніял
+
+# ============================================================ loan: і → ы (§67)
+сіст	loan	i	Збор 2005 §67	cited
+сігн	loan	i	Збор 2005 §67	cited
+сінт	loan	i	Збор 2005 §67	cited
+сінх	loan	i	Збор 2005 §67	cited
+сімп	loan	i	Збор 2005 §67	cited
+сімул	loan	i	Збор 2005 §67	cited
+сітуац	loan	i	Збор 2005 §67	cited
+сірэн	loan	i	Збор 2005 §67	cited
+сінонім	loan	i	Збор 2005 §67	cited
+сінагог	loan	i	Збор 2005 §67	cited
+сіндык	loan	i	Збор 2005 §67	cited
+сілуэт	loan	i,l	Збор 2005 §67, §55.1	cited
+прэзід	loan	i	Збор 2005 §67	cited
+рэзід	loan	i	Збор 2005 §67	cited
+дысід	loan	i	Збор 2005 §67	cited
+фізі	loan	i	Збор 2005 §67	cited
+візіт	loan	i	Збор 2005 §67	cited
+дэпазіт	loan	i	Збор 2005 §67	cited
+-пазіц	loan	i	Збор 2005 §67	cited
+
+# ============================================================ loan: е → э (§11б)
+# §11б: "пасьля зычных, акрамя л і заднеязычных (г (ґ), к, х)". Stems marked `cited`
+# appear in the book's own list at §11б; `reviewed` ones are read against that rule.
+сезон	loan	e	Збор 2005 §11б	cited
+семестр	loan	e	Збор 2005 §11б	cited
+сесі	loan	e	Збор 2005 §11б	cited
+бізнес	loan	e	Збор 2005 §11б	cited
+губерн	loan	e	Збор 2005 §11б	cited
+метро	loan	e	Збор 2005 §11б	cited
+берлін	loan	e	Збор 2005 §11б	cited
+версаль	loan	e	Збор 2005 §11б	cited
+жэнев	loan	e	Збор 2005 §11б	cited
+армені	loan	e	Збор 2005 §11б	cited
+абанент	loan	e	Збор 2005 §11б	cited
+аргумент	loan	e	Збор 2005 §11б	cited
+дакумент	loan	e	Збор 2005 §11б	cited
+брызент	loan	e	Збор 2005 §11б	cited
+сакрамент	loan	e	Збор 2005 §11б	cited
+тастамент	loan	e	Збор 2005 §11б	cited
+бульдозер	loan	e	Збор 2005 §11б	cited
+буфер	loan	e	Збор 2005 §11б	cited
+кратер	loan	e	Збор 2005 §11б	cited
+лідер	loan	e	Збор 2005 §11б	cited
+піянер	loan	e	Збор 2005 §11б	cited
+сканер	loan	e	Збор 2005 §11б	cited
+трэнер	loan	e	Збор 2005 §11б	cited
+дэбет	loan	e	Збор 2005 §11б	cited
+эпітет	loan	e	Збор 2005 §11б	cited
+версі	loan	e	Збор 2005 §11б	reviewed
+аперац	loan	e	Збор 2005 §11б	reviewed
+серы	loan	e	Збор 2005 §11б	reviewed
+дэсерт	loan	e	Збор 2005 §11б	reviewed
+метр	loan	e	Збор 2005 §11б	reviewed
+# -мент looked like a safe generalisation (a Latin suffix with no native source), but the
+# gold set has a hand-written Narkamaŭka row keeping Манумэнтальны, which the derived
+# reverse key rewrote to Манументальны — the project's only false positive. Held as
+# `uncertain` (parsed, never applied) until a source settles -мент/-мэнт in Narkamaŭka.
+# The individually cited stems (дакумент, аргумент, абанент …) are unaffected.
+-мент	loan	e	Збор 2005 §11б	uncertain
+
+# ============================================================ loan: both л and е
+парламент	loan	l,e	Збор 2005 §55.1, §11б	cited
+кіламетр	loan	l,e	Збор 2005 §55.1, §11б	cited
+
+# ============================================================ loan: ґ
+# UNVERIFIED as a class: the rules text mentions ґ only for foreign proper names and
+# only optionally (§61 "можа перадавацца"). See data/NORMS.md, loan.g_distinction.
+ганак	loan	g	UNVERIFIED	uncertain
+ганк	loan	g	UNVERIFIED	uncertain
+гузік	loan	g	UNVERIFIED	uncertain
+гузак	loan	g	UNVERIFIED	uncertain
+гузы	loan	g	UNVERIFIED	uncertain
+гвалт	loan	g	UNVERIFIED	uncertain
+грунт	loan	g	UNVERIFIED	uncertain
+гарсэт	loan	g	UNVERIFIED	uncertain
+гатунак	loan	g	UNVERIFIED	uncertain
+гонта	loan	g	UNVERIFIED	uncertain
+гонты	loan	g	UNVERIFIED	uncertain
+гільдыя	loan	g	UNVERIFIED	uncertain
+гляйс	loan	g	UNVERIFIED	uncertain
+гзымс	loan	g	UNVERIFIED	uncertain
+
+# ============================================================ native: hard л
+# These block the soft-л rule for the whole paradigm, not just the listed form.
+лап	native	-	-	cited
+лав	native	-	-	cited
+ласк	native	-	-	cited
+лаўк	native	-	-	cited
+лос	native	-	-	cited
+лоб	native	-	-	cited
+лом	native	-	-	cited
+лук	native	-	-	cited
+луг	native	-	-	cited
+лун	native	-	-	cited
+луж	native	-	-	cited
+локшын	native	-	-	cited
+слов	native	-	-	cited
+слав	native	-	-	cited
+галав	native	-	-	cited
+малак	native	-	-	cited
+благ	native	-	-	cited
+плат	native	-	-	cited
+плак	native	-	-	cited
+плот	native	-	-	cited
+плошч	native	-	-	cited
+плуг	native	-	-	cited
+злодзе	native	-	-	cited
+клопат	native	-	-	cited
+клубок	native	-	-	cited
+калод	native	-	-	cited
+палов	native	-	-	cited
+палас	native	-	-	cited
+салом	native	-	-	cited
+балот	native	-	-	cited
+# класці "to lay": beats the loan stem `клас` by being one character longer.
+класц	native	-	-	cited
+# падлогі is the genitive of падлога, not a -логія compound.
+падлог	native	-	-	cited
+
+# ============================================================ native: сі / зі
+сіл	native	-	-	cited
+сін	native	-	-	cited
+сів	native	-	-	cited
+сітк	native	-	-	cited
+сірат	native	-	-	cited
+зім	native	-	-	cited
+зірн	native	-	-	cited
+зіхац	native	-	-	cited
+
+# ============================================================ native: е that is not loan э
+мер	native	-	-	cited
+неб	native	-	-	cited
+дзен	native	-	-	cited
+сен	native	-	-	cited
+вер	native	-	-	cited
+бераг	native	-	-	cited
+вецер	native	-	-	cited
+перад	native	-	-	cited
+серад	native	-	-	cited
+месц	native	-	-	cited
+месяц	native	-	-	cited

@@ -35,7 +35,8 @@ import regex
 from pravapis.normalize import sanitize
 from pravapis.pipeline import Converter
 from pravapis.tokenize import tokenize
-from pravapis.types import Method, Orthography, TokenKind
+from pravapis.translit import PAIRED, REVERSIBLE
+from pravapis.types import Method, Orthography, Script, TokenKind
 
 MAX_CHARS: Final[int] = 50_000
 MAX_BODY_BYTES: Final[int] = MAX_CHARS * 4 + 4_096  # UTF-8 worst case plus JSON overhead
@@ -122,8 +123,29 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
     direction = DIRECTIONS.get(name) if isinstance(name, str) else None
     if direction is None:
         raise ApiError(400, "direction must be 'taraskievica' or 'narkamauka'")
-    if payload.get("script", "cyrillic") != "cyrillic":
-        raise ApiError(422, "only script='cyrillic' is supported")
+    script_name = payload.get("script", "cyrillic")
+    if not isinstance(script_name, str):
+        raise ApiError(400, "script must be a string")
+    try:
+        script = Script(script_name)
+    except ValueError:
+        choices = ", ".join(f"'{s.value}'" for s in Script)
+        raise ApiError(400, f"script must be one of {choices}") from None
+    from_name = payload.get("from_script")
+    if from_name is not None and not isinstance(from_name, str):
+        raise ApiError(400, "from_script must be a string")
+    from_script: Script | None = None
+    if from_name is not None:
+        try:
+            from_script = Script(from_name)
+        except ValueError:
+            raise ApiError(400, f"unknown from_script {from_name!r}") from None
+        if from_script not in REVERSIBLE:
+            raise ApiError(
+                422,
+                f"{from_script.value} cannot be read back into Cyrillic: it does not "
+                "write assimilative softness, so the reverse would not round-trip",
+            )
     explain = payload.get("explain", False)
     if not isinstance(explain, bool):
         raise ApiError(400, "explain must be a boolean")
@@ -134,7 +156,33 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
     # aggressive: also rewrite forms the codification already allows (Фёдар → Хведар,
     # і → й after a vowel). Off by default: converting an allowed form is a false positive.
     converter = converter.variant(aggressive)
+
+    # Reading a Latin script back: transliterate first, then convert. The orthography
+    # the caller asked for is the one they get.
+    if from_script is not None:
+        return {
+            "result": converter.read_script(text, from_script, direction),
+            "direction": direction.value,
+            "from_script": from_script.value,
+            "script": Script.CYRILLIC.value,
+            "aggressive": aggressive,
+        }
+
     text = sanitize(text)
+
+    # Writing a Latin script: convert to the orthography that scheme is paired with,
+    # then transliterate. See data/TRANSLIT.md, "Script is a separate axis".
+    if script.is_latin:
+        convert_first = payload.get("convert", True)
+        if not isinstance(convert_first, bool):
+            raise ApiError(400, "convert must be a boolean")
+        return {
+            "result": converter.render(text, script, convert=convert_first),
+            "direction": PAIRED[script].value if convert_first else None,
+            "script": script.value,
+            "aggressive": aggressive,
+        }
+
     result = converter.convert(text, direction)
     by_method = {m.value: 0 for m in Method}
     for c in result.conversions:
@@ -143,6 +191,7 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
         "result": result.text,
         "direction": direction.value,
+        "script": Script.CYRILLIC.value,
         "aggressive": aggressive,
         "stats": {
             "words": len(result.conversions),

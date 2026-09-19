@@ -13,6 +13,8 @@ Writes:
           pravapis/                  runtime subset of the package
           data/
             lexicon.marisa          compiled from data/lexicon/*.tsv
+            lexicon/stems/*.tsv     stem etymology inventory (loan / native)
+            translit/*.yaml         Łacinka and official-2007 scheme tables
             rules/*.yaml
             stress/                 GrammarDB first-stress tables + CC BY-SA attribution
           VERSION                   pravapis git commit the copy was made from
@@ -52,6 +54,9 @@ RUNTIME_MODULES = (
     "lexicon/__init__.py",
     "lexicon/store.py",
     "lexicon/case_forms.py",
+    "lexicon/stems.py",
+    "translit/__init__.py",
+    "translit/engine.py",
     "lexicon/builder.py",
 )
 STRESS_FILES = ("first_stressed.marisa", "proper_first_stressed.marisa", "SOURCE", "README.md")
@@ -110,6 +115,8 @@ def export(out: Path, *, force: bool = False) -> dict[str, int]:
     for name in STRESS_FILES:
         shutil.copy2(DATA / "stress" / name, vendor / "data" / "stress" / name)
     shutil.copytree(DATA / "lexicon" / "case", vendor / "data" / "lexicon" / "case")
+    shutil.copytree(DATA / "lexicon" / "stems", vendor / "data" / "lexicon" / "stems")
+    shutil.copytree(DATA / "translit", vendor / "data" / "translit")
     fwd, rev = build_from_sources(DATA / "lexicon")
     save_lexicon(
         fwd, rev, vendor / "data" / "lexicon.marisa", source_digest=sources_digest(DATA / "lexicon")

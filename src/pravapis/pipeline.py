@@ -27,6 +27,7 @@ from pravapis.lexicon.case_forms import CASE_RULE_ID, CaseForms
 from pravapis.lexicon.store import Lexicon
 from pravapis.normalize import sanitize
 from pravapis.rules.engine import RuleEngine
+from pravapis.rules.loanwords import build_stem_indexes
 from pravapis.rules.morphology import (
     CONJ_RULE_ID,
     PARTICLES_N2T,
@@ -37,6 +38,8 @@ from pravapis.rules.morphology import (
 )
 from pravapis.stress import StressTable
 from pravapis.tokenize import context_of, is_belarusian_word, next_word, previous_word, tokenize
+from pravapis.translit import PAIRED, REVERSIBLE, Transliterator
+from pravapis.translit.engine import TransliterationResult
 from pravapis.types import (
     METHOD_PRIORITY,
     Conversion,
@@ -44,6 +47,7 @@ from pravapis.types import (
     Method,
     Orthography,
     RuleTrace,
+    Script,
     Token,
     TokenExplanation,
     TokenKind,
@@ -125,6 +129,47 @@ class Converter:
             self._variants[aggressive] = other
         return self._variants[aggressive]
 
+    # --- script ---------------------------------------------------------------
+    def render(self, text: str, script: Script, *, convert: bool = True) -> str:
+        """Convert to the orthography ``script`` is paired with, then transliterate.
+
+        Łacinka and Taraškievica share a softness convention, so ``снег`` rendered as
+        Łacinka is ``śnieh``, not ``snieh`` — the orthography step is what makes the
+        output idiomatic rather than merely legible. ``convert=False`` skips it and
+        transliterates the input exactly as given.
+        """
+        return self.render_result(text, script, convert=convert).text
+
+    def render_result(
+        self, text: str, script: Script, *, convert: bool = True
+    ) -> TransliterationResult:
+        """:meth:`render`, keeping the graphemes the scheme could not render faithfully."""
+        if script is Script.CYRILLIC:
+            out = self.convert(text, Orthography.TARASKIEVICA).text if convert else text
+            return TransliterationResult(out, ())
+        clean = sanitize(text)
+        if convert:
+            clean = self.convert(clean, PAIRED[script]).text
+        return Transliterator.load(script).transliterate(clean)
+
+    def read_script(self, text: str, script: Script, direction: Orthography | None = None) -> str:
+        """Latin → Cyrillic, optionally converting to ``direction`` afterwards.
+
+        Only schemes in :data:`pravapis.translit.REVERSIBLE` can be read: the 2007
+        romanisation does not write assimilative softness, so reading it back would be
+        a guess, and this project does not guess.
+        """
+        if script not in REVERSIBLE:
+            raise ValueError(
+                f"{script.value} cannot be read back into Cyrillic: it does not write "
+                "assimilative softness, so the reverse would not round-trip"
+            )
+        clean = sanitize(text, script)
+        cyrillic = Transliterator.load(script, reverse=True).transliterate(clean).text
+        if direction is None or direction is PAIRED[script]:
+            return cyrillic
+        return self.convert(cyrillic, direction).text
+
     @classmethod
     def from_config(cls, path: Path | Config | None = None) -> Converter:
         if path is None:
@@ -152,7 +197,7 @@ class Converter:
             log.warning("%s — using the TSV sources in %s instead", exc, config.lexicon_sources)
             lexicon = Lexicon.load(config.lexicon_sources)
             origin = f"TSV sources {config.lexicon_sources} (compiled {config.lexicon} was STALE)"
-        engine = RuleEngine.from_yaml(*config.rules)
+        engine = RuleEngine.from_yaml(*config.rules, stems=build_stem_indexes(config.stems))
         stress = StressTable.load(config.stress) if config.stress is not None else None
         disambiguator: Disambiguator | None = None
         if config.model is not None:  # explicit opt-in only; Config.default() never sets it

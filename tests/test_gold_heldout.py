@@ -7,6 +7,7 @@ from pathlib import Path
 import regex
 
 from pravapis.metrics import PROVENANCES, read_gold
+from pravapis.pipeline import Converter
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLD = ROOT / "data" / "eval" / "gold.tsv"
@@ -64,3 +65,31 @@ def test_provenance_filters() -> None:
     assert len(read_gold(GOLD)) == len(rows) - counts["uncertain"]
     assert len(read_gold(GOLD, trusted_only=True)) == counts["hand_written"]
     assert len(read_gold(GOLD, trusted_only=True)) >= 500
+
+
+# --- the headline guard ------------------------------------------------------------------
+# Phase A grew the loanword rules from curated stem regexes to a data-driven stem
+# inventory. The thing that must not move is the false-positive rate: a converter that
+# changes a word it should not have is worse than one that leaves it alone. This is the
+# gate CI runs on every change to data/lexicon/stems/.
+def test_no_false_positives_on_the_trusted_gold_subset(converter: Converter) -> None:
+    from pravapis.metrics import evaluate
+    from pravapis.types import Orthography
+
+    for direction in Orthography:
+        report = evaluate(converter, read_gold(GOLD, trusted_only=True), direction)
+        assert report.false_positives == 0, (
+            f"{direction.value}: {report.false_positives} false positive(s) "
+            f"out of {report.unchanged_words} words that should not change"
+        )
+
+
+def test_change_accuracy_does_not_regress(converter: Converter) -> None:
+    """A floor, not a target: set below the measured 96.7% so noise does not fail CI,
+    but high enough that losing a rule or a stem batch does."""
+    from pravapis.metrics import evaluate
+    from pravapis.types import Orthography
+
+    for direction in Orthography:
+        report = evaluate(converter, read_gold(GOLD, trusted_only=True), direction)
+        assert report.change_accuracy >= 0.95, (direction.value, report.change_accuracy)

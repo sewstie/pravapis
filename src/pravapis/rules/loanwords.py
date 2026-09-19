@@ -1,189 +1,183 @@
-"""Loanword adaptation rules (Narkamaŭka → Taraškievica).
+"""Loanword adaptation rules (Narkamaŭka ↔ Taraškievica).
 
-Taraškievica renders Western loans closer to their source pronunciation:
-soft *l* (план → плян), *ы* after dentals in Greco-Latin stems
-(сістэма → сыстэма), *э* in Еўропа → Эўропа, the *ґ* plosive in a closed set
-of old borrowings (ганак → ґанак), and *х*/*хв* for *ф* in traditional names
+Taraškievica renders Western loans closer to their source pronunciation: soft *l*
+(план → плян), *ы* after hard dentals in Greco-Latin stems (сістэма → сыстэма),
+*э* after consonants (сезон → сэзон), the *ґ* plosive in a closed set of old
+borrowings (ганак → ґанак), and *х*/*хв* for *ф* in traditional names
 (Фёдар → Хведар).
 
-None of these is decidable from the surface form alone — native *лапа* keeps
-its hard л while borrowed *лямпа* does not — so each function only fires on
-a curated, anchored stem list and leaves everything else to the lexicon and
-the classifier. Each is a pure ``str -> str`` on lowercase input and is
-composed by the rule engine, never by another rule.
+Each alternation is **regular given the etymology**: Збор 2005 §11б states the
+э rule as a plain phonological condition ("пасьля зычных, акрамя л і заднеязычных
+(г (ґ), к, х)"), and §55.1/§56.2 do the same for soft *l*. What is not recoverable
+from the surface form is whether a word is a borrowing at all — native *лапа* and
+borrowed *лямпа* look identical to a regex.
+
+So the functions here are general transducers over a **span**, and the etymology
+comes from :mod:`pravapis.lexicon.stems`. Each rewrites only inside the matched
+stem, which is also what keeps §66 honest for free: in *марксізм* the stem is
+*маркс*, so the *-ізм* suffix lies outside the span and is never touched.
+
+Each function is pure and independently testable, and they are composed by the
+rule engine, never by each other.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Final
 
 import regex
 
+from pravapis.lexicon.stems import (
+    StemEntry,
+    StemIndex,
+    StemMatch,
+    WordClass,
+    read_stem_sources,
+)
+from pravapis.rules.palatalization import mark_assimilative_softness
+from pravapis.types import Orthography
+
 _V: Final[str] = "аеёіоуыэюя"
+_VOWELS: Final[frozenset[str]] = frozenset(_V)
 
-# --- soft l --------------------------------------------------------------------
-# (pattern, replacement): anchored at word start unless the stem is unambiguous.
-_L_RULES: Final[tuple[tuple[regex.Pattern[str], str], ...]] = tuple(
-    (regex.compile(p), r)
-    for p, r in (
-        (r"^план", "плян"),
-        (r"^клас(?!ц)", "кляс"),
-        (r"^ламп", "лямп"),
-        (r"^клуб(?!о)", "клюб"),
-        (r"^блок", "блёк"),
-        (r"^глоб", "глёб"),
-        (r"^глаб", "гляб"),
-        (r"^лабарат", "лябарат"),
-        (r"^бланк", "блянк"),
-        (r"^лозунг", "лёзунг"),
-        (r"^лакальн", "лякальн"),
-        (r"^ландшафт", "ляндшафт"),
-        (r"^лагер", "лягер"),
-        (r"^лаўрэат", "ляўрэат"),
-        (r"^балкон", "балькон"),
-        (r"^атлас", "атляс"),
-        (r"^дыплам", "дыплям"),
-        (r"^дыплом", "дыплём"),
-        (r"^платформ", "плятформ"),
-        (r"^рэклам", "рэклям"),
-        (r"^парламент", "парлямэнт"),
-        (r"^кіламетр", "кілямэтр"),
-        (r"^кілаграм", "кіляграм"),
-        (r"^каланіял", "калёніял"),
-        (r"^калоні", "калёні"),
-        (r"^салон", "салён"),
-        (r"^логік", "лёгік"),
-        # -логія only after a vowel: біялогія, тэхналогія; never падлогі (genitive of падлога).
-        (rf"(?<=[{_V}])логі", "лёгі"),
-    )
-)
+# --- soft l (Збор 2005 §55.1, §56.2) ---------------------------------------------------
+# European *l* is soft: the following back vowel is written iotated, and before a
+# consonant or at the end of the stem the softness is written with ь.
+_SOFT_L_VOWEL: Final[dict[str, str]] = {"а": "я", "о": "ё", "у": "ю"}
+_HARD_L_VOWEL: Final[dict[str, str]] = {v: k for k, v in _SOFT_L_VOWEL.items()}
+#: vowels that already mark л as soft — nothing to do
+_ALREADY_SOFT: Final[frozenset[str]] = frozenset("еёіюя")
 
-# --- і → ы after dentals in Greco-Latin stems ------------------------------------
-_I_RULES: Final[tuple[tuple[regex.Pattern[str], str], ...]] = tuple(
-    (regex.compile(p), r)
-    for p, r in (
-        (r"^сіст", "сыст"),
-        (r"^сігн", "сыгн"),
-        (r"^сінт", "сынт"),
-        (r"^сінх", "сынх"),
-        (r"^сімп", "сымп"),
-        (r"^сімул", "сымул"),
-        (r"^сітуац", "сытуац"),
-        (r"^сірэн", "сырэн"),
-        (r"^сінонім", "сынонім"),
-        (r"^сінагог", "сынагог"),
-        (r"^сіндык", "сындык"),
-        (r"^сілуэт", "сылюэт"),
-        (r"^класі(?=[кч])", "класы"),  # класічны → клясычны once l_palatalization runs
-        (r"^прэзід", "прэзыд"),
-        (r"^рэзід", "рэзыд"),
-        (r"^дысід", "дысыд"),
-        (r"^фізі(?=[кчя])", "фізы"),
-        (r"^візіт", "візыт"),
-        (r"^дэпазіт", "дэпазыт"),
-        (r"^(а|апа|кампа|экспа|прапа|дыспа|пра)?пазіц", r"\1пазыц"),
-    )
-)
+# --- і → ы (Збор 2005 §67) -------------------------------------------------------------
+#: hard consonants after which і becomes ы in Greco-Latin stems
+_Y_TRIGGERS: Final[frozenset[str]] = frozenset("дтзсцжшчр")
 
-# --- Еўропа → Эўропа ---------------------------------------------------------------
-_EU_RE: Final[regex.Pattern[str]] = regex.compile(r"^еў")
-
-# --- ф → хв in traditional Christian names (OPTIONAL) ----------------------------------
-# Збор 2005, §81 Заўвага Б lists several valid forms side by side: "Тодар, Фёдар, Хведар,
-# Ходар; … Фядос, Хвядос, Ходас". Фёдар is already correct, so this rewrite is optional
-# and runs only in aggressive mode. Only names the book lists are here: Філіп → Піліп and
-# Фама → Хама are not in the book and were removed.
-_F_NAMES: Final[dict[str, str]] = {
-    "фёдар": "хведар",
-    "фядос": "хвядос",
-}
-_F_RE: Final[regex.Pattern[str]] = regex.compile(r"^(?:фёдар|фядос)")
-
-# --- ґ in a closed set of old Polish/German borrowings ----------------------------------
-_G_STEMS: Final[str] = "|".join(
-    (
-        "анак",
-        "анк(?=[аеіуо])",
-        "узік",
-        "узак",
-        "валт",
-        "рунт",
-        "арсэт",
-        "атунак",
-        "онт[аы]",
-        "ільдыя",
-        "ляйс",
-        "зымс",
-        "узы",
-    )
-)
-_G_RE: Final[regex.Pattern[str]] = regex.compile(rf"^г(?={_G_STEMS})")
+# --- е → э (Збор 2005 §11б) ------------------------------------------------------------
+#: §11б: "пасьля зычных, акрамя л і заднеязычных (г (ґ), к, х)"
+_E_BLOCKERS: Final[frozenset[str]] = frozenset("лгґкх")
+_CONSONANTS: Final[frozenset[str]] = frozenset("бвгґджзйклмнпрстўфхцчш")
 
 
-# --- reverse tables (Taraškievica → Narkamaŭka) ----------------------------------------
-# Every forward stem must round-trip, so the reverse rules are the same stems
-# read backwards. Stems whose Taraškievica form collides with a native word are
-# left out and belong to the lexicon: салён- is also "salty" (салёны, салёна).
-_L_REVERSE_SKIP: Final[frozenset[str]] = frozenset({"салён"})
-_I_REVERSE_SKIP: Final[frozenset[str]] = frozenset()
-_STEM_RE: Final[regex.Pattern[str]] = regex.compile(r"^\^(\p{Cyrillic}+)((?:\(\?[=!][^)]*\))?)$")
+def _span(word: str, match: StemMatch) -> tuple[str, str, str]:
+    """Split ``word`` into (before, stem, after) at the match."""
+    return word[: match.start], word[match.start : match.end], word[match.end :]
 
 
-def _invert(
-    rules: tuple[tuple[regex.Pattern[str], str], ...], skip: frozenset[str]
-) -> tuple[tuple[regex.Pattern[str], str], ...]:
-    """Reverse ``^stem(lookaround)?`` → ``repl`` rules; others need an explicit entry."""
-    out: list[tuple[regex.Pattern[str], str]] = []
-    for pattern, repl in rules:
-        m = _STEM_RE.match(pattern.pattern)
-        if m is None or repl in skip:
+# --- soft l ----------------------------------------------------------------------------
+def palatalize_l(stem: str) -> str:
+    """ла → ля, ло → лё, лу → лю, and л → ль before a consonant or at the end."""
+    out: list[str] = []
+    for i, ch in enumerate(stem):
+        if ch != "л":
+            out.append(ch)
             continue
-        stem, look = m.groups()
-        out.append((regex.compile(f"^{regex.escape(repl)}{look}"), stem))
-    return tuple(out)
+        nxt = stem[i + 1] if i + 1 < len(stem) else ""
+        if nxt in _ALREADY_SOFT or nxt == "ь" or nxt in _SOFT_L_VOWEL:
+            out.append(ch)
+        else:
+            out.append("ль")
+    # the vowel rewrite is done in a second pass so indices stay stable
+    text = "".join(out)
+    return regex.sub(r"л([аоу])", lambda m: "л" + _SOFT_L_VOWEL[m.group(1)], text)
 
 
-_L_REVERSE: Final[tuple[tuple[regex.Pattern[str], str], ...]] = (
-    *_invert(_L_RULES, _L_REVERSE_SKIP),
-    (regex.compile(rf"(?<=[{_V}])лёгі"), "логі"),
-)
-_I_REVERSE: Final[tuple[tuple[regex.Pattern[str], str], ...]] = (
-    *_invert(_I_RULES, _I_REVERSE_SKIP),
-    (regex.compile(r"^(а|апа|кампа|экспа|прапа|дыспа|пра)?пазыц"), r"\1пазіц"),
-)
+def depalatalize_l(stem: str) -> str:
+    """The inverse: ля → ла, лё → ло, лю → лу, ль → л."""
+    text = regex.sub(r"л([яёю])", lambda m: "л" + _HARD_L_VOWEL[m.group(1)], stem)
+    return text.replace("ль", "л")
 
 
-def _apply_first(word: str, rules: tuple[tuple[regex.Pattern[str], str], ...]) -> str:
-    for pattern, repl in rules:
-        new = pattern.sub(repl, word, count=1)
-        if new != word:
-            return new
-    return word
-
-
-def apply_l_palatalization(word: str) -> str:
+def apply_l_palatalization(word: str, match: StemMatch) -> str:
     """план → плян, лампа → лямпа, біялогія → біялёгія; лапа → лапа."""
-    return _apply_first(word, _L_RULES)
+    if not match.allows("l"):
+        return word
+    before, stem, after = _span(word, match)
+    return before + palatalize_l(stem) + after
 
 
-def apply_i_to_y(word: str) -> str:
+# --- і → ы -----------------------------------------------------------------------------
+def i_to_y(stem: str) -> str:
+    """і → ы after a hard dental or husher."""
+    return "".join(
+        "ы" if ch == "і" and i > 0 and stem[i - 1] in _Y_TRIGGERS else ch
+        for i, ch in enumerate(stem)
+    )
+
+
+def y_to_i(stem: str) -> str:
+    """The inverse: ы → і after a hard dental or husher."""
+    return "".join(
+        "і" if ch == "ы" and i > 0 and stem[i - 1] in _Y_TRIGGERS else ch
+        for i, ch in enumerate(stem)
+    )
+
+
+def apply_i_to_y(word: str, match: StemMatch) -> str:
     """сістэма → сыстэма, прэзідэнт → прэзыдэнт; сіла → сіла."""
-    return _apply_first(word, _I_RULES)
+    if not match.allows("i"):
+        return word
+    before, stem, after = _span(word, match)
+    return before + i_to_y(stem) + after
 
 
-def remove_l_palatalization(word: str) -> str:
-    """плян → план, біялёгія → біялогія; салёны (salty) → салёны."""
-    return _apply_first(word, _L_REVERSE)
+# --- е → э -----------------------------------------------------------------------------
+def e_to_eh(stem: str) -> str:
+    """е → э after any consonant except л and the velars г, ґ, к, х (§11б)."""
+    return "".join(
+        "э" if ch == "е" and i > 0 and stem[i - 1] in _CONSONANTS - _E_BLOCKERS else ch
+        for i, ch in enumerate(stem)
+    )
 
 
-def remove_i_to_y(word: str) -> str:
-    """сыстэма → сістэма, прэзыдэнт → прэзідэнт; сыр → сыр."""
-    return _apply_first(word, _I_REVERSE)
+def eh_to_e(stem: str) -> str:
+    """The inverse: э → е after any consonant except л, г, ґ, к, х."""
+    return "".join(
+        "е" if ch == "э" and i > 0 and stem[i - 1] in _CONSONANTS - _E_BLOCKERS else ch
+        for i, ch in enumerate(stem)
+    )
+
+
+def apply_e_to_eh(word: str, match: StemMatch) -> str:
+    """сезон → сэзон, версія → вэрсія, аперацыя → апэрацыя; лекцыя → лекцыя."""
+    if not match.allows("e"):
+        return word
+    before, stem, after = _span(word, match)
+    return before + e_to_eh(stem) + after
+
+
+# --- ґ ---------------------------------------------------------------------------------
+def apply_g_distinction(word: str, match: StemMatch) -> str:
+    """ганак → ґанак, гузік → ґузік, грунт → ґрунт; гара → гара."""
+    if not match.allows("g"):
+        return word
+    before, stem, after = _span(word, match)
+    return before + stem.replace("г", "ґ", 1) + after
+
+
+def remove_g_distinction(word: str) -> str:
+    """ґ → г, always (Narkamaŭka has no ґ). Needs no etymology: ґ only occurs in loans."""
+    return word.replace("ґ", "г")
+
+
+# --- Еўропа → Эўропа (Збор 2005 §52) ---------------------------------------------------
+_EU_RE: Final[regex.Pattern[str]] = regex.compile(r"^еў")
 
 
 def apply_eu_prefix(word: str) -> str:
     """еўропа → эўропа, еўрапейскі → эўрапейскі."""
     return _EU_RE.sub("эў", word, count=1)
+
+
+# --- ф → хв in traditional Christian names (OPTIONAL) ----------------------------------
+# Збор 2005, §81 Заўвага Б lists several valid forms side by side: "Тодар, Фёдар, Хведар,
+# Ходар; … Фядос, Хвядос, Ходас". Фёдар is already correct, so this rewrite is optional
+# and runs only in aggressive mode.
+_F_NAMES: Final[dict[str, str]] = {
+    "фёдар": "хведар",
+    "фядос": "хвядос",
+}
+_F_RE: Final[regex.Pattern[str]] = regex.compile(r"^(?:фёдар|фядос)")
 
 
 def apply_f_substitution(word: str) -> str:
@@ -197,11 +191,129 @@ def apply_f_substitution(word: str) -> str:
     return _F_NAMES.get(stem, stem) + word[len(stem) :]
 
 
-def apply_g_distinction(word: str) -> str:
-    """ганак → ґанак, гузік → ґузік, грунт → ґрунт; гара → гара."""
-    return _G_RE.sub("ґ", word, count=1)
+# --- deriving the Taraškievica side of the inventory -----------------------------------
+#: applied in this order when deriving a target stem; the transducers commute in
+#: practice but a fixed order keeps the derivation reproducible.
+_FORWARD: Final[tuple[tuple[str, object], ...]] = (
+    ("g", lambda s: s.replace("г", "ґ", 1)),
+    ("l", palatalize_l),
+    ("i", i_to_y),
+    ("e", e_to_eh),
+)
 
 
-def remove_g_distinction(word: str) -> str:
-    """ґ → г, always (Narkamaŭka has no ґ)."""
-    return word.replace("ґ", "г")
+def _apply_alternations(stem: str, alternations: frozenset[str]) -> str:
+    for code, fn in _FORWARD:
+        if code in alternations:
+            stem = fn(stem)  # type: ignore[operator]
+    return stem
+
+
+def target_stem(entry: StemEntry) -> str:
+    """The Taraškievica spelling of a Narkamaŭka stem, from its own alternations.
+
+    The reverse direction sees Taraškievica text, so it needs the inventory keyed by
+    Taraškievica stems. Deriving them here — rather than listing them by hand — is what
+    guarantees the two directions cannot drift apart.
+    """
+    if entry.target is not None:
+        return entry.target
+    return _apply_alternations(entry.stem, entry.alternations)
+
+
+def derive_target_entries(entries: list[StemEntry]) -> list[StemEntry]:
+    """``entries`` re-keyed by their Taraškievica form, for the T → N direction.
+
+    Every reverse entry carries the Narkamaŭka stem as its ``target``, so T → N is a
+    **stem substitution**, not an inverse transducer. That is what makes it exact: the
+    string alone cannot tell which ``ь`` to remove — балькон → балкон must lose one and
+    лякальн → лакальн must not — but the entry knows both spellings.
+
+    A stem with any forward-only alternation gets no reverse entry at all: that flag
+    exists precisely because its Taraškievica form is ambiguous, and the project leaves
+    ambiguous forms alone.
+    """
+    out: list[StemEntry] = []
+    for e in entries:
+        if e.cls is WordClass.NATIVE:
+            out.append(e)
+            continue
+        if e.forward_only or not (e.alternations or e.target):
+            continue
+        # Real Taraškievica text also carries assimilative softness, and softness is
+        # marked on the *pre-alternation* form: бізнес → бізьнес → бізьнэс, because
+        # palatalization outranks the loan rules. Index every spelling the forward
+        # pipeline can produce, since the etymology is resolved once, from the word as
+        # it arrives, and must match it as written.
+        derived = target_stem(e)
+        softened = (
+            mark_assimilative_softness(e.stem)
+            if e.target is None
+            else mark_assimilative_softness(e.target)
+        )
+        variants = (
+            derived,
+            mark_assimilative_softness(derived),
+            _apply_alternations(softened, e.alternations) if e.target is None else softened,
+        )
+        for stem in dict.fromkeys(variants):
+            out.append(
+                StemEntry(
+                    stem=stem,
+                    cls=e.cls,
+                    alternations=frozenset(),
+                    source=e.source,
+                    provenance=e.provenance,
+                    anchored=e.anchored,
+                    target=e.stem,
+                )
+            )
+    return out
+
+
+# --- irregular stems -------------------------------------------------------------------
+def apply_stem_target(word: str, match: StemMatch) -> str:
+    """Replace the matched stem with its explicit target (the 6th TSV column).
+
+    For stems whose alternation is not regular in either direction — ``каланіял →
+    калёніял`` restores an etymological *о* that akanne wrote as *а*.
+    """
+    if match.target is None:
+        return word
+    before, _, after = _span(word, match)
+    return before + match.target + after
+
+
+def reverse_collisions(entries: list[StemEntry]) -> list[str]:
+    """Loan stems whose derived Taraškievica key is shared by another stem.
+
+    Two Narkamaŭka stems deriving to one Taraškievica form make the reverse direction
+    ambiguous, and a dict would silently keep whichever came last.
+    """
+    by_key: dict[str, list[str]] = {}
+    for e in derive_target_entries(entries):
+        if e.cls is WordClass.LOAN and e.target is not None:
+            by_key.setdefault(e.stem, [])
+            if e.target not in by_key[e.stem]:
+                by_key[e.stem].append(e.target)
+    return [
+        f"Taraškievica stem {stem!r} is derived from several Narkamaŭka stems: {sorted(srcs)}"
+        for stem, srcs in by_key.items()
+        if len(srcs) > 1
+    ]
+
+
+def build_stem_indexes(path: Path | None) -> dict[Orthography, StemIndex]:
+    """Per-direction stem inventories: Narkamaŭka keys for N → T, derived Taraškievica keys
+    for T → N.
+
+    The reverse keys are computed from the forward ones by :func:`target_stem`, never
+    listed by hand, so the two directions cannot disagree about what a stem licenses.
+    """
+    if path is None or not path.exists():
+        return {d: StemIndex.empty() for d in Orthography}
+    entries = read_stem_sources(path)
+    return {
+        Orthography.TARASKIEVICA: StemIndex(entries),
+        Orthography.NARKAMAUKA: StemIndex(derive_target_entries(entries)),
+    }

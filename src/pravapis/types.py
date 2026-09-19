@@ -23,6 +23,26 @@ class Orthography(StrEnum):
         return Orthography.NARKAMAUKA
 
 
+class Script(StrEnum):
+    """The writing system a text is in.
+
+    Orthogonal to :class:`Orthography`: Narkamaŭka and Taraškievica are two spellings
+    of Belarusian, Cyrillic and the Latin schemes are two ways of writing either. Each
+    Latin scheme does, however, share a softness convention with one orthography —
+    Łacinka marks assimilative softness (śnieh) as Taraškievica does, the 2007 national
+    romanisation does not (snieh) as Narkamaŭka does not — which is why
+    :data:`pravapis.translit.PAIRED` exists.
+    """
+
+    CYRILLIC = "cyrillic"
+    LACINKA = "lacinka"
+    OFFICIAL = "official"
+
+    @property
+    def is_latin(self) -> bool:
+        return self is not Script.CYRILLIC
+
+
 class Method(StrEnum):
     """Which stage of the cascade resolved a word."""
 

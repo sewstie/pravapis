@@ -1,0 +1,110 @@
+scheme: lacinka
+description: >
+  Classical Belarusian Łacinka, Cyrillic → Latin. Pairs with Taraškievica: both mark
+  assimilative softness, so сьнег → śnieh. Feed it Narkamaŭka and you get snieh, which
+  is not what a Łacinka reader expects — hence the pairing in pravapis.translit.
+source: >
+  B. Taraškievič, Biełaruskaja hramatyka dla škoł (Vilnia, 1918), łacinka edition —
+  the same book Збор правілаў 2005 cites in endnote i. The 2005 rules themselves cover
+  Cyrillic orthography only (§1–91) and merely assume Łacinka exists, noting the
+  "паралелізм кірылічнага й лацінкавага" spelling.
+# Order matters only among mappings that share a 'from': the first whose condition
+# holds wins. Longest 'from' always wins over shorter ones.
+mappings:
+  # --- digraphs, longest first ---
+  - { from: "дзь", to: "dź" }
+  - { from: "дз", to: "dz" }
+  - { from: "дж", to: "dž" }
+
+  # --- softness is written with ь, and only with ь ---
+  # Palatalisation before a soft vowel is carried by that vowel's own i (сядзіба →
+  # siadziba); ś ź ć ń come from ь alone (сьвет → śviet).
+  - { from: "сь", to: "ś" }
+  - { from: "зь", to: "ź" }
+  - { from: "ць", to: "ć" }
+  - { from: "нь", to: "ń" }
+  - { from: "ль", to: "l" }
+
+  # --- л inverts the iotation rule ---
+  # Hard л is ł; soft л is plain l, and the soft vowel after it loses its i/j because
+  # the l already carries the softness: лес → les, ляк → lak, лёд → lod, любы → luby.
+  - { from: "л", to: "l", when: before_soft_vowel }
+  - { from: "л", to: "ł" }
+
+  # --- iotated vowels ---
+  # je/jo/ju/ja word-initially, after a vowel, after ў, after ь and after an apostrophe;
+  # ie/io/iu/ia after a consonant; bare after л.
+  - { from: "я", to: "a", when: after_l }
+  - { from: "я", to: "ia", when: after_consonant }
+  - { from: "я", to: "ja" }
+  - { from: "ё", to: "o", when: after_l }
+  - { from: "ё", to: "io", when: after_consonant }
+  - { from: "ё", to: "jo" }
+  - { from: "ю", to: "u", when: after_l }
+  - { from: "ю", to: "iu", when: after_consonant }
+  - { from: "ю", to: "ju" }
+  - { from: "е", to: "e", when: after_l }
+  - { from: "е", to: "ie", when: after_consonant }
+  - { from: "е", to: "je" }
+  - { from: "і", to: "ji", when: "after_apostrophe|after_soft_sign" }
+  - { from: "і", to: "i" }
+
+  # --- the apostrophe is deleted; it survives as the j of the vowel after it ---
+  - { from: "’", to: "" }
+  # A ь the digraphs above did not consume sits after a consonant with no soft Latin
+  # counterpart. Belarusian has no such sequence (ть, бь … are not Belarusian), so this
+  # only fires on foreign or malformed input. Marked lossy: it is dropped, and the
+  # caller is told it was.
+  - { from: "ь", to: "", lossy: true }
+
+  # --- plain letters ---
+  - { from: "а", to: "a" }
+  - { from: "б", to: "b" }
+  - { from: "в", to: "v" }
+  - { from: "г", to: "h" }
+  - { from: "ґ", to: "g" }
+  - { from: "д", to: "d" }
+  - { from: "ж", to: "ž" }
+  - { from: "з", to: "z" }
+  - { from: "й", to: "j" }
+  - { from: "к", to: "k" }
+  - { from: "м", to: "m" }
+  - { from: "н", to: "n" }
+  - { from: "о", to: "o" }
+  - { from: "п", to: "p" }
+  - { from: "р", to: "r" }
+  - { from: "с", to: "s" }
+  - { from: "т", to: "t" }
+  - { from: "у", to: "u" }
+  - { from: "ў", to: "ŭ" }
+  - { from: "ф", to: "f" }
+  - { from: "х", to: "ch" }
+  - { from: "ц", to: "c" }
+  - { from: "ч", to: "č" }
+  - { from: "ш", to: "š" }
+  - { from: "ы", to: "y" }
+  - { from: "э", to: "e" }
+
+tests:
+  - { input: "сьнег", expected: "śnieh" }
+  - { input: "сьвет", expected: "śviet" }
+  - { input: "яблык", expected: "jabłyk" }
+  - { input: "мяса", expected: "miasa" }
+  - { input: "маяк", expected: "majak" }
+  - { input: "лес", expected: "les" }
+  - { input: "ляк", expected: "lak" }
+  - { input: "лёд", expected: "lod" }
+  - { input: "любы", expected: "luby" }
+  - { input: "кантроль", expected: "kantrol" }
+  - { input: "балькон", expected: "balkon" }
+  - { input: "зьява", expected: "źjava" }
+  - { input: "аб’ява", expected: "abjava" }
+  - { input: "дзень", expected: "dzień" }
+  - { input: "жыцьцё", expected: "žyćcio" }
+  - { input: "чалавек", expected: "čałaviek" }
+  - { input: "эўропа", expected: "eŭropa" }
+  - { input: "ґанак", expected: "ganak" }
+  - { input: "хлеб", expected: "chleb" }
+  - { input: "адзначыць", expected: "adznačyć" }
+  - { input: "судзьдзя", expected: "sudździa" }
+  - { input: "беларусь", expected: "biełaruś" }

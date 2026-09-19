@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from pravapis import __version__
 from pravapis.api.schemas import (
@@ -17,10 +17,13 @@ from pravapis.api.schemas import (
     RuleTraceOut,
     StatsResponse,
     TokenExplanation,
+    TransliterateRequest,
+    TransliterateResponse,
 )
 from pravapis.normalize import sanitize
 from pravapis.pipeline import Converter
-from pravapis.types import ConversionResult, Orthography
+from pravapis.translit import PAIRED, REVERSIBLE
+from pravapis.types import ConversionResult, Orthography, Script
 
 router = APIRouter()
 
@@ -55,6 +58,34 @@ def _to_response(
 @router.post("/v1/convert", response_model=ConvertResponse)
 def convert(req: ConvertRequest, converter: ConverterDep) -> ConvertResponse:
     return _to_response(converter, req.text, req.direction, req.explain)
+
+
+@router.post("/v1/transliterate", response_model=TransliterateResponse)
+def transliterate(req: TransliterateRequest, converter: ConverterDep) -> TransliterateResponse:
+    """Cyrillic ↔ Latin. See data/TRANSLIT.md for the schemes and their sources."""
+    if req.from_script is not None:
+        if req.from_script not in REVERSIBLE:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"{req.from_script.value} cannot be read back into Cyrillic: it does "
+                    "not write assimilative softness, so the reverse would not round-trip"
+                ),
+            )
+        text = converter.read_script(req.text, req.from_script, req.direction)
+        return TransliterateResponse(text=text, script=Script.CYRILLIC, direction=req.direction)
+    if req.script is Script.CYRILLIC:
+        raise HTTPException(
+            status_code=422,
+            detail="script='cyrillic' needs a from_script to read back from",
+        )
+    result = converter.render_result(req.text, req.script, convert=req.convert)
+    return TransliterateResponse(
+        text=result.text,
+        script=req.script,
+        direction=PAIRED[req.script] if req.convert else None,
+        unresolved=list(result.unresolved),
+    )
 
 
 @router.post("/v1/convert/batch", response_model=BatchConvertResponse)

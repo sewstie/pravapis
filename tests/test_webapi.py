@@ -66,7 +66,9 @@ def test_no_segments_without_explain(converter: Converter) -> None:
         ([], 400),
         ({"text": 1}, 400),
         ({"text": "а", "direction": "latin"}, 400),
-        ({"text": "а", "script": "latin"}, 422),
+        ({"text": "а", "script": "latin"}, 400),  # not a known script
+        ({"text": "а", "from_script": "official"}, 422),  # known, but not reversible
+        ({"text": "а", "script": "lacinka", "convert": "yes"}, 400),
         ({"text": "а", "explain": "yes"}, 400),
         ({"text": "а" * 50_001}, 413),
     ],

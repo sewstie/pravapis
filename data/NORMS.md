@@ -142,6 +142,33 @@ it here and fix the rule in the same change.
 - source: Збор 2005, §67 (сыстэма, сытуацыя, сынонім, сыгнал, клясычны, фізык, візыт, дэпазыт);
   §66 marks where і stays (расізм, марксізм)
 
+### loan.stem_target
+- direction: narkamauka → taraskievica
+- does: replaces a matched stem with the explicit target in the 6th column of
+  `data/lexicon/stems/stems.tsv`, for stems no regular alternation can derive.
+  Only entry so far: каланіял → калёніял.
+- source: Збор 2005, §55.1 (soft л in Western stems) for the alternation itself. The stem
+  needs an explicit target because Narkamaŭka akanne wrote the etymological *о* of колон- as
+  *а*: no rule conditioned on the Narkamaŭka spelling can recover калёніял from каланіял.
+
+### loan.e_to_eh
+- direction: narkamauka → taraskievica
+- does: е → э inside a stem classed `loan`, after any consonant except л and the velars
+  г, ґ, к, х: сезон → сэзон, версія → вэрсія, аперацыя → апэрацыя, дакумент → дакумэнт
+- source: Збор 2005, §11б ("У пазычаньнях і вытворных ад іх словах правапіс э звычайна не
+  залежыць ад націску. Літара э пішацца: … б) пасьля зычных, акрамя л і заднеязычных
+  (г (ґ), к, х): … бізнэс, губэрня, дэкан, мэбля, мэтро, рэкорд, сэзон, сэмэстар, сэсія;
+  Армэнія, Бэрлін, Вэрсаль, Жэнэва"), with the finals -эль, -эн, -энт, -эр, -эт listed in
+  the same section.
+- exceptions: Збор 2005, §12 Заўвага Б ("У наступных асвоеных пазычаньнях канцавыя фарманты
+  -el, -er пішуцца празь е: блюзьнер, жаўнер, касінер, каўнер, кушнер, манер, манера,
+  шынель"), listed as rule exceptions.
+- note on §12: unstressed [э] in assimilated borrowings is written а (адрас, літаратура,
+  майстар, момант, кампутар). Narkamaŭka already writes а in those, so they are no-ops here;
+  the ones that are not are held as `native` stems.
+- scope: the etymology comes from `data/lexicon/stems/stems.tsv`, never from the spelling —
+  see "Etymology is data" below.
+
 ### loan.f_substitution
 - direction: narkamauka → taraskievica
 - does: **optional** (aggressive mode only): Фёдар → Хведар, Фядос → Хвядос, endings kept
@@ -162,15 +189,20 @@ it here and fix the rule in the same change.
 - does: ґ → г everywhere
 - source: UNVERIFIED (Narkamaŭka norm; not covered by the 2005 Збор правілаў)
 
-### loan.l_unpalatalization
+### loan.stem_reverse
 - direction: taraskievica → narkamauka
-- does: reverse of loan.l_palatalization on the same stems
-- source: inverse of loan.l_palatalization — Збор 2005, §55.1, §56.2 (same stem caveats)
-
-### loan.y_to_i
-- direction: taraskievica → narkamauka
-- does: reverse of loan.i_to_y on the same stems
-- source: inverse of loan.i_to_y — Збор 2005, §66, §67
+- does: replaces a matched Taraškievica loan stem with its Narkamaŭka form — плян → план,
+  сыстэма → сістэма, сэзон → сезон, калёніяльны → каланіяльны — in one substitution
+- source: inverse of loan.l_palatalization, loan.i_to_y, loan.e_to_eh and loan.stem_target
+  on the same stems (Збор 2005 §55.1, §56.2, §67, §11б)
+- why a substitution and not an inverse transducer: the Taraškievica string does not say
+  which ь was added by the rule and which was already in the Narkamaŭka stem — балькон →
+  балкон must drop one, лякальна → лакальна must keep one. The stem entry knows both
+  spellings, so the reverse index is derived from the forward one and carries the
+  Narkamaŭka stem as its target. See "Etymology is data".
+- stems whose Taraškievica form is ambiguous get no reverse entry at all (marked `l:n2t`
+  in stems.tsv): салон → салён is safe, салёны → салоны is not, because Taraškievica
+  салён- is also the native adjective "salty".
 
 ### loan.eu_reverse
 - direction: taraskievica → narkamauka
@@ -276,6 +308,34 @@ Measured on the 100,000 most frequent Wikipedia words plus the gold set, the rou
 and every lexicon entry: after the fix, no Belarusian N → T output word contains a softness
 context the rules would still mark, and the only T → N outputs keeping an assimilative-looking ь
 are the пісьменнік family above.
+
+## Etymology is data, not a pattern
+
+The loanword alternations (soft л §55.1/§56.2, і → ы §67, е → э §11б) are each stated by the
+codification as a plain phonological condition. What the codification assumes, and the
+spelling never shows, is that the word is a borrowing: native *лапа* and borrowed *лямпа* are
+indistinguishable to any rule that reads only letters. That is the fact the classifier tried
+and failed to learn (see README, "Why the classifier was removed").
+
+So the rules are general transducers and the etymology is a data file:
+`data/lexicon/stems/stems.tsv`, one row per stem, carrying its class (`loan` / `native`),
+the alternations it licenses, a citation, and a provenance tier.
+
+Consequences worth knowing:
+
+- **Longest match wins.** A false friend is a native stem one character longer than the loan
+  stem it must beat: `класц` (класці) over `клас`, `падлог` (падлогі) over `-логі`. No rule
+  carries a lookahead any more.
+- **Rewrites are bounded by the matched stem.** This is what keeps §66 honest at no cost: in
+  *марксізм* the stem is *маркс*, so the *-ізм* suffix is outside the span and і → ы never
+  reaches it.
+- **The reverse index is derived, not written.** Taraškievica keys come from applying the
+  forward alternations to each Narkamaŭka stem, so the two directions cannot disagree about
+  what a stem licenses. An alternation written `l:n2t` is forward-only, for stems whose
+  Taraškievica form is ambiguous (салён- is both the loan *salon* and the native *salty*).
+- **Provenance gates application.** `cited` / `reviewed` / `derived` are applied; `uncertain`
+  rows are parsed and counted but never fire. The ґ stems are all `uncertain`, which is why
+  `loan.g_distinction` currently changes nothing while remaining ready for a citation.
 
 ## Known gaps (not implemented, need the codification)
 

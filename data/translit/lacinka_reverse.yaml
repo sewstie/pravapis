@@ -1,0 +1,93 @@
+scheme: lacinka_reverse
+description: >
+  Classical Belarusian Łacinka, Latin → Cyrillic. The inverse of lacinka.yaml, and the
+  reason the round-trip property test is possible at all.
+source: >
+  The inverse of the table in lacinka.yaml — B. Taraškievič, Biełaruskaja hramatyka
+  dla škoł (Vilnia, 1918), łacinka edition.
+# One apparent ambiguity is not one: дз and д+з both emit "dz" forward, and "dz" maps
+# back to the two characters "дз", which is byte-identical to what д+з was. дзень and
+# адзначыць therefore both round-trip. "dź" has only one source.
+#
+# The soft l needs two-character mappings (la → ля) rather than a context condition,
+# because the softness lands on the *vowel* in Cyrillic and on the *consonant* in
+# Łacinka. Hard ł needs none: the vowel after it is already bare.
+mappings:
+  # --- soft l carries its vowel with it ---
+  - { from: "la", to: "ля" }
+  - { from: "le", to: "ле" }
+  - { from: "lo", to: "лё" }
+  - { from: "lu", to: "лю" }
+  - { from: "li", to: "лі" }
+
+  # --- iotated vowels: j- after a vowel or word-initially, i- after a consonant ---
+  - { from: "ja", to: "я" }
+  - { from: "je", to: "е" }
+  - { from: "jo", to: "ё" }
+  - { from: "ju", to: "ю" }
+  - { from: "ji", to: "і" }
+  - { from: "ia", to: "я" }
+  - { from: "ie", to: "е" }
+  - { from: "io", to: "ё" }
+  - { from: "iu", to: "ю" }
+
+  # --- digraphs ---
+  - { from: "dź", to: "дзь" }
+  - { from: "dž", to: "дж" }
+  - { from: "dz", to: "дз" }
+  - { from: "ch", to: "х" }
+
+  # --- single letters ---
+  - { from: "ł", to: "л" }
+  - { from: "l", to: "ль" }
+  - { from: "ŭ", to: "ў" }
+  - { from: "š", to: "ш" }
+  - { from: "č", to: "ч" }
+  - { from: "ž", to: "ж" }
+  - { from: "ś", to: "сь" }
+  - { from: "ź", to: "зь" }
+  - { from: "ć", to: "ць" }
+  - { from: "ń", to: "нь" }
+  - { from: "a", to: "а" }
+  - { from: "b", to: "б" }
+  - { from: "c", to: "ц" }
+  - { from: "d", to: "д" }
+  - { from: "e", to: "э" }
+  - { from: "f", to: "ф" }
+  - { from: "g", to: "ґ" }
+  - { from: "h", to: "г" }
+  - { from: "i", to: "і" }
+  - { from: "j", to: "й" }
+  - { from: "k", to: "к" }
+  - { from: "m", to: "м" }
+  - { from: "n", to: "н" }
+  - { from: "o", to: "о" }
+  - { from: "p", to: "п" }
+  - { from: "r", to: "р" }
+  - { from: "s", to: "с" }
+  - { from: "t", to: "т" }
+  - { from: "u", to: "у" }
+  - { from: "v", to: "в" }
+  - { from: "y", to: "ы" }
+  - { from: "z", to: "з" }
+
+tests:
+  - { input: "śnieh", expected: "сьнег" }
+  - { input: "śviet", expected: "сьвет" }
+  - { input: "jabłyk", expected: "яблык" }
+  - { input: "miasa", expected: "мяса" }
+  - { input: "majak", expected: "маяк" }
+  - { input: "les", expected: "лес" }
+  - { input: "lak", expected: "ляк" }
+  - { input: "lod", expected: "лёд" }
+  - { input: "luby", expected: "любы" }
+  - { input: "kantrol", expected: "кантроль" }
+  - { input: "balkon", expected: "балькон" }
+  - { input: "dzień", expected: "дзень" }
+  - { input: "žyćcio", expected: "жыцьцё" }
+  - { input: "čałaviek", expected: "чалавек" }
+  - { input: "eŭropa", expected: "эўропа" }
+  - { input: "ganak", expected: "ґанак" }
+  - { input: "chleb", expected: "хлеб" }
+  - { input: "adznačyć", expected: "адзначыць" }
+  - { input: "biełaruś", expected: "беларусь" }

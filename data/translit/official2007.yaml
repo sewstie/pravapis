@@ -1,0 +1,77 @@
+scheme: official2007
+description: >
+  The Belarusian national romanisation, Cyrillic → Latin. Pairs with Narkamaŭka: it
+  transliterates the ь that is actually written and invents none, so снег → snieh, not
+  śnieh. Forward only — it does not mark assimilative softness, so the reverse would
+  not round-trip and pravapis does not offer one.
+source: >
+  Інструкцыя па транслітарацыі геаграфічных назваў Рэспублікі Беларусь літарамі
+  лацінскага алфавіта (Дзяржаўны камітэт па зямельных рэсурсах, геадэзіі і
+  картаграфіі, 2000; as amended 2007), adopted by UNGEGN in 2012 (resolution X/6) as
+  the international romanisation system for Belarusian geographical names.
+# Differs from Łacinka in exactly two places worth naming: л is always l (never ł), and
+# ль is ĺ (never plain l). Everything else is the same shape.
+mappings:
+  - { from: "дзь", to: "dź" }
+  - { from: "дз", to: "dz" }
+  - { from: "дж", to: "dž" }
+
+  - { from: "зь", to: "ź" }
+  - { from: "ль", to: "ĺ" }
+  - { from: "нь", to: "ń" }
+  - { from: "сь", to: "ś" }
+  - { from: "ць", to: "ć" }
+
+  - { from: "я", to: "ia", when: after_consonant }
+  - { from: "я", to: "ja" }
+  - { from: "ё", to: "io", when: after_consonant }
+  - { from: "ё", to: "jo" }
+  - { from: "ю", to: "iu", when: after_consonant }
+  - { from: "ю", to: "ju" }
+  - { from: "е", to: "ie", when: after_consonant }
+  - { from: "е", to: "je" }
+
+  - { from: "’", to: "" }
+  - { from: "ь", to: "" }
+
+  - { from: "а", to: "a" }
+  - { from: "б", to: "b" }
+  - { from: "в", to: "v" }
+  - { from: "г", to: "h" }
+  - { from: "ґ", to: "g" }
+  - { from: "д", to: "d" }
+  - { from: "ж", to: "ž" }
+  - { from: "з", to: "z" }
+  - { from: "і", to: "i" }
+  - { from: "й", to: "j" }
+  - { from: "к", to: "k" }
+  - { from: "л", to: "l" }
+  - { from: "м", to: "m" }
+  - { from: "н", to: "n" }
+  - { from: "о", to: "o" }
+  - { from: "п", to: "p" }
+  - { from: "р", to: "r" }
+  - { from: "с", to: "s" }
+  - { from: "т", to: "t" }
+  - { from: "у", to: "u" }
+  - { from: "ў", to: "ŭ" }
+  - { from: "ф", to: "f" }
+  - { from: "х", to: "ch" }
+  - { from: "ц", to: "c" }
+  - { from: "ч", to: "č" }
+  - { from: "ш", to: "š" }
+  - { from: "ы", to: "y" }
+  - { from: "э", to: "e" }
+
+tests:
+  - { input: "снег", expected: "snieh" }
+  - { input: "свет", expected: "sviet" }
+  - { input: "мінск", expected: "minsk" }
+  - { input: "віцебск", expected: "viciebsk" }
+  - { input: "вуліца", expected: "vulica" }
+  - { input: "шчучын", expected: "ščučyn" }
+  - { input: "еўропа", expected: "jeŭropa" }
+  - { input: "мядзел", expected: "miadziel" }
+  - { input: "чалавек", expected: "čalaviek" }
+  - { input: "яблык", expected: "jablyk" }
+  - { input: "зэльва", expected: "zeĺva" }

@@ -52,6 +52,7 @@
   .seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
 
   .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .note { min-height: 1.2em; margin: 10px 0 0; font-size: 0.9em; opacity: 0.75; }
   @media (max-width: 720px) {
     .panes { grid-template-columns: 1fr; }
     /* The two direction labels do not fit side by side on a phone; give each its own row. */
@@ -86,7 +87,13 @@
     <label for="dir-t">Наркамаўка → Тарашкевіца</label>
     <input type="radio" name="dir" id="dir-n" value="narkamauka">
     <label for="dir-n">Тарашкевіца → Наркамаўка</label>
+    <input type="radio" name="dir" id="dir-l" value="lacinka">
+    <label for="dir-l">Лацінка</label>
+    <input type="radio" name="dir" id="dir-o" value="official">
+    <label for="dir-o">Афіцыйная лацінка</label>
   </div>
+
+  <p class="note" id="note"></p>
 
   <div class="panes">
     <textarea id="input" spellcheck="false" aria-label="Тэкст" placeholder="Увядзіце тэкст…"></textarea>
@@ -107,12 +114,31 @@
 
   const $ = (id) => document.getElementById(id);
   const input = $("input"), output = $("output"), go = $("go"), error = $("error");
+  const note = $("note");
 
-  const direction = () => document.querySelector('input[name="dir"]:checked').value;
+  // Łacinka is paired with Taraškievica and the official romanisation with Narkamaŭka:
+  // each shares that orthography's treatment of softness, so the API converts first.
+  // See data/TRANSLIT.md.
+  const SCRIPTS = {
+    lacinka: "Лацінка Тарашкевіча: спачатку тэкст пераводзіцца ў тарашкевіцу (сьнег → śnieh).",
+    official: "Афіцыйная трансьлітарацыя 2007: мяккасьць не пазначаецца (снег → snieh).",
+  };
+
+  const choice = () => document.querySelector('input[name="dir"]:checked').value;
+
+  function requestBody(text) {
+    const value = choice();
+    return SCRIPTS[value]
+      ? { text, script: value }
+      : { text, direction: value };
+  }
 
   document.querySelectorAll('input[name="dir"]').forEach((r) =>
     r.addEventListener("change", () => {
-      if (output.value) input.value = output.value;  // continue from the output
+      note.textContent = SCRIPTS[choice()] || "";
+      // Continuing from a Latin output would feed Latin back in, which this page does
+      // not read; only chain when staying in Cyrillic.
+      if (output.value && !SCRIPTS[choice()]) input.value = output.value;
       if (input.value.trim()) convert(); else clear();
     })
   );
@@ -138,7 +164,7 @@
       const res = await fetch("/api/convert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, direction: direction() }),
+        body: JSON.stringify(requestBody(text)),
       });
       const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);

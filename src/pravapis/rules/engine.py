@@ -42,6 +42,7 @@ from typing import Any, Final
 import regex
 import yaml
 
+from pravapis.lexicon.stems import StemIndex, StemMatch, WordClass
 from pravapis.types import Orthography, RuleTrace
 
 _DIRECTION_ALIASES: Final[dict[str, Orthography]] = {
@@ -83,11 +84,32 @@ class Rule:
     #: the codification permits both the input and the output form; applied only
     #: in aggressive mode (see data/NORMS.md, "Policy: optional forms")
     optional: bool = False
+    #: fires only on a word whose matched stem has this etymology class
+    requires_class: WordClass | None = None
+    #: ...and whose stem licenses this alternation (see data/lexicon/stems.tsv)
+    alternation: str | None = None
 
-    def transform(self, word: str) -> str:
+    @property
+    def class_gated(self) -> bool:
+        return self.requires_class is not None
+
+    def fires_on(self, match: StemMatch | None) -> bool:
+        """Does the etymology gate let this rule run?"""
+        if self.requires_class is None:
+            return True
+        if match is None or match.cls is not self.requires_class:
+            return False
+        return self.alternation is None or self.alternation in match.alternations
+
+    def transform(self, word: str, match: StemMatch | None = None) -> str:
         if word in self.exceptions:
             return word
+        if not self.fires_on(match):
+            return word
         if self.function is not None:
+            if self.class_gated:
+                assert match is not None
+                return self.function(word, match)  # type: ignore[call-arg]
             return self.function(word)
         assert self.pattern is not None
         if not self.repeat:
@@ -155,6 +177,20 @@ def _parse_rule(raw: dict[str, Any], default_direction: Orthography | None) -> R
 
     requires_raw = raw.get("requires", ()) or ()
     exceptions_raw = raw.get("exceptions", ()) or ()
+    class_raw = raw.get("requires_class")
+    if class_raw is None:
+        requires_class = None
+    else:
+        try:
+            requires_class = WordClass(str(class_raw))
+        except ValueError as exc:
+            raise RuleError(
+                f"rule {rule_id!r}: requires_class must be one of "
+                f"{sorted(c.value for c in WordClass)}, got {class_raw!r}"
+            ) from exc
+    alternation = str(raw["alternation"]) if raw.get("alternation") is not None else None
+    if alternation is not None and requires_class is None:
+        raise RuleError(f"rule {rule_id!r}: 'alternation' needs 'requires_class'")
     return Rule(
         id=rule_id,
         pattern=pattern,
@@ -168,6 +204,8 @@ def _parse_rule(raw: dict[str, Any], default_direction: Orthography | None) -> R
         description=str(raw.get("description", "")),
         tests=_parse_tests(raw.get("tests")),
         optional=bool(raw.get("optional", False)),
+        requires_class=requires_class,
+        alternation=alternation,
     )
 
 
@@ -219,9 +257,24 @@ def validate_rule_set(rules: Sequence[Rule]) -> list[str]:
 
 
 class RuleEngine:
-    def __init__(self, rules: Iterable[Rule], *, include_optional: bool = False):
+    """Applies rules for a direction, gating the etymology-dependent ones on ``stems``.
+
+    ``stems`` is keyed per direction because the two directions see different
+    spellings of the same stem: N → T matches Narkamaŭka *план*, T → N matches
+    Taraškievica *плян*. The Taraškievica keys are derived from the Narkamaŭka ones
+    rather than listed by hand, so the two cannot drift apart.
+    """
+
+    def __init__(
+        self,
+        rules: Iterable[Rule],
+        *,
+        include_optional: bool = False,
+        stems: dict[Orthography, StemIndex] | None = None,
+    ):
         self._rules: tuple[Rule, ...] = tuple(rules)
         self.include_optional = include_optional
+        self._stems: dict[Orthography, StemIndex] = stems or {}
         problems = validate_rule_set(self._rules)
         if problems:
             raise RuleError("; ".join(problems))
@@ -243,17 +296,28 @@ class RuleEngine:
         }
 
     @classmethod
-    def from_yaml(cls, *paths: Path) -> RuleEngine:
+    def from_yaml(
+        cls, *paths: Path, stems: dict[Orthography, StemIndex] | None = None
+    ) -> RuleEngine:
         rules: list[Rule] = []
         for path in paths:
             rules.extend(load_rules(path))
-        return cls(rules)
+        return cls(rules, stems=stems)
 
     def with_optional(self, include: bool = True) -> RuleEngine:
         """The same rule set, applying optional rules or not."""
         if include == self.include_optional:
             return self
-        return RuleEngine(self._rules, include_optional=include)
+        return RuleEngine(self._rules, include_optional=include, stems=self._stems)
+
+    def with_stems(self, stems: dict[Orthography, StemIndex]) -> RuleEngine:
+        """The same rule set, resolving etymology against ``stems``."""
+        return RuleEngine(self._rules, include_optional=self.include_optional, stems=stems)
+
+    def stem_match(self, word: str, direction: Orthography) -> StemMatch | None:
+        """The stem this word matches in the inventory for ``direction``, if any."""
+        index = self._stems.get(direction)
+        return None if index is None else index.match(word)
 
     @property
     def rules(self) -> tuple[Rule, ...]:
@@ -280,13 +344,16 @@ class RuleEngine:
         """
         traces: list[RuleTrace] = []
         fired: set[str] = set()
+        match = self.stem_match(word, direction)
         rules: Sequence[Rule] = self._by_direction[direction]
         for _ in range(_MAX_REPEAT):
             before = word
             for rule in rules:
                 if any(dep not in fired for dep in rule.requires):
                     continue
-                new = rule.transform(word)
+                if not rule.fires_on(match):
+                    continue
+                new = rule.transform(word, match)
                 if new != word:
                     traces.append(RuleTrace(rule.id, word, new))
                     fired.add(rule.id)
