@@ -209,3 +209,37 @@ def test_loan_words_convert_back(engine: RuleEngine, word: str, expected: str) -
 def test_suffix_outside_the_stem_is_untouched(engine: RuleEngine) -> None:
     """§66: марксізм keeps its і, because the stem is маркс and the suffix is out of span."""
     assert engine.apply("марксізм", N2T)[0] == "марксізм"
+
+
+# --- collisions found against GrammarDB, not against the gold set -------------------------
+@pytest.mark.parametrize(
+    ("word", "unchanged"),
+    [
+        # клуб- is a native root as well as a loan: клубень "tuber".
+        ("клубень", True),
+        ("клубеньчык", True),
+        ("клубасты", True),
+        ("клубануць", True),
+        ("салонец", True),  # a soil type, not a drawing room
+        # ...but the loan must still convert, including its case forms.
+        ("клуб", False),
+        ("клубе", False),
+        ("клубам", False),
+        ("салон", False),
+    ],
+)
+def test_grammardb_collisions_stay_guarded(engine: RuleEngine, word: str, unchanged: bool) -> None:
+    """Found by scripts/check_stem_collisions.py; the gold set never reached these."""
+    fired = [r for r in engine.apply(word, N2T)[1] if r.startswith("loan.")]
+    assert (not fired) is unchanged, (word, fired)
+
+
+def test_load_bearing_guards_are_pinned(engine: RuleEngine) -> None:
+    """Of 55 native guards only a handful change an answer; these are they.
+
+    If one stops mattering a loan stem has moved; if a new word joins the list, a loan
+    stem has grown teeth. Either way it should be a deliberate edit, not a surprise.
+    """
+    for word in ("класці", "падлогі", "клубок", "клубень", "салонец"):
+        fired = [r for r in engine.apply(word, N2T)[1] if r.startswith("loan.")]
+        assert not fired, (word, fired)

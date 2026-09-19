@@ -106,6 +106,26 @@
 # The individually cited stems (дакумент, аргумент, абанент …) are unaffected.
 -мент	loan	e	Збор 2005 §11б	uncertain
 
+# --- added in phase D1, from the misses the gold set named ---
+лабірынт	loan	l	Збор 2005 §55.1	reviewed
+экалаг	loan	l	Збор 2005 §55.1	reviewed
+экалог	loan	l	Збор 2005 §55.1	reviewed
+алкагол	loan	l	Збор 2005 §55.1	reviewed
+# аналагічны → аналягічны keeps akanne's а; the bare noun аналаг → аналёг restores the
+# etymological о and cannot be derived, so it lives in the lexicon (which wins first).
+аналаг	loan	l	Збор 2005 §55.1	reviewed
+сінус	loan	i	Збор 2005 §67	reviewed
+семантык	loan	e	Збор 2005 §11б	reviewed
+сертыф	loan	e	Збор 2005 §11б	reviewed
+спектакл	loan	e	Збор 2005 §11б	reviewed
+спецы	loan	e	Збор 2005 §11б	reviewed
+дыяметр	loan	e	Збор 2005 §11б	reviewed
+асіметр	loan	i,e	Збор 2005 §67, §11б	reviewed
+# сімвал → сымбаль is not derivable: the м becomes мб. The stem gets the consonant
+# change; the noun's own endings (сімвалам → сымбалем) are a tier-2 matter and are not
+# claimed here.
+сімвал	loan	-	Збор 2005 §55.1	reviewed	сымбал
+
 # ============================================================ loan: both л and е
 парламент	loan	l,e	Збор 2005 §55.1, §11б	cited
 кіламетр	loan	l,e	Збор 2005 §55.1, §11б	cited
@@ -160,6 +180,15 @@
 палас	native	-	-	cited
 салом	native	-	-	cited
 балот	native	-	-	cited
+# Found by scripts/check_stem_collisions.py against GrammarDB, not by the gold set:
+# клуб- is also a native root (клубень "tuber", клубасты, клубануць). The guards are
+# exactly long enough to beat the loan stem `клуб` without swallowing клубе/клубам,
+# which are locative and dative of the club.
+клубень	native	-	-	cited
+клубаст	native	-	-	cited
+клубан	native	-	-	cited
+# салонец is a soil type, not a drawing room.
+салонец	native	-	-	cited
 # класці "to lay": beats the loan stem `клас` by being one character longer.
 класц	native	-	-	cited
 # падлогі is the genitive of падлога, not a -логія compound.

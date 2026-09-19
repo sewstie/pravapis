@@ -304,6 +304,18 @@ These need the neighbouring word, so they run in the pipeline rather than the YA
 | hyphenated words | each part separately | no softness context across a hyphen in the 100k most frequent words; whether Taraškievica marks one is a codification question |
 | `is_palatalizing_context` | — | reference helper, not used at runtime |
 
+Two further cases of this bug class were found and fixed in phase D0:
+
+| Place | Read | Verdict |
+|---|---|---|
+| `palat.assim` before the loanword vowel rules | the `е` that `loan.e_to_eh` was about to turn into `э` | **bug, fixed**: спектаклі → сьпэктаклі, because с·п·е looked like a softness context while the е was still an е. Every etymology-gated rule now runs *above* palatalization (priority 185–200): softness is a consequence of the vowel, so the vowel is settled first. |
+| `palatalize_l` at the stem boundary | the end of the *stem*, as though it were the end of the word | **bug, fixed**: алкагольны → алькаголььны, because a stem-final л took a ь that the word already had. The transducer now receives the character following the stem; the stem boundary is an artefact of the inventory, not a fact about the word. |
+
+A third consequence: the stem span is resolved once, from the word as it arrived, so a
+higher-priority rule that changes the word's *length* would leave it pointing at the wrong
+letters. `StemMatch.spans()` refuses that case. A change at the same length is fine and
+expected — класі → клясі → клясы is one alternation feeding the next.
+
 Measured on the 100,000 most frequent Wikipedia words plus the gold set, the round-trip corpus
 and every lexicon entry: after the fix, no Belarusian N → T output word contains a softness
 context the rules would still mark, and the only T → N outputs keeping an assimilative-looking ь
@@ -336,6 +348,38 @@ Consequences worth knowing:
 - **Provenance gates application.** `cited` / `reviewed` / `derived` are applied; `uncertain`
   rows are parsed and counted but never fire. The ґ stems are all `uncertain`, which is why
   `loan.g_distinction` currently changes nothing while remaining ready for a citation.
+
+## Measured: native guards, and why there is no runtime lemma layer
+
+Longest-match means a loan stem silently claims every word beginning with it, and a
+native guard one character longer takes it back (`класц` beats `клас` on класці). The
+worry was that guards would grow with the inventory and become the bottleneck — 51 guards
+against 78 loan stems looked like a ratio of 0.65.
+
+Measured instead of assumed: of the 51 guards, **3 change any answer** — `класц`,
+`падлог`, `клубок`. The other 48 are inert, written defensively when the character n-gram
+classifier was still in the cascade and would attack any native word sharing a letter
+pattern. Anchored loan stems do not reach them. The real ratio is closer to 0.03.
+
+So the planned runtime layer — confirm each match is an attested form of the intended
+lexeme, from a GrammarDB form table — was **not built**. It would have added a data file,
+a lookup and a deployment payload to solve a problem worth three rows, and the evidence
+for it did not exist.
+
+What GrammarDB is used for instead is the question that *is* live as the inventory grows:
+**which other words would this stem match?** `scripts/check_stem_collisions.py` asks its
+224,669 lemmas exactly that, per loan stem, and reports the ones no guard covers. Run
+against the current inventory it found false positives the 4,843-word gold vocabulary
+never surfaced:
+
+- `клуб` also claims the native root клубень ("tuber"), клубасты, клубануць →
+  клюбень, клюбасты, клюбануць. Guarded, with stems short enough to spare клубе and
+  клубам (locative and dative of the club).
+- `салон` also claims салонец, a soil type → салёнец. Guarded.
+
+Most of what it reports is *not* a collision — план-графік, рэклама and дакументаабарот
+are the same lexeme and should convert — which is why the output is a review queue and
+not a patch. Re-run it after every batch of mined stems.
 
 ## Known gaps (not implemented, need the codification)
 

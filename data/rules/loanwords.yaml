@@ -9,6 +9,13 @@ group: loanwords
 #
 # Only ґ → г and Еў ↔ Эў need no etymology: ґ occurs solely in loans, and еў- is
 # regular by position.
+#
+# PRIORITY: every rule here sits ABOVE palatalization (which tops out at 120). Softness
+# is a *consequence* of the vowel, so the vowel has to be settled first: palat.assim
+# reading с·п·е in спектаклі writes сь, and loan.e_to_eh then turns that е into э — a
+# ь that was never warranted (сьпэктаклі for спэктаклі). Running the etymology rules
+# first also keeps their stem spans valid, since nothing has changed the word's length
+# before they fire. See data/NORMS.md, "Palatalization audit".
 rules:
   # ---------------------------------------------------------------- N → T
   - id: loan.eu
@@ -21,7 +28,7 @@ rules:
     # excluded by the stems of the names the book gives.
     pattern: '^еў(?!дакі|фрасін)'
     replacement: 'эў'
-    priority: 50
+    priority: 185
     tests:
       positive:
         - { input: "еўропа", expected: "эўропа" }
@@ -42,7 +49,7 @@ rules:
     # carries the target directly.
     function: "pravapis.rules.loanwords:apply_stem_target"
     requires_class: loan
-    priority: 45
+    priority: 200
     tests:
       positive:
         - { input: "каланіяльны", expected: "калёніяльны" }
@@ -55,7 +62,7 @@ rules:
     function: "pravapis.rules.loanwords:apply_l_palatalization"
     requires_class: loan
     alternation: l
-    priority: 40
+    priority: 195
     tests:
       positive:
         - { input: "план", expected: "плян" }
@@ -73,7 +80,7 @@ rules:
     function: "pravapis.rules.loanwords:apply_i_to_y"
     requires_class: loan
     alternation: i
-    priority: 40
+    priority: 192
     tests:
       positive:
         - { input: "сістэма", expected: "сыстэма" }
@@ -94,7 +101,7 @@ rules:
     function: "pravapis.rules.loanwords:apply_e_to_eh"
     requires_class: loan
     alternation: e
-    priority: 40
+    priority: 190
     exceptions:
       - блюзьнер
       - жаўнер
@@ -124,7 +131,7 @@ rules:
     # Збор 2005 §81 Заўвага Б: Тодар, Фёдар, Хведар, Ходар are all valid; Фёдар needs
     # no change. Applied only in aggressive mode.
     optional: true
-    priority: 40
+    priority: 186
     tests:
       positive:
         - { input: "фёдар", expected: "хведар" }
@@ -143,7 +150,7 @@ rules:
     function: "pravapis.rules.loanwords:apply_g_distinction"
     requires_class: loan
     alternation: g
-    priority: 40
+    priority: 188
     tests:
       negative:
         - { input: "гара", expected: "гара" }
@@ -156,7 +163,7 @@ rules:
     direction: taraskievica_to_narkamauka
     pattern: 'ґ'
     replacement: 'г'
-    priority: 50
+    priority: 185
     tests:
       positive:
         - { input: "ґанак", expected: "ганак" }
@@ -171,7 +178,7 @@ rules:
     # string does not say which.
     function: "pravapis.rules.loanwords:apply_stem_target"
     requires_class: loan
-    priority: 45
+    priority: 200
     tests:
       positive:
         - { input: "плян", expected: "план" }
@@ -197,7 +204,7 @@ rules:
     direction: taraskievica_to_narkamauka
     pattern: '^эў(?=р)'
     replacement: 'еў'
-    priority: 50
+    priority: 185
     exceptions:
       - эўрыстыка
       - эўрыстычны

@@ -50,9 +50,9 @@ change): rows never adjusted after seeing converter output.
 
 | | N → T | baseline | T → N | baseline |
 |---|---|---|---|---|
-| **Change accuracy** (words that should change) | **96.7%** (591/611) | 0.0% | 96.7%\* (591/611) | 0.0% |
+| **Change accuracy** (words that should change) | **99.2%** (606/611) | 0.0% | 99.0%\* (605/611) | 0.0% |
 | False-positive rate (words that should not change) | 0.0% (0/3,376) | 0.0% | 0.0%\* (0/3,376) | 0.0% |
-| Word accuracy | 99.5% | 84.7% | 99.5%\* | 84.7% |
+| Word accuracy | 99.9% | 84.7% | 99.9%\* | 84.7% |
 | Word round trip (there and back) | 99.95% | 100% | 99.95% | 100% |
 
 **\* The T → N column is self-consistency, not accuracy.** `gold.tsv` declares
@@ -75,8 +75,13 @@ recall of 0.22 and 0.36. T → N is now a stem substitution derived from the for
 inventory, so it cannot disagree with it, and its recall is 1.0.
 
 The full scored set (637 sentences; `converter_checked` rows included, `uncertain` excluded) is
-within 0.4 points of these on every metric. Coverage on it: lexicon 1.6%, rules 14.0%,
-identity 0.7%, unchanged 83.8%. Throughput: **0.6–1.0 MB/s**.
+within 0.5 points of these on every metric. Throughput: **0.6–1.0 MB/s**.
+
+Most of the gap from 96.7% closed by adding the stems the errors named — the remaining
+misses are a grammatical-gender change (`Аналіз паказаў → Аналіза паказала`), a genitive
+that changes ending (`Мінска → Менску`), and `не → ня` where GrammarDB does not know the
+next word's stress. None of those is a missing rule; they need a morphological layer that
+re-inflects, which is written up as a gap in `data/NORMS.md`.
 
 CI fails if the false-positive rate on the trusted subset rises above zero, in either
 direction. That gate is what lets the stem inventory grow without the headline number
@@ -222,6 +227,27 @@ Cyrillic `й` + vowel and the iotated vowel are the same Łacinka string, so
 `найадметнейшых` and `наядметнейшых` both give `najadmietniejšych` — plus a bare `ь`
 after a consonant with no soft Latin counterpart, which is reported as `unresolved`
 rather than silently dropped.
+
+### Finding false friends before they fire
+
+Longest-match means a loan stem silently claims every word starting with it.
+`scripts/check_stem_collisions.py` asks GrammarDB's 224,669 lemmas which words each loan
+stem would also match, and reports the ones no native guard covers:
+
+```bash
+python scripts/check_stem_collisions.py RELEASE-202601.zip
+```
+
+It found false positives the gold set never reached — `клуб` also claims the native root
+`клубень` ("tuber"), and `салон` claims `салонец`, a soil type — both now guarded with
+stems short enough to spare `клубе` and `клубам`. Most of what it reports is *not* a
+collision (`рэклама` and `дакументаабарот` are the same lexeme and should convert), so the
+output is a review queue rather than a patch.
+
+This replaced the runtime lemma-confirmation layer originally planned here. Measured
+first: of 51 native guards, only **3** changed any answer, so a per-lookup confirmation
+table would have added a data file and a deployment payload to solve a problem worth three
+rows. `data/NORMS.md` records the measurement.
 
 ## Install
 

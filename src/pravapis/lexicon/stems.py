@@ -103,6 +103,15 @@ class StemMatch:
     start: int
     end: int
     target: str | None = None
+    #: length of the word this match was resolved against. Etymology is resolved once,
+    #: from the word as it arrived, so a later rule that changes the word's *length*
+    #: invalidates these indices. A change at the same length (класі → клясі, one
+    #: alternation feeding the next) does not.
+    word_len: int = -1
+
+    def spans(self, word: str) -> bool:
+        """Are ``start``/``end`` still pointing at the right letters of ``word``?"""
+        return self.word_len < 0 or len(word) == self.word_len
 
     def allows(self, alternation: str) -> bool:
         return self.cls is WordClass.LOAN and alternation in self.alternations
@@ -260,7 +269,13 @@ class StemIndex:
                 span = m.end() - m.start()
                 if best is None or span > best.end - best.start:
                     best = StemMatch(
-                        m.group(0), entry.cls, entry.alternations, m.start(), m.end(), entry.target
+                        m.group(0),
+                        entry.cls,
+                        entry.alternations,
+                        m.start(),
+                        m.end(),
+                        entry.target,
+                        len(w),
                     )
         return best
 

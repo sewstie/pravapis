@@ -45,7 +45,6 @@ _VOWELS: Final[frozenset[str]] = frozenset(_V)
 # European *l* is soft: the following back vowel is written iotated, and before a
 # consonant or at the end of the stem the softness is written with ь.
 _SOFT_L_VOWEL: Final[dict[str, str]] = {"а": "я", "о": "ё", "у": "ю"}
-_HARD_L_VOWEL: Final[dict[str, str]] = {v: k for k, v in _SOFT_L_VOWEL.items()}
 #: vowels that already mark л as soft — nothing to do
 _ALREADY_SOFT: Final[frozenset[str]] = frozenset("еёіюя")
 
@@ -59,20 +58,35 @@ _E_BLOCKERS: Final[frozenset[str]] = frozenset("лгґкх")
 _CONSONANTS: Final[frozenset[str]] = frozenset("бвгґджзйклмнпрстўфхцчш")
 
 
-def _span(word: str, match: StemMatch) -> tuple[str, str, str]:
-    """Split ``word`` into (before, stem, after) at the match."""
+def _span(word: str, match: StemMatch) -> tuple[str, str, str] | None:
+    """Split ``word`` into (before, stem, after) at the match, or None if it is stale.
+
+    The etymology is resolved once, from the word as it arrived. A higher-priority rule
+    that changes the word's *length* would leave these indices pointing at the wrong
+    letters, so that case is refused: silently rewriting the wrong characters is the
+    worse failure. A change at the same length is fine and expected — one alternation
+    feeding the next is exactly how класі → клясі → клясы works.
+    """
+    if not match.spans(word):
+        return None
     return word[: match.start], word[match.start : match.end], word[match.end :]
 
 
 # --- soft l ----------------------------------------------------------------------------
-def palatalize_l(stem: str) -> str:
-    """ла → ля, ло → лё, лу → лю, and л → ль before a consonant or at the end."""
+def palatalize_l(stem: str, following: str = "") -> str:
+    """ла → ля, ло → лё, лу → лю, and л → ль before a consonant or at the end.
+
+    ``following`` is the character after the stem in the word being converted. A
+    stem-final л is not word-final: *алкагол* alone becomes *алькаголь*, but inside
+    *алкагольны* the ь is already there, and adding another gives *алькаголььны*. The
+    stem boundary is an artefact of the inventory, not a fact about the word.
+    """
     out: list[str] = []
     for i, ch in enumerate(stem):
         if ch != "л":
             out.append(ch)
             continue
-        nxt = stem[i + 1] if i + 1 < len(stem) else ""
+        nxt = stem[i + 1] if i + 1 < len(stem) else following[:1]
         if nxt in _ALREADY_SOFT or nxt == "ь" or nxt in _SOFT_L_VOWEL:
             out.append(ch)
         else:
@@ -82,18 +96,15 @@ def palatalize_l(stem: str) -> str:
     return regex.sub(r"л([аоу])", lambda m: "л" + _SOFT_L_VOWEL[m.group(1)], text)
 
 
-def depalatalize_l(stem: str) -> str:
-    """The inverse: ля → ла, лё → ло, лю → лу, ль → л."""
-    text = regex.sub(r"л([яёю])", lambda m: "л" + _HARD_L_VOWEL[m.group(1)], stem)
-    return text.replace("ль", "л")
-
-
 def apply_l_palatalization(word: str, match: StemMatch) -> str:
     """план → плян, лампа → лямпа, біялогія → біялёгія; лапа → лапа."""
     if not match.allows("l"):
         return word
-    before, stem, after = _span(word, match)
-    return before + palatalize_l(stem) + after
+    span = _span(word, match)
+    if span is None:
+        return word
+    before, stem, after = span
+    return before + palatalize_l(stem, after) + after
 
 
 # --- і → ы -----------------------------------------------------------------------------
@@ -105,19 +116,14 @@ def i_to_y(stem: str) -> str:
     )
 
 
-def y_to_i(stem: str) -> str:
-    """The inverse: ы → і after a hard dental or husher."""
-    return "".join(
-        "і" if ch == "ы" and i > 0 and stem[i - 1] in _Y_TRIGGERS else ch
-        for i, ch in enumerate(stem)
-    )
-
-
 def apply_i_to_y(word: str, match: StemMatch) -> str:
     """сістэма → сыстэма, прэзідэнт → прэзыдэнт; сіла → сіла."""
     if not match.allows("i"):
         return word
-    before, stem, after = _span(word, match)
+    span = _span(word, match)
+    if span is None:
+        return word
+    before, stem, after = span
     return before + i_to_y(stem) + after
 
 
@@ -130,19 +136,14 @@ def e_to_eh(stem: str) -> str:
     )
 
 
-def eh_to_e(stem: str) -> str:
-    """The inverse: э → е after any consonant except л, г, ґ, к, х."""
-    return "".join(
-        "е" if ch == "э" and i > 0 and stem[i - 1] in _CONSONANTS - _E_BLOCKERS else ch
-        for i, ch in enumerate(stem)
-    )
-
-
 def apply_e_to_eh(word: str, match: StemMatch) -> str:
     """сезон → сэзон, версія → вэрсія, аперацыя → апэрацыя; лекцыя → лекцыя."""
     if not match.allows("e"):
         return word
-    before, stem, after = _span(word, match)
+    span = _span(word, match)
+    if span is None:
+        return word
+    before, stem, after = span
     return before + e_to_eh(stem) + after
 
 
@@ -151,7 +152,10 @@ def apply_g_distinction(word: str, match: StemMatch) -> str:
     """ганак → ґанак, гузік → ґузік, грунт → ґрунт; гара → гара."""
     if not match.allows("g"):
         return word
-    before, stem, after = _span(word, match)
+    span = _span(word, match)
+    if span is None:
+        return word
+    before, stem, after = span
     return before + stem.replace("г", "ґ", 1) + after
 
 
@@ -202,10 +206,11 @@ _FORWARD: Final[tuple[tuple[str, object], ...]] = (
 )
 
 
-def _apply_alternations(stem: str, alternations: frozenset[str]) -> str:
+def _apply_alternations(stem: str, alternations: frozenset[str], following: str = "") -> str:
     for code, fn in _FORWARD:
-        if code in alternations:
-            stem = fn(stem)  # type: ignore[operator]
+        if code not in alternations:
+            continue
+        stem = palatalize_l(stem, following) if code == "l" else fn(stem)  # type: ignore[operator]
     return stem
 
 
@@ -251,9 +256,15 @@ def derive_target_entries(entries: list[StemEntry]) -> list[StemEntry]:
             if e.target is None
             else mark_assimilative_softness(e.target)
         )
+        # A stem ending in л has two Taraškievica spellings: алкаголь at the end of a
+        # word, алкагол- before an ending. Both must be indexed, or алькагольны has no
+        # reverse. Any vowel serves as the "something follows" case.
+        in_word = _apply_alternations(e.stem, e.alternations, "а") if e.target is None else derived
         variants = (
             derived,
+            in_word,
             mark_assimilative_softness(derived),
+            mark_assimilative_softness(in_word),
             _apply_alternations(softened, e.alternations) if e.target is None else softened,
         )
         for stem in dict.fromkeys(variants):
@@ -280,7 +291,10 @@ def apply_stem_target(word: str, match: StemMatch) -> str:
     """
     if match.target is None:
         return word
-    before, _, after = _span(word, match)
+    span = _span(word, match)
+    if span is None:
+        return word
+    before, _, after = span
     return before + match.target + after
 
 

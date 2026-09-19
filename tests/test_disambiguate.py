@@ -117,15 +117,18 @@ def test_model_in_cascade(
     cfg = config.model_copy(update={"model": trained})
     converter = Converter(lexicon, engine, Disambiguator.load(trained), cfg)
     assert converter.model_version
-    result = converter.convert("Лабірынт быў складаны. Лапа ката.", N2T)
+    # The word has to be one the rules do NOT resolve, or the cascade stops before the
+    # model and this tests nothing. Лабірынт used to serve here; phase D1 added its stem,
+    # so it is now a RULE hit. Лакаматыў is still outside the inventory.
+    result = converter.convert("Лакаматыў быў стары. Лапа ката.", N2T)
     by_source = {c.source: c for c in result.conversions}
-    assert by_source["Лабірынт"].target == "Лябірынт"
-    assert by_source["Лабірынт"].method is Method.MODEL
-    assert 0.75 <= by_source["Лабірынт"].confidence <= 1.0
+    assert by_source["Лакаматыў"].target == "Лякаматыў"
+    assert by_source["Лакаматыў"].method is Method.MODEL
+    assert 0.75 <= by_source["Лакаматыў"].confidence <= 1.0
     assert by_source["Лапа"].method is Method.IDENTITY  # identity set short-circuits the model
     # Batched (text-level) and single-word paths agree.
-    assert converter.convert_word("Лабірынт", N2T).target == "Лябірынт"
-    (e,) = converter.explain("лабірынт", N2T)
+    assert converter.convert_word("Лакаматыў", N2T).target == "Лякаматыў"
+    (e,) = converter.explain("лакаматыў", N2T)
     assert e.method is Method.MODEL and e.traces[0].rule_id.startswith("model:soft_l")
 
 
