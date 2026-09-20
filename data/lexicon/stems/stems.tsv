@@ -88,7 +88,8 @@
 бульдозер	loan	e	Збор 2005 §11б	cited
 буфер	loan	e	Збор 2005 §11б	cited
 кратер	loan	e	Збор 2005 §11б	cited
-лідер	loan	e	Збор 2005 §11б	cited
+# лідэр was listed here in error: Narkamaŭka writes лідэр with э too, so there is no
+# alternation to apply and the stem produced лідэры → лідеры. Found by the audit.
 піянер	loan	e	Збор 2005 §11б	cited
 сканер	loan	e	Збор 2005 §11б	cited
 трэнер	loan	e	Збор 2005 §11б	cited
@@ -135,6 +136,13 @@
 # -агрэсі is unanchored so it also reaches неагрэсія, рэагрэсія and the like; every
 # word containing it is a Latin borrowing.
 -агрэсі	loan	i	Збор 2005 §67	reviewed
+
+# --- named by the independent be-tarask gold set ---
+максім	loan	i	Збор 2005 §67	reviewed
+# NOT added: еўрапей → эўрапэй. The be-tarask corpus writes эўрапэйскі (е → э under
+# §11б), but tests/test_codification_2005.py encodes §52 as эўрапейскі, keeping the е.
+# The citation wins over corpus usage, and adding the stem also raised the false-positive
+# rate on the independent gold from 0.1% to 0.3%. See data/NORMS.md, "Unresolved".
 
 # ============================================================ loan: both л and е
 парламент	loan	l,e	Збор 2005 §55.1, §11б	cited

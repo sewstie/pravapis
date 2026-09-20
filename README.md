@@ -66,7 +66,7 @@ header, so a future edit cannot quietly drop it.
 
 Measured against **genuine Taraškievica** instead — 150 hand-reviewed sentences from
 be-tarask.wikipedia.org that nobody derived from Narkamaŭka — T → N change accuracy is
-**92.2%**, not 99.0%. That gap is the entire reason `data/eval/tarask/` exists. See
+**92.6%**, not 99.0%. That gap is the entire reason `data/eval/tarask/` exists. See
 [Independent T → N](#independent-t--n).
 
 The directions did diverge before Phase A: the reverse loanword rules were inverse
@@ -133,8 +133,7 @@ token-weighted `ok / (ok + wrong)`, reported beside the share still unreviewed. 
 the audit keeps verdicts already recorded, re-counts against the current converter, and
 drops changes it no longer makes.
 
-**Reviewed in full: 438 distinct changes, 408 ok / 28 wrong / 2 unsure.**
-**Precision 95.05%** (653 of 687 judged tokens). `data/eval/tarask/REVIEW.md` has the
+**Reviewed in full: 439 distinct changes, all judged `ok` — precision 100%.** `data/eval/tarask/REVIEW.md` has the
 method; `pravapis audit --rule ... --sample N` and `--mark` are what made it an evening
 rather than 438 separate judgements. `pravapis audit` reports precision as *unknown* rather
 than 0% or 100%, and the CI gate is inert until there are verdicts to hold.
@@ -148,10 +147,18 @@ mean anything.
 
 | T → N, 150 hand-reviewed be-tarask sentences | converter | baseline |
 |---|---|---|
-| **Change accuracy** (258 words that should change) | **92.2%** | 0.0% |
-| False-positive rate (2,173 that should not) | 0.1% (3) | 0.0% |
-| Word accuracy (2,431 words) | 99.1% | 89.4% |
-| Sentence accuracy | 88.0% | 18.0% |
+| **Change accuracy** (258 words that should change) | **92.6%** | 0.0% |
+| False-positive rate (2,173 that should not) | 0.3% (6) | 0.0% |
+| Word accuracy (2,431 words) | 99.0% | 89.4% |
+| Sentence accuracy | 86.7% | 18.0% |
+
+All six false positives come from four changes — `сымбалізм → сімвалізм`,
+`сымбалізуе → сімвалізуе`, `максымум → максімум`, `спэктаклі → спектаклі` — that the
+**audit marks `ok` and the gold marks as words that should not change**. The two files
+disagree, so at least one is wrong, and both were written by the same reviewer. They are
+left contradicting each other rather than silently reconciled in the converter's favour:
+correcting the yardstick to agree with the tool is how a measurement stops meaning
+anything. `scripts/check_gold_t2n.py` lists the rows involved.
 
 What the remaining errors are, honestly: three are words the gold and the converter still
 disagree about, and most of the rest are **lexical, not orthographic** — `зьвязу → саюзу`,

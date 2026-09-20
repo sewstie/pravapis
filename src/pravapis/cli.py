@@ -621,7 +621,19 @@ def audit(
         raise typer.Exit(2)
 
     fresh = audit_changes(converter, [r.sentence for r in rows], direction)
-    merged = merge_audit(fresh, read_audit(out)) if out is not None else fresh
+    existing = read_audit(out) if out is not None else {}
+    merged = merge_audit(fresh, existing) if out is not None else fresh
+    dropped = sorted(set(existing) - {r.key for r in fresh})
+    if dropped:
+        errors.print(
+            f"[yellow]{len(dropped)} row(s) in {out} describe changes the converter no "
+            "longer makes; they are being dropped.[/yellow] If you edited the `source` or "
+            "`target` column to correct a word, that is what causes this — those columns "
+            "record what the converter did, and only `verdict` and `note` are yours to "
+            "fill in. The changes they described return below, unreviewed."
+        )
+        for key in dropped[:5]:
+            errors.print(f"    dropped: {key[0]} → {key[1]} [{key[2]}]")
 
     selected = [r for r in merged if rule is None or rule in r.rule]
     if rule is not None and not selected:

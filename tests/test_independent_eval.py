@@ -401,7 +401,7 @@ def test_independent_gold_is_fully_reviewed() -> None:
 def test_independent_t2n_accuracy_does_not_regress(converter: Converter) -> None:
     """The number Phase C was built to produce.
 
-    Measured 92.2% change accuracy against genuine be-tarask text, versus 99.0% on the
+    Measured 92.6% change accuracy against genuine be-tarask text, versus 99.0% on the
     derived gold set — the gap is the whole point of having this file. The floor is a
     ratchet; raise it as the converter improves.
     """
@@ -414,3 +414,35 @@ def test_independent_t2n_accuracy_does_not_regress(converter: Converter) -> None
     assert report.is_independent
     assert report.change_accuracy >= 0.90, report.change_accuracy
     assert report.false_positive_rate <= 0.01, report.false_positive_rate
+
+
+def test_audit_describes_changes_the_converter_actually_makes(converter: Converter) -> None:
+    """Every audit row must correspond to a change the converter really produces.
+
+    The `source` and `target` columns are a *record*, not a worksheet: they say what the
+    converter did. Editing them — correcting a word in place rather than recording a
+    verdict on it — leaves a row describing something that never happened, and precision
+    is then computed over rows that cannot be right or wrong. A row with `source ==
+    target` is the clearest case: that is not a change at all.
+
+    To act on a wrong conversion, fix the converter (stems.tsv, the lexicon, a rule) and
+    re-run `pravapis audit`, which drops the row by itself.
+    """
+    on_file = read_audit(TARASK / "audit.tsv")
+    produced = {
+        r.key
+        for r in audit_changes(
+            converter,
+            [row.sentence for row in read_corpus(CORPUS)],
+            Orthography.NARKAMAUKA,
+        )
+    }
+    identity = [k for k in on_file if k[0] == k[1]]
+    assert not identity, (
+        f"{len(identity)} audit row(s) have source == target, which is not a change: {identity[:5]}"
+    )
+    stale = sorted(set(on_file) - produced)
+    assert not stale, (
+        f"{len(stale)} audit row(s) describe changes the converter does not make — "
+        f"re-run `pravapis audit -o data/eval/tarask/audit.tsv` to resync: {stale[:5]}"
+    )

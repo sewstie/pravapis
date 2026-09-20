@@ -444,6 +444,15 @@ Policy: when sources disagree or the annotator is unsure, the word is **not** ad
 lexicon or the rules and passes through unchanged. A missing conversion is better than a
 guessed one. Each item needs the codification (or another cited dictionary) to resolve.
 
+- **эўрапейскі or эўрапэйскі**: §52 gives еў → эў and the project's codification test
+  encodes эўрапейскі, keeping the е. Genuine be-tarask text writes эўрапэйскі, applying
+  §11б (е → э after a consonant) to the same word. Both sections are cited and they point
+  different ways for this stem. Left unconverted in the second vowel until the conflict is
+  settled; the independent gold counts it as a miss, which is the honest record.
+
+- **мадрыдзкі or мадрыдскі**: the corpus writes мадрыдзкі; no section found that licenses
+  дз before с in this position. No rule added.
+
 - **Softness across a hyphen**: Збор 2005 §29 limits assimilative softness to "у межах слова"
   plus the four prepositions, and endnote xxxviii leaves hyphenation and compound spelling
   outside the rules. Parts of a hyphenated word are converted separately.
