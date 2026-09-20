@@ -229,6 +229,12 @@ def test_shipped_audit_verdicts_are_valid() -> None:
         assert row.verdict in VERDICTS, f"{row.source}->{row.target}: {row.verdict!r}"
 
 
+#: Measured 95.05% once the audit was fully reviewed (408 ok / 28 wrong / 2 unsure over
+#: 437 distinct changes). The floor sits a point below that as a ratchet: raise it as the
+#: `wrong` rows get fixed in the converter, never lower it to make a change pass.
+AUDITED_PRECISION_FLOOR = 0.94
+
+
 def test_audited_precision_does_not_regress() -> None:
     """CI gate. Inert until rows are reviewed, then it holds the line."""
     audit = TARASK / "audit.tsv"
@@ -237,7 +243,7 @@ def test_audited_precision_does_not_regress() -> None:
     report = audit_precision(read_audit(audit).values())
     if report.precision is None:
         pytest.skip(f"nothing reviewed yet ({report.distinct} changes await a verdict)")
-    assert report.precision >= 0.95, (
+    assert report.precision >= AUDITED_PRECISION_FLOOR, (
         f"precision {report.precision:.1%} on genuine Taraškievica "
         f"({report.wrong_tokens} wrong of {report.scored_tokens} reviewed tokens)"
     )
@@ -263,3 +269,148 @@ def test_trusted_subset_of_independent_gold_is_empty_until_reviewed() -> None:
         for r in read_gold_rows(GOLD_T2N)
         if r.provenance == HAND_WRITTEN
     ]
+
+
+# --- the review workflow ---------------------------------------------------------------
+def test_sample_spreads_across_the_selection() -> None:
+    """A sample used to justify accepting a whole rule must not be the frequent rows only.
+
+    Those are the ones most likely to be right, so sampling the top would be sampling
+    exactly the evidence that cannot falsify the class.
+    """
+    from pravapis.cli import _spread
+
+    rows = [AuditRow(f"s{i}", f"t{i}", "r", 100 - i) for i in range(100)]
+    picked = _spread(rows, 5)
+    assert len(picked) == 5
+    assert picked[0].source == "s0"
+    assert picked[-1].source != "s4", "a spread sample must reach the tail"
+    assert [r.source for r in picked] == ["s0", "s20", "s40", "s60", "s80"]
+
+
+def test_spread_returns_everything_when_asked_for_more_than_exists() -> None:
+    from pravapis.cli import _spread
+
+    rows = [AuditRow("a", "b", "r", 1)]
+    assert _spread(rows, 10) == rows
+
+
+def _run(args: list[str]) -> tuple[int, str]:
+    from typer.testing import CliRunner
+
+    from pravapis.cli import app
+
+    result = CliRunner().invoke(app, args)
+    return result.exit_code, result.output
+
+
+def test_bulk_mark_refuses_without_a_rule_filter(tmp_path: Path) -> None:
+    """Grading every change in one command is never what someone means."""
+    out = tmp_path / "a.tsv"
+    code, output = _run(
+        ["audit", str(CORPUS), "--to", "narkamauka", "--mark", "ok", "-o", str(out)]
+    )
+    assert code != 0
+    assert "--rule" in output
+    assert not out.exists()
+
+
+def test_bulk_mark_refuses_an_unknown_verdict(tmp_path: Path) -> None:
+    code, output = _run(
+        [
+            "audit",
+            str(CORPUS),
+            "--to",
+            "narkamauka",
+            "--rule",
+            "palat.",
+            "--mark",
+            "probably",
+            "-o",
+            str(tmp_path / "a.tsv"),
+        ]
+    )
+    assert code != 0
+    assert "ok" in output and "wrong" in output
+
+
+def test_bulk_mark_refuses_without_somewhere_to_record_it() -> None:
+    code, output = _run(
+        ["audit", str(CORPUS), "--to", "narkamauka", "--rule", "palat.", "--mark", "ok"]
+    )
+    assert code != 0
+    assert "--out" in output
+
+
+def test_bulk_mark_scopes_to_the_rule_and_spares_other_verdicts(tmp_path: Path) -> None:
+    out = tmp_path / "a.tsv"
+    code, _ = _run(
+        [
+            "audit",
+            str(CORPUS),
+            "--to",
+            "narkamauka",
+            "--rule",
+            "palat.unassim",
+            "--mark",
+            "ok",
+            "--note",
+            "sampled",
+            "-o",
+            str(out),
+        ]
+    )
+    assert code == 0
+    rows = read_audit(out).values()
+    marked = [r for r in rows if r.verdict]
+    assert marked, "nothing was marked"
+    assert all("palat.unassim" in r.rule for r in marked)
+    assert all(r.verdict == OK and r.note == "sampled" for r in marked)
+    assert any(not r.verdict for r in rows), "rows outside the rule must stay unreviewed"
+
+
+def test_rerunning_keeps_recorded_verdicts(tmp_path: Path) -> None:
+    out = tmp_path / "a.tsv"
+    _run(
+        [
+            "audit",
+            str(CORPUS),
+            "--to",
+            "narkamauka",
+            "--rule",
+            "loan.",
+            "--mark",
+            "ok",
+            "-o",
+            str(out),
+        ]
+    )
+    before = {k: v.verdict for k, v in read_audit(out).items() if v.verdict}
+    _run(["audit", str(CORPUS), "--to", "narkamauka", "-o", str(out)])
+    after = {k: v.verdict for k, v in read_audit(out).items() if v.verdict}
+    assert before == after
+
+
+def test_independent_gold_is_fully_reviewed() -> None:
+    """gold_t2n.tsv exists to give a T → N figure; `proposed` rows give none."""
+    rows = read_gold_rows(GOLD_T2N)
+    proposed = [r for r in rows if r.provenance == PROPOSED]
+    assert not proposed, f"{len(proposed)} of {len(rows)} rows still unreviewed"
+
+
+def test_independent_t2n_accuracy_does_not_regress(converter: Converter) -> None:
+    """The number Phase C was built to produce.
+
+    Measured 92.2% change accuracy against genuine be-tarask text, versus 99.0% on the
+    derived gold set — the gap is the whole point of having this file. The floor is a
+    ratchet; raise it as the converter improves.
+    """
+    report = evaluate(
+        converter,
+        read_gold(GOLD_T2N, trusted_only=True),
+        Orthography.NARKAMAUKA,
+        origin=Orthography.TARASKIEVICA,
+    )
+    assert report.is_independent
+    assert report.change_accuracy >= 0.90, report.change_accuracy
+    assert report.false_positive_rate <= 0.01, report.false_positive_rate

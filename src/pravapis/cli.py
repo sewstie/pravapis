@@ -17,6 +17,8 @@ from __future__ import annotations
 import json
 import sys
 import time
+from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
@@ -31,6 +33,9 @@ from pravapis.config import Config
 from pravapis.metrics import (
     PROPOSED,
     UNSCORED,
+    VERDICTS,
+    AuditReport,
+    AuditRow,
     audit_changes,
     audit_precision,
     merge_audit,
@@ -569,6 +574,23 @@ def audit(
     out: Annotated[
         Path | None, typer.Option("--out", "-o", help="Audit TSV to create or update.")
     ] = None,
+    rule: Annotated[
+        str | None,
+        typer.Option("--rule", help="Only rows whose rule id contains this, e.g. palat."),
+    ] = None,
+    sample: Annotated[
+        int | None,
+        typer.Option("--sample", help="Show N rows spread across the selection, not the top N."),
+    ] = None,
+    mark: Annotated[
+        str | None,
+        typer.Option("--mark", help="Bulk-set the verdict on the selected unreviewed rows."),
+    ] = None,
+    note: Annotated[str, typer.Option("--note", help="Note to record alongside a --mark.")] = "",
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="With --mark: also overwrite verdicts already recorded."),
+    ] = False,
     config: ConfigOption = None,
     top: Annotated[int, typer.Option("--top", help="How many rows to print.")] = 25,
 ) -> None:
@@ -577,8 +599,19 @@ def audit(
     Scores what the gold set cannot. data/eval/gold.tsv is Narkamaŭka in origin — its
     Taraškievica side was derived from the Narkamaŭka side — so scoring T → N on it
     measures self-consistency. This runs the converter over text nobody derived and
-    lists each distinct change, most frequent first, for a human to mark ok / wrong /
-    unsure. Re-running keeps verdicts already recorded.
+    lists each distinct change for a human to mark ok / wrong / unsure. Re-running keeps
+    verdicts already recorded and re-counts against the current converter.
+
+    Reviewing 400 rows one at a time is the wrong shape of work: the softness rules fire
+    on hundreds of word forms but are one cited rule each. Sample a rule, then accept it
+    as a class:
+
+        pravapis audit CORPUS --rule palat.unassim --sample 15
+        pravapis audit CORPUS --rule palat.unassim --mark ok --note "sampled 15" -o AUDIT
+
+    and review the rules that are actually making a judgement row by row:
+
+        pravapis audit CORPUS --rule loan. -o AUDIT
     """
     direction = _direction(to)
     converter = _converter(config)
@@ -589,22 +622,73 @@ def audit(
 
     fresh = audit_changes(converter, [r.sentence for r in rows], direction)
     merged = merge_audit(fresh, read_audit(out)) if out is not None else fresh
-    report = audit_precision(merged)
+
+    selected = [r for r in merged if rule is None or rule in r.rule]
+    if rule is not None and not selected:
+        errors.print(f"[red]no rows whose rule contains {rule!r}[/red]")
+        raise typer.Exit(2)
+
+    if mark is not None:
+        if mark not in VERDICTS or not mark:
+            choices = ", ".join(sorted(v for v in VERDICTS if v))
+            errors.print(f"[red]--mark must be one of: {choices}[/red]")
+            raise typer.Exit(2)
+        if out is None:
+            errors.print("[red]--mark needs --out: there is nowhere to record the verdict[/red]")
+            raise typer.Exit(2)
+        if rule is None and not force:
+            errors.print(
+                "[red]--mark without --rule would grade every change in one go.[/red] "
+                "Pass --rule to scope it, or --force if you really mean all of them."
+            )
+            raise typer.Exit(2)
+        targets = {r.key for r in selected if force or not r.verdict}
+        merged = [
+            replace(r, verdict=mark, note=note or r.note) if r.key in targets else r for r in merged
+        ]
+        selected = [r for r in merged if rule is None or rule in r.rule]
+        console.print(
+            f"marked [bold]{len(targets)}[/bold] row(s) as [bold]{mark}[/bold]"
+            + (f" (rule contains {rule!r})" if rule else "")
+        )
 
     if out is not None:
         write_audit(merged, out)
 
-    table = Table(title=f"distinct changes → {direction.value} (top {top})", box=box.SIMPLE)
+    shown = _spread(selected, sample) if sample else selected[:top]
+    title = f"changes → {direction.value}"
+    if rule:
+        title += f" · rule contains {rule!r}"
+    title += f" · showing {len(shown)} of {len(selected)}"
+    table = Table(title=title, box=box.SIMPLE)
     table.add_column("n", justify="right")
     table.add_column("source")
     table.add_column("target")
     table.add_column("rule")
     table.add_column("verdict")
-    for row in merged[:top]:
+    for row in shown:
         table.add_row(str(row.count), row.source, row.target, row.rule, row.verdict or "—")
     console.print(table)
 
-    summary = Table(title="audit", box=box.SIMPLE)
+    if rule is not None:
+        _print_audit_report(audit_precision(selected), f"selection ({rule!r})")
+    _print_audit_report(audit_precision(merged), "whole audit", out)
+
+
+def _spread(rows: Sequence[AuditRow], n: int) -> list[AuditRow]:
+    """``n`` rows spread evenly across ``rows``.
+
+    A sample meant to justify accepting a whole rule must not be the most frequent rows
+    only — those are the ones most likely to be right.
+    """
+    if n >= len(rows):
+        return list(rows)
+    step = len(rows) / n
+    return [rows[int(i * step)] for i in range(n)]
+
+
+def _print_audit_report(report: AuditReport, label: str, out: Path | None = None) -> None:
+    summary = Table(title=label, box=box.SIMPLE)
     summary.add_column("metric")
     summary.add_column("rows", justify="right")
     summary.add_column("tokens", justify="right")
@@ -614,11 +698,10 @@ def audit(
     summary.add_row("not reviewed", str(report.unreviewed_rows), str(report.unreviewed_tokens))
     summary.add_row("total", str(report.distinct), str(report.tokens))
     console.print(summary)
-
     if report.precision is None:
         console.print(
-            "[yellow]precision: nothing reviewed yet[/yellow] — fill in the `verdict` "
-            f"column of {out or 'the audit file'} (ok / wrong / unsure)"
+            "[yellow]precision: nothing reviewed yet[/yellow]"
+            + (f" — fill in the `verdict` column of {out}" if out else "")
         )
     else:
         console.print(

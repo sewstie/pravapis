@@ -230,6 +230,13 @@ it here and fix the rule in the same change.
 - does: standalone бяз / бязь → без
 - source: inverse of morph.particle — Збор 2005, §3, §29
 
+### morph.conj_j_i
+- direction: taraskievica → narkamauka
+- does: a standalone й → і (сала й цыбуля → сала і цыбуля); й inside a word is untouched
+- source: inverse of morph.conj_i_j — Збор 2005, §13. The forward direction is optional
+  ("**можа** пераходзіць у й"), so і is left alone by default; the reverse is not
+  optional, because Narkamaŭka has no syllabic й standing as a word.
+
 ### morph.preposition.z
 - direction: taraskievica → narkamauka
 - does: зь / безь / празь / церазь → з / без / праз / цераз

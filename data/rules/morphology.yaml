@@ -67,3 +67,22 @@ rules:
         - { input: "празь", expected: "праз" }
       negative:
         - { input: "гразь", expected: "гразь" }
+
+  - id: morph.conj_j_i
+    description: "The conjunction й has no Narkamaŭka form: сала й цыбуля → сала і цыбуля"
+    direction: taraskievica_to_narkamauka
+    # Збор 2005 §13 lets the conjunction і become й after a vowel in Taraškievica; the
+    # forward rule is optional (morph.conj_i_j, aggressive mode only) because і stays
+    # valid. The reverse is not optional: Narkamaŭka has no syllabic й as a word, so
+    # every standalone й must come back. Anchored to the whole word — й inside a word
+    # (мой, край) is a different letter doing a different job.
+    pattern: '^й$'
+    replacement: 'і'
+    priority: 30
+    tests:
+      positive:
+        - { input: "й", expected: "і" }
+      negative:
+        - { input: "мой", expected: "мой" }
+        - { input: "край", expected: "край" }
+        - { input: "йод", expected: "йод" }

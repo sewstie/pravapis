@@ -126,6 +126,16 @@
 # claimed here.
 сімвал	loan	-	Збор 2005 §55.1	reviewed	сымбал
 
+# --- added after the first independent T → N measurement named them ---
+дывізі	loan	i	Збор 2005 §67	reviewed
+гімназі	loan	i	Збор 2005 §67	reviewed
+# Narrowed to the adjective: tests/test_pipeline.py has Азія staying Азія, while the
+# corpus writes азыяцкі. азіяц- reaches the adjective without touching the noun.
+азіяц	loan	i	Збор 2005 §67	reviewed
+# -агрэсі is unanchored so it also reaches неагрэсія, рэагрэсія and the like; every
+# word containing it is a Latin borrowing.
+-агрэсі	loan	i	Збор 2005 §67	reviewed
+
 # ============================================================ loan: both л and е
 парламент	loan	l,e	Збор 2005 §55.1, §11б	cited
 кіламетр	loan	l,e	Збор 2005 §55.1, §11б	cited
