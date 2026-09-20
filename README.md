@@ -96,6 +96,18 @@ Where the codification allows more than one form, the converter leaves the input
 `--aggressive` on the CLI or `"aggressive": true` in the API also applies those optional
 rewrites (Фёдар → Хведар, і → й after a vowel).
 
+**The letter ґ is never produced.** Збор 2005 зноска 55 licenses it in a list of
+borrowings and the alphabet marks it *факультатыўна* — optional — so both spellings are
+correct and the choice is the project's. It writes г everywhere, and normalises a ґ
+arriving in input back to г. The citation is kept in `data/NORMS.md` so the decision can
+be reversed by adding stems back rather than re-researched.
+
+A native reviewer has not yet read any of it. `scripts/review_packet.py` collects every
+question that needs one — the changes where the audit and the gold contradict each other,
+the stems held back for want of a source, and the places two cited sections point
+different ways — into `data/eval/tarask/review-packet.md`, answerable without reading the
+code.
+
 Caveats:
 
 - **The gold Taraškievica is not native-reviewed.** It was written by a human reviewer from Klasyčny

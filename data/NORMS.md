@@ -32,6 +32,8 @@ Converting a form the norm already allows is a false positive, not an improvemen
   unchanged in every mode; optional rewrites are known-valid and available on request.
 
 Optional under this policy: `loan.f_substitution` (§81 Заўвага Б) and `morph.conj_i_j` (§13).
+The ґ letter is optional in the same sense, and the project declines it outright — see
+"Project decision: no ґ".
 
 ---
 
@@ -176,18 +178,15 @@ it here and fix the rule in the same change.
   Фёдар, Хведар, Ходар; … Фядос, Хвядос, Ходас"). Фёдар is a valid form, so the default leaves
   it. Філіп → Піліп and Фама → Хама were removed: neither is in the book.
 
-### loan.g_distinction
-- direction: narkamauka → taraskievica
-- does: plosive ґ in a closed list of old borrowings: ганак → ґанак, гузік → ґузік
-- source: UNVERIFIED. The rules text mentions ґ only for foreign proper names, and optionally
-  (§61 "можа перадавацца"). Common words like ґанак, ґузік would be in the spelling dictionaries,
-  which the electronic edition does not contain (see `data/reference/README.md`). Cannot be
-  resolved from the available source.
 
 ### loan.g_remove
 - direction: taraskievica → narkamauka
-- does: ґ → г everywhere
-- source: UNVERIFIED (Narkamaŭka norm; not covered by the 2005 Збор правілаў)
+- does: ґ → г, always
+- source: Збор 2005, альфабэт, зноска * — "пры разьмеркаваньні словаў у альфабэтным
+  парадку літара ґ роўная г", and the letter itself is факультатыўна. Since г is always
+  acceptable and Narkamaŭka's alphabet has no ґ, the mapping loses nothing. It is also the
+  only ґ rule left: see "Project decision: no ґ".
+
 
 ### loan.stem_reverse
 - direction: taraskievica → narkamauka
@@ -396,6 +395,21 @@ not a patch. Re-run it after every batch of mined stems.
   other genitive plural is still unchanged.
   The Збор 2005 rules cover spelling only ("выключна артаграмы") and do not settle it.
 
+## Project decision: no ґ
+
+Збор 2005 зноска 55 licenses the plosive letter in a list of borrowings — "[ґ]анак,
+[ґ]арсэт, [ґ]валт, [ґ]зымс, [ґ]онта, [ґ]узік, а[ґ]рэст, цу[ґ]лі, шва[ґ']ер ды інш." — and
+the alphabet's own footnote marks it **факультатыўна**, optional, adding that "пры
+разьмеркаваньні словаў у альфабэтным парадку літара ґ роўная г".
+
+Because the letter is optional, both spellings are correct and the choice is the project's
+to make. **This project writes г everywhere and never produces ґ.** The forward rule
+(`loan.g_distinction`) and its stems are removed, not merely disabled; `loan.g_remove`
+stays, so ґ arriving in input is normalised to г rather than passed through.
+
+The citation is recorded here rather than in a commit message so the decision can be
+reversed by adding stems back, without anyone having to find зноска 55 again.
+
 ## Not a gap: optional forms
 
 - **і → й after a vowel** (мама й тата): Збор 2005, §13 — *may*, not *must*. Follows the optional
@@ -452,6 +466,11 @@ guessed one. Each item needs the codification (or another cited dictionary) to r
 
 - **мадрыдзкі or мадрыдскі**: the corpus writes мадрыдзкі; no section found that licenses
   дз before с in this position. No rule added.
+
+- **ґ beyond зноска 55**: ганк, гузак, гузы, грунт, гатунак, гільдыя, гляйс carry ґ in
+  common usage but are not among the words the footnote names, and its list ends with "ды
+  інш." without saying which others. Held as `uncertain` — they are parsed and counted,
+  and never applied, in either mode.
 
 - **Softness across a hyphen**: Збор 2005 §29 limits assimilative softness to "у межах слова"
   plus the four prepositions, and endnote xxxviii leaves hyphenation and compound spelling

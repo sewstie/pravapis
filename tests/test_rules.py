@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from pravapis.lexicon.stems import StemMatch, WordClass
 from pravapis.rules import loanwords, morphology
 from pravapis.rules.engine import Rule, RuleEngine, RuleError, RuleTest, validate_rule_set
 from pravapis.rules.palatalization import (
@@ -152,20 +151,25 @@ def test_f_substitution() -> None:
     assert loanwords.apply_f_substitution("фабрыка") == "фабрыка"
 
 
-def test_g_distinction_roundtrip() -> None:
-    """ґ is UNVERIFIED, so its stems are provenance `uncertain` and never reach the
-    engine. The transducer itself must still round-trip when handed a match."""
-    for word in ("ганак", "гузік", "грунт", "гвалт"):
-        match = StemMatch(word, WordClass.LOAN, frozenset({"g"}), 0, len(word))
-        g = loanwords.apply_g_distinction(word, match)
-        assert g.startswith("ґ")
-        assert loanwords.remove_g_distinction(g) == word
+def test_g_is_only_ever_stripped() -> None:
+    """The project writes г everywhere: ґ is removed on the way in and never produced.
+
+    Збор 2005 зноска 55 does license it, and the alphabet marks the letter optional —
+    so this is a choice, recorded in data/NORMS.md, not a gap.
+    """
+    for word in ("ґанак", "аґрэст", "цуґлі", "Ґілмар"):
+        assert "ґ" not in loanwords.remove_g_distinction(word)
+    assert not hasattr(loanwords, "apply_g_distinction")
 
 
 def test_uncertain_stems_never_fire(engine: RuleEngine) -> None:
-    """Provenance `uncertain` rows are parsed but not applied: ганак stays ганак."""
-    assert engine.stem_match("ганак", N2T) is None
-    assert engine.apply("ганак", N2T)[0] == "ганак"
+    """Provenance `uncertain` rows are parsed but not applied.
+
+    ганак used to serve here; Збор 2005 зноска 55 names it, so it is now `cited` and the
+    rule that fires on it is merely optional. гатунак is not in that footnote.
+    """
+    assert engine.stem_match("гатунак", N2T) is None
+    assert engine.apply("гатунак", N2T)[0] == "гатунак"
 
 
 # --- morphology / particles --------------------------------------------------------------

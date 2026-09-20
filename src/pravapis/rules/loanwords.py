@@ -148,17 +148,9 @@ def apply_e_to_eh(word: str, match: StemMatch) -> str:
 
 
 # --- ґ ---------------------------------------------------------------------------------
-def apply_g_distinction(word: str, match: StemMatch) -> str:
-    """ганак → ґанак, гузік → ґузік, грунт → ґрунт; гара → гара."""
-    if not match.allows("g"):
-        return word
-    span = _span(word, match)
-    if span is None:
-        return word
-    before, stem, after = span
-    return before + stem.replace("г", "ґ", 1) + after
-
-
+# The forward rule (г → ґ) was removed: Збор 2005 зноска 55 licenses ґ but the alphabet
+# marks the letter as факультатыўна, and this project takes the other option and writes
+# г everywhere. Only the stripping direction remains. See data/NORMS.md.
 def remove_g_distinction(word: str) -> str:
     """ґ → г, always (Narkamaŭka has no ґ). Needs no etymology: ґ only occurs in loans."""
     return word.replace("ґ", "г")

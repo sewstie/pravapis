@@ -149,22 +149,14 @@
 кіламетр	loan	l,e	Збор 2005 §55.1, §11б	cited
 
 # ============================================================ loan: ґ
-# UNVERIFIED as a class: the rules text mentions ґ only for foreign proper names and
-# only optionally (§61 "можа перадавацца"). See data/NORMS.md, loan.g_distinction.
-ганак	loan	g	UNVERIFIED	uncertain
-ганк	loan	g	UNVERIFIED	uncertain
-гузік	loan	g	UNVERIFIED	uncertain
-гузак	loan	g	UNVERIFIED	uncertain
-гузы	loan	g	UNVERIFIED	uncertain
-гвалт	loan	g	UNVERIFIED	uncertain
-грунт	loan	g	UNVERIFIED	uncertain
-гарсэт	loan	g	UNVERIFIED	uncertain
-гатунак	loan	g	UNVERIFIED	uncertain
-гонта	loan	g	UNVERIFIED	uncertain
-гонты	loan	g	UNVERIFIED	uncertain
-гільдыя	loan	g	UNVERIFIED	uncertain
-гляйс	loan	g	UNVERIFIED	uncertain
-гзымс	loan	g	UNVERIFIED	uncertain
+#
+# DELIBERATELY EMPTY. Збор 2005 зноска 55 does license ґ in a list of
+# borrowings ("[ґ]анак, [ґ]арсэт, [ґ]валт, [ґ]зымс, [ґ]онта, [ґ]узік,
+# а[ґ]рэст, цу[ґ]лі, шва[ґ']ер ды інш."), and the alphabet footnote marks
+# the letter as факультатыўна — optional. This project takes the other
+# option: it writes г everywhere and never produces ґ. See data/NORMS.md,
+# "Project decision: no ґ". The citation is kept here so the choice can be
+# reversed by adding stems back, not re-researched.
 
 # ============================================================ native: hard л
 # These block the soft-л rule for the whole paradigm, not just the listed form.

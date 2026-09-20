@@ -22,6 +22,7 @@ from pravapis.lexicon.stems import (
     read_stems,
     validate_stems,
 )
+from pravapis.pipeline import Converter
 from pravapis.rules.engine import RuleEngine
 from pravapis.rules.loanwords import derive_target_entries, reverse_collisions, target_stem
 from pravapis.types import Orthography
@@ -243,3 +244,25 @@ def test_load_bearing_guards_are_pinned(engine: RuleEngine) -> None:
     for word in ("класці", "падлогі", "клубок", "клубень", "салонец"):
         fired = [r for r in engine.apply(word, N2T)[1] if r.startswith("loan.")]
         assert not fired, (word, fired)
+
+
+# --- ґ: licensed by зноска 55, declined by the project -------------------------------------
+@pytest.mark.parametrize("word", ["ганак", "гузік", "гвалт", "агрэст", "цуглі", "швагер"])
+def test_g_is_never_produced(converter: Converter, word: str) -> None:
+    """Зноска 55 licenses ґ in exactly these words and the alphabet marks the letter
+    факультатыўна — so both spellings are valid and the choice is the project's. It
+    writes г, in every mode. See data/NORMS.md, "Project decision: no ґ".
+    """
+    assert converter.convert(word, N2T).text == word
+    assert converter.variant(True).convert(word, N2T).text == word
+
+
+@pytest.mark.parametrize("word", ["ґанак", "аґрэст", "цуґлі", "Ґілмарам"])
+def test_g_in_the_input_is_normalised_away(converter: Converter, word: str) -> None:
+    """Text arriving with ґ is brought back to г rather than passed through."""
+    assert "ґ" not in converter.convert(word, T2N).text
+
+
+@pytest.mark.parametrize("word", ["гара", "гуска", "горад", "гадзіна"])
+def test_native_g_words_are_untouched_even_aggressively(converter: Converter, word: str) -> None:
+    assert converter.variant(True).convert(word, N2T).text == word

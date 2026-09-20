@@ -141,25 +141,9 @@ rules:
         - { input: "фабрыка", expected: "фабрыка" }
         - { input: "філіп", expected: "філіп" }
 
-  - id: loan.g_distinction
-    description: "Plosive ґ in old borrowings: ганак → ґанак, гузік → ґузік"
-    direction: narkamauka_to_taraskievica
-    # UNVERIFIED as a class (see data/NORMS.md): every stem is provenance `uncertain`
-    # in stems.tsv, so this rule currently never fires. It is kept, with its stems,
-    # so that a citation is the only thing needed to turn it back on.
-    function: "pravapis.rules.loanwords:apply_g_distinction"
-    requires_class: loan
-    alternation: g
-    priority: 188
-    tests:
-      negative:
-        - { input: "гара", expected: "гара" }
-        - { input: "гуска", expected: "гуска" }
-        - { input: "ганак", expected: "ганак" }
-
   # ---------------------------------------------------------------- T → N
   - id: loan.g_remove
-    description: "Narkamaŭka has no ґ"
+    description: "ґ → г: Narkamaŭka has no ґ, and this project does not write it either"
     direction: taraskievica_to_narkamauka
     pattern: 'ґ'
     replacement: 'г'
