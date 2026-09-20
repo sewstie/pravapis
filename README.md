@@ -9,7 +9,6 @@ FastAPI service.
 $ pravapis convert "Снег і свет у Еўропе, план сістэмы" --to taraskievica
 Сьнег і сьвет у Эўропе, плян сыстэмы
 ```
-
 ## How it works
 
 Each word goes through a cascade. The first stage that resolves it wins:
@@ -50,12 +49,12 @@ change): rows never adjusted after seeing converter output.
 
 | | N → T | baseline | T → N | baseline |
 |---|---|---|---|---|
-| **Change accuracy** (words that should change) | **99.2%** (606/611) | 0.0% | 99.0%\* (605/611) | 0.0% |
+| **Change accuracy** (words that should change) | **99.0%** | 0.0% | 98.7%\* | 0.0% |
 | False-positive rate (words that should not change) | 0.0% (0/3,376) | 0.0% | 0.0%\* (0/3,376) | 0.0% |
 | Word accuracy | 99.9% | 84.7% | 99.9%\* | 84.7% |
 | Word round trip (there and back) | 99.95% | 100% | 99.95% | 100% |
 
-**\* The T → N column is self-consistency, not accuracy — and it overstates by 7 points.** `gold.tsv` declares
+**\* The T → N column is self-consistency, not accuracy — and it overstates by 5 points.** `gold.tsv` declares
 `# origin: narkamauka`: its Narkamaŭka side is the original and its Taraškievica side was
 written from it by applying the 2005 norm. Scoring T → N on it therefore asks whether the
 converter can undo a transformation produced by the same reading of the norm it
@@ -66,7 +65,7 @@ header, so a future edit cannot quietly drop it.
 
 Measured against **genuine Taraškievica** instead — 150 hand-reviewed sentences from
 be-tarask.wikipedia.org that nobody derived from Narkamaŭka — T → N change accuracy is
-**92.6%**, not 99.0%. That gap is the entire reason `data/eval/tarask/` exists. See
+**94.7%**, not 98.7%. That gap is the entire reason `data/eval/tarask/` exists. See
 [Independent T → N](#independent-t--n).
 
 The directions did diverge before Phase A: the reverse loanword rules were inverse
@@ -91,10 +90,27 @@ quietly rotting.
 не → ня and без → бяз use GrammarDB stress marks (`data/stress/`, CC BY-SA 4.0) to decide
 whether the next word is stressed on its first syllable.
 
+The -мент suffix (дакумент → дакумэнт, дакументацыя → дакумэнтацыя) uses the same
+paradigms: the э belongs to the base noun and is inherited by everything derived from it,
+even where the stress has moved, so per-form stress is the wrong fact to store.
+
+The genitive plural in -аў is a **whitelist, not a rule**. §80 extends -аў to feminine and
+neuter nouns in a vowel, but for many words both forms are permissible — хвілін and
+хвілінаў equally — so six nouns where -аў is strongly preferred sit in
+`data/lexicon/exceptions.tsv` and everything else is left alone. A table-driven version
+built from every GrammarDB noun was tried first and cost 10 false positives to gain 3
+words; replacing it with the whitelist also took 752 KiB out of the deployment payload.
+
+§46 gives д + ск → дзк before the adjective suffix (мадрыдскі → мадрыдзкі, гарадскі →
+гарадзкі), where Narkamaŭka keeps the root consonant. It applies by the stem's final
+consonant, not by whether the word is foreign: бэрлінскі and нью-ёркскі keep their
+clusters. And the adjective suffix -ейск- keeps its е whatever the root does, so Эўропа
+gives эўрапейскі and never эўрапэйскі.
+
 Where the codification allows more than one form, the converter leaves the input alone
 (`data/NORMS.md`, "Policy: optional forms"): Фёдар stays Фёдар, the conjunction і stays і.
 `--aggressive` on the CLI or `"aggressive": true` in the API also applies those optional
-rewrites (Фёдар → Хведар, і → й after a vowel).
+rewrites (Фёдар → Хведар, і → й after a vowel, справаў → спраў).
 
 **The letter ґ is never produced.** Збор 2005 зноска 55 licenses it in a list of
 borrowings and the alphabet marks it *факультатыўна* — optional — so both spellings are
@@ -159,18 +175,23 @@ mean anything.
 
 | T → N, 150 hand-reviewed be-tarask sentences | converter | baseline |
 |---|---|---|
-| **Change accuracy** (258 words that should change) | **92.6%** | 0.0% |
-| False-positive rate (2,173 that should not) | 0.3% (6) | 0.0% |
-| Word accuracy (2,431 words) | 99.0% | 89.4% |
-| Sentence accuracy | 86.7% | 18.0% |
+| **Change accuracy** (words that should change) | **94.7%** | 0.0% |
+| False-positive rate (words that should not) | **0.0%** | 0.0% |
+| Word accuracy (2,431 words) | 99.4% | 89.4% |
+| Sentence accuracy | 92.0% | 18.0% |
 
-All six false positives come from four changes — `сымбалізм → сімвалізм`,
-`сымбалізуе → сімвалізуе`, `максымум → максімум`, `спэктаклі → спектаклі` — that the
-**audit marks `ok` and the gold marks as words that should not change**. The two files
-disagree, so at least one is wrong, and both were written by the same reviewer. They are
-left contradicting each other rather than silently reconciled in the converter's favour:
-correcting the yardstick to agree with the tool is how a measurement stops meaning
-anything. `scripts/check_gold_t2n.py` lists the rows involved.
+The false-positive rate is 0.0% on both gold sets. It got there by a route worth
+recording: the audit and the gold used to contradict each other on four changes
+(`сымбалізм → сімвалізм`, `максымум → максімум`, `спэктаклі → спектаклі`,
+`сымбалізуе → сімвалізуе`), and those were left standing rather than reconciled in the
+converter's favour until the project owner ruled on them — Narkamaŭka writes `сімвалізм`
+(Slavic *в* against Taraškievica's Greek *б*), `максімум` (soft *s* before *i*) and
+`спектаклі`. Eleven gold rows had a Taraškievica spelling in their Narkamaŭka column and
+were corrected.
+
+`scripts/check_gold_t2n.py` is what makes that mechanical rather than a matter of reading:
+it runs the Narkamaŭka column back through the converter and reports any row that changes,
+since a finished row cannot. Both gold files now report zero.
 
 What the remaining errors are, honestly: three are words the gold and the converter still
 disagree about, and most of the rest are **lexical, not orthographic** — `зьвязу → саюзу`,

@@ -25,6 +25,7 @@ from pravapis.config import DEFAULT_AMBIGUITY_TRIGGERS, Config
 from pravapis.lexicon.builder import StaleLexiconError
 from pravapis.lexicon.case_forms import CASE_RULE_ID, CaseForms
 from pravapis.lexicon.store import Lexicon
+from pravapis.morphology import MENT_RULE_ID, MentSuffix
 from pravapis.normalize import sanitize
 from pravapis.rules.engine import RuleEngine
 from pravapis.rules.loanwords import build_stem_indexes
@@ -92,6 +93,7 @@ class Converter:
         *,
         aggressive: bool = False,
         case_forms: CaseForms | None = None,
+        ment_suffix: MentSuffix | None = None,
     ):
         """``aggressive`` also applies optional transformations: rewrites of forms the
         codification already allows (Фёдар → Хведар, і → й after a vowel). Off by default;
@@ -105,6 +107,7 @@ class Converter:
         self.config = config
         self.stress = stress
         self.case_forms = case_forms if case_forms is not None else CaseForms.empty()
+        self.ment_suffix = ment_suffix if ment_suffix is not None else MentSuffix.empty()
         triggers = config.ambiguity_triggers if config else DEFAULT_AMBIGUITY_TRIGGERS
         self._triggers: tuple[regex.Pattern[str], ...] = tuple(regex.compile(t) for t in triggers)
         self._cache: dict[tuple[str, Orthography], Resolved | None] = {}
@@ -123,6 +126,7 @@ class Converter:
                 self.stress,
                 aggressive=aggressive,
                 case_forms=self.case_forms,
+                ment_suffix=self.ment_suffix,
             )
             other._variants = self._variants
             other.lexicon_origin = self.lexicon_origin
@@ -239,7 +243,19 @@ class Converter:
             if config.case_forms is not None and config.case_forms.exists()
             else None
         )
-        conv = cls(lexicon, engine, disambiguator, config, stress, case_forms=case_forms)
+        conv = cls(
+            lexicon,
+            engine,
+            disambiguator,
+            config,
+            stress,
+            case_forms=case_forms,
+            ment_suffix=(
+                MentSuffix.load(config.morphology)
+                if config.morphology is not None and config.morphology.exists()
+                else None
+            ),
+        )
         conv.lexicon_origin = origin
         return conv
 
@@ -468,6 +484,19 @@ class Converter:
             return self._resolve_hyphenated(lw, direction)
         # 3. rules
         work, ids = self.engine.apply(lw, direction)
+        # 3b. The -мент suffix is written -мэнт when the word's *base noun* is a -мент
+        #     noun, and the э is inherited by everything derived from it even after the
+        #     stress moves: манумэнт → манумэнтальны, дакумэнт → дакумэнтацыя. No stem
+        #     rule sees that, so it runs here, against the word as it arrived, and after
+        #     the engine so парламент → парлямент → парлямэнт composes.
+        before_ment = work
+        if direction is Orthography.TARASKIEVICA:
+            if self.ment_suffix.applies(lw):
+                work = MentSuffix.to_hard(work)
+        else:
+            work = MentSuffix.to_soft(work)
+        if work != before_ment:
+            ids = [*ids, MENT_RULE_ID]
         if work != lw:
             return (work, Method.RULE, "+".join(ids))
         # 4. model, deferred to the caller so text-level conversion can batch it

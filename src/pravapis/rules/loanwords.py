@@ -128,10 +128,22 @@ def apply_i_to_y(word: str, match: StemMatch) -> str:
 
 
 # --- е → э -----------------------------------------------------------------------------
+#: The adjective suffix -ейск- keeps its е whatever the root does: Эўропа → эўрапейскі,
+#: never эўрапэйскі, and likewise армейскі, асамблейскі, юбілейскі. Without this the §11б
+#: rule would reach into the suffix as soon as a stem covered it.
+_EJSK: Final[regex.Pattern[str]] = regex.compile(r"ейск")
+
+
 def e_to_eh(stem: str) -> str:
-    """е → э after any consonant except л and the velars г, ґ, к, х (§11б)."""
+    """е → э after any consonant except л and the velars г, ґ, к, х (§11б).
+
+    The adjective suffix -ейск- is exempt: its е is structural and never hardens.
+    """
+    protected = {i for m in _EJSK.finditer(stem) for i in range(m.start(), m.start() + 1)}
     return "".join(
-        "э" if ch == "е" and i > 0 and stem[i - 1] in _CONSONANTS - _E_BLOCKERS else ch
+        "э"
+        if ch == "е" and i > 0 and i not in protected and stem[i - 1] in _CONSONANTS - _E_BLOCKERS
+        else ch
         for i, ch in enumerate(stem)
     )
 

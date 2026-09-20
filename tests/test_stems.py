@@ -185,7 +185,7 @@ def test_every_alternation_code_is_known() -> None:
         ("сезон", "сэзон"),
         ("версія", "вэрсія"),
         ("аперацыя", "апэрацыя"),
-        ("дакумент", "дакумэнт"),
+        ("бізнес", "бізнэс"),
         ("план", "плян"),
         ("сістэма", "сыстэма"),
     ],
@@ -266,3 +266,83 @@ def test_g_in_the_input_is_normalised_away(converter: Converter, word: str) -> N
 @pytest.mark.parametrize("word", ["гара", "гуска", "горад", "гадзіна"])
 def test_native_g_words_are_untouched_even_aggressively(converter: Converter, word: str) -> None:
     assert converter.variant(True).convert(word, N2T).text == word
+
+
+# --- the genitive plural in -аў: a whitelist, not a rule ----------------------------------
+@pytest.mark.parametrize(
+    ("narkamauka", "taraskievica"),
+    [("моў", "моваў"), ("задач", "задачаў"), ("спраў", "справаў"), ("форм", "формаў")],
+)
+def test_whitelisted_genitive_plurals_convert(
+    converter: Converter, narkamauka: str, taraskievica: str
+) -> None:
+    """§80 extends -аў to feminine and neuter nouns in a vowel, but for many words both
+    forms are permissible, so this is six lexicon entries rather than a rule over every
+    GrammarDB noun — a blanket conversion corrupts ordinary text."""
+    assert converter.convert(narkamauka, N2T).text == taraskievica
+    # one-way: -аў arriving in T → N is left alone, because §80 makes both permissible
+    assert converter.convert(taraskievica, T2N).text == taraskievica
+
+
+@pytest.mark.parametrize("word", ["хвілін", "хвілінаў"])
+def test_words_with_two_valid_forms_are_left_alone(converter: Converter, word: str) -> None:
+    """хвілін and хвілінаў are both valid, so neither is rewritten into the other."""
+    assert converter.convert(word, N2T).text == word
+    assert converter.convert(word, T2N).text == word
+
+
+# --- the -мент suffix: the base noun's э, inherited by its derivatives --------------------
+@pytest.mark.parametrize(
+    ("narkamauka", "taraskievica"),
+    [
+        ("дакумент", "дакумэнт"),
+        ("дакументацыя", "дакумэнтацыя"),  # stress has moved; the stem has not
+        ("дакументальны", "дакумэнтальны"),
+        ("манументальны", "манумэнтальны"),
+        ("інструментальны", "інструмэнтальны"),
+        ("аргументацыя", "аргумэнтацыя"),
+        ("абанемент", "абанемэнт"),
+        ("парламент", "парлямэнт"),  # composes with the soft л
+        ("абцэментаваны", "абцэмэнтаваны"),  # the base is a suffix, not a prefix
+    ],
+)
+def test_ment_suffix_takes_the_base_nouns_e(
+    converter: Converter, narkamauka: str, taraskievica: str
+) -> None:
+    assert converter.convert(narkamauka, N2T).text == taraskievica
+
+
+@pytest.mark.parametrize("word", ["ментальны"])
+def test_words_not_derived_from_a_ment_noun_are_untouched(converter: Converter, word: str) -> None:
+    """ментальны is from mentalis, not from a -мент noun. Keeping the bare colloquial
+    noun `мент` in the table would have matched any word starting мент-."""
+    assert converter.convert(word, N2T).text == word
+
+
+@pytest.mark.parametrize("word", ["дакумэнт", "дакумэнтацыя", "манумэнтальны", "парлямэнт"])
+def test_ment_goes_back_unconditionally(converter: Converter, word: str) -> None:
+    """GrammarDB holds no Narkamaŭka form containing мэнт, so the reverse needs no table."""
+    assert "мэнт" not in converter.convert(word, T2N).text
+
+
+def test_default_config_finds_the_morphology_tables() -> None:
+    """Config.default() gates on a file that must exist, or the -мент rule silently dies.
+
+    It once gated on genitive_plural.marisa, which was deleted when that rule became a
+    whitelist. Nothing failed: the tests pass an explicit path, so only production lost
+    the table, and дакументацыя quietly stopped converting.
+    """
+    from pravapis.config import Config
+
+    config = Config.default()
+    assert config.morphology is not None, "morphology tables not found by Config.default()"
+    assert (config.morphology / "ment_lemmas.marisa").is_file()
+
+
+def test_converter_from_config_has_the_ment_table() -> None:
+    """The end-to-end check the unit tests cannot make: the shipped default works."""
+    from pravapis.pipeline import Converter
+
+    converter = Converter.from_config()
+    assert len(converter.ment_suffix) > 0
+    assert converter.convert("дакументацыя", N2T).text == "дакумэнтацыя"

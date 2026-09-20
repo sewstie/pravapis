@@ -17,6 +17,7 @@ Writes:
             translit/*.yaml         Łacinka and official-2007 scheme tables
             rules/*.yaml
             stress/                 GrammarDB first-stress tables + CC BY-SA attribution
+            morphology/             GrammarDB genitive-plural tables (aggressive mode)
           VERSION                   pravapis git commit the copy was made from
 
 Left out on purpose: the FastAPI app, the CLI, metrics, and the experimental
@@ -45,6 +46,7 @@ RUNTIME_MODULES = (
     "tokenize.py",
     "pipeline.py",
     "stress.py",
+    "morphology.py",
     "webapi.py",
     "rules/__init__.py",
     "rules/engine.py",
@@ -111,6 +113,7 @@ def export(out: Path, *, force: bool = False) -> dict[str, int]:
     (vendor / "data" / "rules").mkdir(parents=True)
     for yml in sorted((DATA / "rules").glob("*.yaml")):
         shutil.copy2(yml, vendor / "data" / "rules" / yml.name)
+    shutil.copytree(DATA / "morphology", vendor / "data" / "morphology")
     (vendor / "data" / "stress").mkdir(parents=True)
     for name in STRESS_FILES:
         shutil.copy2(DATA / "stress" / name, vendor / "data" / "stress" / name)

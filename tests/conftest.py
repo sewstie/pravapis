@@ -31,6 +31,7 @@ def config() -> Config:
             for n in ("palatalization.yaml", "loanwords.yaml", "morphology.yaml")
         ),
         stress=DATA_DIR / "stress",
+        morphology=DATA_DIR / "morphology",
         case_forms=DATA_DIR / "lexicon" / "case",
         stems=DATA_DIR / "lexicon" / "stems",
         model=None,
@@ -63,8 +64,16 @@ def converter(
     lexicon: Lexicon, engine: RuleEngine, config: Config, stress: StressTable
 ) -> Converter:
     from pravapis.lexicon.case_forms import CaseForms
+    from pravapis.morphology import MentSuffix
 
     assert config.case_forms is not None
+    assert config.morphology is not None
     return Converter(
-        lexicon, engine, None, config, stress, case_forms=CaseForms.load(config.case_forms)
+        lexicon,
+        engine,
+        None,
+        config,
+        stress,
+        case_forms=CaseForms.load(config.case_forms),
+        ment_suffix=MentSuffix.load(config.morphology),
     )

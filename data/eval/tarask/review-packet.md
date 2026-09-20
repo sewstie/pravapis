@@ -12,20 +12,10 @@ No knowledge of the code is needed.
 
 ## 1. The converter and the gold set disagree
 
-For each of these, the audit says the change is right and the gold set says the word should stay as it is. **Which spelling does Narkamaŭka use?**
+None — the two files agree.
 
-| Taraškievica | converter says | gold says | which is right? |
-|---|---|---|---|
-| сымбалізм | сімвалізм | сымбалізм | |
-| максымум | максімум | максымум | |
-| максымальная | максімальная | максымальная | |
-| спэктаклі | спектаклі | спэктаклі | |
-| сымбалізуе | сімвалізуе | сымбалізуе | |
 
 ## 2. Words held back for want of a source
-
-
-**-мент**: does every word ending in -мент take э there (дакумэнт, аргумэнт, манумэнт), or are there exceptions? Held back because the one gold row that tested it disagreed.
 
 
 ## 3. Two cited sections pointing different ways

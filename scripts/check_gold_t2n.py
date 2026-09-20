@@ -32,6 +32,7 @@ from pravapis.pipeline import Converter  # noqa: E402
 from pravapis.types import Orthography  # noqa: E402
 
 GOLD = ROOT / "data" / "eval" / "tarask" / "gold_t2n.tsv"
+DERIVED = ROOT / "data" / "eval" / "gold.tsv"
 
 
 def unsettled(converter: Converter, narkamauka: str) -> list[str]:
@@ -43,6 +44,13 @@ def unsettled(converter: Converter, narkamauka: str) -> list[str]:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--gold", type=Path, default=GOLD)
+    ap.add_argument(
+        "--derived",
+        action="store_const",
+        const=DERIVED,
+        dest="gold",
+        help="check data/eval/gold.tsv instead",
+    )
     ap.add_argument("--limit", type=int, default=40)
     args = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]

@@ -117,7 +117,7 @@ rules:
         - { input: "версія", expected: "вэрсія" }
         - { input: "аперацыя", expected: "апэрацыя" }
         - { input: "метро", expected: "мэтро" }
-        - { input: "дакумент", expected: "дакумэнт" }
+        - { input: "бізнес", expected: "бізнэс" }
       negative:
         - { input: "мера", expected: "мера" }
         - { input: "серада", expected: "серада" }
@@ -173,7 +173,6 @@ rules:
         - { input: "сынонімы", expected: "сінонімы" }
         - { input: "сэзон", expected: "сезон" }
         - { input: "вэрсія", expected: "версія" }
-        - { input: "дакумэнт", expected: "дакумент" }
         - { input: "калёніяльны", expected: "каланіяльны" }
       negative:
         - { input: "салёны", expected: "салёны" }

@@ -86,3 +86,37 @@ rules:
         - { input: "мой", expected: "мой" }
         - { input: "край", expected: "край" }
         - { input: "йод", expected: "йод" }
+
+  - id: morph.dsk_to_dzk
+    description: "д + ск → дзк before the adjective suffix: мадрыдскі → мадрыдзкі"
+    direction: narkamauka_to_taraskievica
+    # Збор 2005 §46. Taraškievica writes the phonetic result of the merger where
+    # Narkamaŭka keeps the root consonant intact (the morphological principle):
+    # Мадрыд → мадрыдзкі, горад → гарадзкі. It applies by the *stem's final consonant*,
+    # not by whether the word is foreign — бэрлінскі, лёнданскі and нью-ёркскі keep their
+    # clusters because those stems end in н and к.
+    pattern: 'дск'
+    replacement: 'дзк'
+    priority: 60
+    tests:
+      positive:
+        - { input: "мадрыдскі", expected: "мадрыдзкі" }
+        - { input: "гарадскі", expected: "гарадзкі" }
+        - { input: "людскі", expected: "людзкі" }
+      negative:
+        - { input: "берлінскі", expected: "берлінскі" }
+        - { input: "лонданскі", expected: "лонданскі" }
+        - { input: "нью-ёркскі", expected: "нью-ёркскі" }
+
+  - id: morph.dzk_to_dsk
+    description: "Reverse of morph.dsk_to_dzk: мадрыдзкі → мадрыдскі"
+    direction: taraskievica_to_narkamauka
+    pattern: 'дзк'
+    replacement: 'дск'
+    priority: 60
+    tests:
+      positive:
+        - { input: "мадрыдзкі", expected: "мадрыдскі" }
+        - { input: "гарадзкі", expected: "гарадскі" }
+      negative:
+        - { input: "бэрлінскі", expected: "бэрлінскі" }

@@ -53,6 +53,8 @@ class Config(BaseModel):
     stems: Path | None = None
     #: directory built by scripts/build_stress_table.py (GrammarDB stress marks)
     stress: Path | None = None
+    #: directory built by scripts/build_morphology.py (GrammarDB noun lemmas)
+    morphology: Path | None = None
     model: Path | None = None
     confidence_threshold: float = 0.75
     ambiguity_triggers: tuple[str, ...] = DEFAULT_AMBIGUITY_TRIGGERS
@@ -84,6 +86,11 @@ class Config(BaseModel):
             stems=base / "lexicon" / "stems" if (base / "lexicon" / "stems").is_dir() else None,
             rules=tuple(base / "rules" / name for name in RULE_FILES),
             stress=stress if (stress / "first_stressed.marisa").is_file() else None,
+            morphology=(
+                base / "morphology"
+                if (base / "morphology" / "ment_lemmas.marisa").is_file()
+                else None
+            ),
             model=None,
         )
 
@@ -110,6 +117,8 @@ class Config(BaseModel):
             raw["lexicon_sources"] = resolve(str(raw["lexicon_sources"]))
         if raw.get("stress"):
             raw["stress"] = resolve(str(raw["stress"]))
+        if raw.get("morphology"):
+            raw["morphology"] = resolve(str(raw["morphology"]))
         if raw.get("model"):
             raw["model"] = resolve(str(raw["model"]))
         return cls.model_validate(raw)

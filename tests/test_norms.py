@@ -7,13 +7,19 @@ from pathlib import Path
 import regex
 
 from pravapis.lexicon.case_forms import CASE_RULE_ID
+from pravapis.morphology import MENT_RULE_ID
 from pravapis.pipeline import PARTICLE_RULE_ID
 from pravapis.rules.engine import RuleEngine
 from pravapis.rules.morphology import CONJ_RULE_ID
 from pravapis.translit.engine import load_scheme
 from pravapis.types import Orthography
 
-PIPELINE_RULE_IDS = {PARTICLE_RULE_ID, CONJ_RULE_ID, CASE_RULE_ID}
+PIPELINE_RULE_IDS = {
+    PARTICLE_RULE_ID,
+    CONJ_RULE_ID,
+    CASE_RULE_ID,
+    MENT_RULE_ID,
+}
 
 ROOT = Path(__file__).resolve().parent.parent
 NORMS = ROOT / "data" / "NORMS.md"

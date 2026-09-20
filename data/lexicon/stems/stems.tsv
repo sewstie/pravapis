@@ -79,12 +79,9 @@
 версаль	loan	e	Збор 2005 §11б	cited
 жэнев	loan	e	Збор 2005 §11б	cited
 армені	loan	e	Збор 2005 §11б	cited
+# -нент, not -мент: no stress condition applies
 абанент	loan	e	Збор 2005 §11б	cited
-аргумент	loan	e	Збор 2005 §11б	cited
-дакумент	loan	e	Збор 2005 §11б	cited
 брызент	loan	e	Збор 2005 §11б	cited
-сакрамент	loan	e	Збор 2005 §11б	cited
-тастамент	loan	e	Збор 2005 §11б	cited
 бульдозер	loan	e	Збор 2005 §11б	cited
 буфер	loan	e	Збор 2005 §11б	cited
 кратер	loan	e	Збор 2005 §11б	cited
@@ -100,12 +97,9 @@
 серы	loan	e	Збор 2005 §11б	reviewed
 дэсерт	loan	e	Збор 2005 §11б	reviewed
 метр	loan	e	Збор 2005 §11б	reviewed
-# -мент looked like a safe generalisation (a Latin suffix with no native source), but the
-# gold set has a hand-written Narkamaŭka row keeping Манумэнтальны, which the derived
-# reverse key rewrote to Манументальны — the project's only false positive. Held as
-# `uncertain` (parsed, never applied) until a source settles -мент/-мэнт in Narkamaŭka.
-# The individually cited stems (дакумент, аргумент, абанент …) are unaffected.
--мент	loan	e	Збор 2005 §11б	uncertain
+# RESOLVED: -мент is stress-conditioned — -мэнт under stress, -мент without it — which no
+# stem rule can see. loan.ment_stress owns it now, using a GrammarDB stress table. This
+# row is gone rather than uncertain; see data/NORMS.md, loan.ment_stress.
 
 # --- added in phase D1, from the misses the gold set named ---
 лабірынт	loan	l	Збор 2005 §55.1	reviewed
@@ -145,7 +139,8 @@
 # rate on the independent gold from 0.1% to 0.3%. See data/NORMS.md, "Unresolved".
 
 # ============================================================ loan: both л and е
-парламент	loan	l,e	Збор 2005 §55.1, §11б	cited
+# е handed to loan.ment_stress; the soft л stays here
+парламент	loan	l	Збор 2005 §55.1, §11б	cited
 кіламетр	loan	l,e	Збор 2005 §55.1, §11б	cited
 
 # ============================================================ loan: ґ

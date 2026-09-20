@@ -401,7 +401,7 @@ def test_independent_gold_is_fully_reviewed() -> None:
 def test_independent_t2n_accuracy_does_not_regress(converter: Converter) -> None:
     """The number Phase C was built to produce.
 
-    Measured 92.6% change accuracy against genuine be-tarask text, versus 99.0% on the
+    Measured 94.3% change accuracy against genuine be-tarask text, versus 99.0% on the
     derived gold set — the gap is the whole point of having this file. The floor is a
     ratchet; raise it as the converter improves.
     """
@@ -412,8 +412,8 @@ def test_independent_t2n_accuracy_does_not_regress(converter: Converter) -> None
         origin=Orthography.TARASKIEVICA,
     )
     assert report.is_independent
-    assert report.change_accuracy >= 0.90, report.change_accuracy
-    assert report.false_positive_rate <= 0.01, report.false_positive_rate
+    assert report.change_accuracy >= 0.93, report.change_accuracy
+    assert report.false_positive_rate == 0.0, report.false_positive_rate
 
 
 def test_audit_describes_changes_the_converter_actually_makes(converter: Converter) -> None:

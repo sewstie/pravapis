@@ -31,7 +31,7 @@ Converting a form the norm already allows is a false positive, not an improvemen
 - Not the same as *unresolved* (sources disagree, see below): unresolved words are left
   unchanged in every mode; optional rewrites are known-valid and available on request.
 
-Optional under this policy: `loan.f_substitution` (§81 Заўвага Б) and `morph.conj_i_j` (§13).
+Optional under this policy: `loan.f_substitution` (§81 Заўвага Б), `morph.conj_i_j` (§13).
 The ґ letter is optional in the same sense, and the project declines it outright — see
 "Project decision: no ґ".
 
@@ -42,6 +42,14 @@ Format per rule: `id`, `direction`, what it does, `source`. When a citation is a
 it here and fix the rule in the same change.
 
 ---
+
+## Resolved: the adjective suffix -ейск-
+
+**эўрапейскі, never эўрапэйскі.** §52 gives еў → эў and §11б gives е → э after a hard
+consonant, and applying both would produce эўрапэйскі — which is what be-tarask writes.
+It is wrong: the suffix **-ейск- keeps its е** whatever the root does, as in армейскі and
+асамблейскі. `e_to_eh` exempts it explicitly, so the rule stays right when the stem
+inventory grows to cover such words.
 
 ## Assimilative softness — `data/rules/palatalization.yaml`
 
@@ -236,6 +244,44 @@ it here and fix the rule in the same change.
   ("**можа** пераходзіць у й"), so і is left alone by default; the reverse is not
   optional, because Narkamaŭka has no syllabic й standing as a word.
 
+### loan.ment_suffix
+- direction: both
+- does: N → T writes the suffix -мент as **-мэнт**: дакумент → дакумэнт, парламент →
+  парлямэнт, дакументацыя → дакумэнтацыя, манументальны → манумэнтальны.
+  T → N writes it back: мэнт → мент, unconditionally.
+- source: project owner's instruction, against Збор 2005 §11б (э after a hard consonant
+  in borrowings). The suffix takes э when the base noun carries the stress on it —
+  дакумэ́нт, аргумэ́нт, парлямэ́нт, інструмэ́нт, мэдыкамэ́нт, сэгмэ́нт — and **the э is
+  inherited by everything derived from that base, even after the stress moves**:
+  манумэ́нт → манумэнта́льны, дакумэ́нт → дакумэнта́цыя, інструмэ́нт → інструмэнта́льны.
+  The stem is preserved, not the stress of the word in hand.
+- data: the 116 GrammarDB noun lemmas ending in -мент (`data/morphology/`, CC BY-SA 4.0).
+  A word matches if one of them is a suffix of its text up to the first мент, so
+  абцэментаваны → абцэмент → цэмент. The bare colloquial noun *мент* is excluded, or any
+  word starting мент- would match and drag in ментальны, which is not derived from a
+  -мент noun.
+- what was tried first and was wrong: per-form stress, taken from GrammarDB's marks. It
+  got дакументацыя and манументальны wrong — precisely the derived words where the stress
+  has moved but the stem has not. GrammarDB also marks *парламент* as stressed on -ла́-,
+  while Taraškievica writes парлямэ́нт, so its stress is not the discriminator here.
+- T → N needs no table: GrammarDB holds **no** Narkamaŭka form containing мэнт.
+
+### morph.dsk_to_dzk
+- direction: narkamauka → taraskievica
+- does: д + ск → дзк before the adjective suffix: мадрыдскі → мадрыдзкі, гарадскі →
+  гарадзкі, людскі → людзкі
+- source: Збор 2005, §46. Taraškievica writes the phonetic result of the merger where
+  Narkamaŭka keeps the root consonant intact (the morphological principle).
+- scope: it applies by the **stem's final consonant**, not by whether the word is
+  foreign. Stems in н, к, л, с keep their cluster: бэрлінскі, лёнданскі, нью-ёркскі.
+  (т + ск → цк and ч + ск → цк are not implemented: Narkamaŭka writes цк there too —
+  дэпутацкі, ткацкі — so there is nothing to convert.)
+
+### morph.dzk_to_dsk
+- direction: taraskievica → narkamauka
+- does: reverse of morph.dsk_to_dzk — мадрыдзкі → мадрыдскі
+- source: inverse of morph.dsk_to_dzk — Збор 2005, §46
+
 ### morph.preposition.z
 - direction: taraskievica → narkamauka
 - does: зь / безь / празь / церазь → з / без / праз / цераз
@@ -389,11 +435,13 @@ not a patch. Re-run it after every batch of mined stems.
 
 ## Known gaps (not implemented, need the codification)
 
-- **Genitive plural -аў** (хвілін → хвілінаў): no rule, no gold coverage; needs a noun list.
-  Single word added by hand on the project owner's instruction: **краін → краінаў**
-  (`data/lexicon/exceptions.tsv`; "з 18 краінаў", confirmed by baltoslav.eu spot-check). Every
-  other genitive plural is still unchanged.
-  The Збор 2005 rules cover spelling only ("выключна артаграмы") and do not settle it.
+*(The genitive plural -аў was logged here for a long time. It is not a gap and not a rule:
+§80 extends -аў to feminine and neuter nouns in a vowel, but for many words **both** forms
+are permissible — хвілін and хвілінаў are equally valid — so a rule that fires on all of
+them corrupts ordinary text. Six nouns where -аў is strongly preferred are whitelisted in
+`data/lexicon/exceptions.tsv`; everything else is left alone. A table-driven version was
+built from every GrammarDB noun first and cost 10 false positives against 3 words gained.)*
+
 
 ## Project decision: no ґ
 
@@ -457,15 +505,6 @@ paradigm for the target lemma, which GrammarDB does not have. Not started.
 Policy: when sources disagree or the annotator is unsure, the word is **not** added to the
 lexicon or the rules and passes through unchanged. A missing conversion is better than a
 guessed one. Each item needs the codification (or another cited dictionary) to resolve.
-
-- **эўрапейскі or эўрапэйскі**: §52 gives еў → эў and the project's codification test
-  encodes эўрапейскі, keeping the е. Genuine be-tarask text writes эўрапэйскі, applying
-  §11б (е → э after a consonant) to the same word. Both sections are cited and they point
-  different ways for this stem. Left unconverted in the second vowel until the conflict is
-  settled; the independent gold counts it as a miss, which is the honest record.
-
-- **мадрыдзкі or мадрыдскі**: the corpus writes мадрыдзкі; no section found that licenses
-  дз before с in this position. No rule added.
 
 - **ґ beyond зноска 55**: ганк, гузак, гузы, грунт, гатунак, гільдыя, гляйс carry ґ in
   common usage but are not among the words the footnote names, and its list ends with "ды
