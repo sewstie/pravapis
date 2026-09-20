@@ -33,7 +33,9 @@ _TOKEN_RE: Final[regex.Pattern[str]] = regex.compile(
     regex.DOTALL,
 )
 
-_KIND_BY_GROUP: Final[dict[str, TokenKind]] = {
+#: Keyed by ``Match.lastgroup``, which is typed ``str | None``. Every branch of
+#: _TOKEN_RE is a named group, so None cannot occur; a KeyError would be loud if it did.
+_KIND_BY_GROUP: Final[dict[str | None, TokenKind]] = {
     "word": TokenKind.WORD,
     "latin": TokenKind.LATIN,
     "number": TokenKind.NUMBER,
@@ -45,13 +47,23 @@ _KIND_BY_GROUP: Final[dict[str, TokenKind]] = {
 # Letters of the Belarusian alphabet, both orthographies (ґ is Taraškievica-only).
 BELARUSIAN_LETTERS: Final[frozenset[str]] = frozenset("абвгґдеёжзійклмнопрстуўфхцчшыьэюя")
 _WORD_CHARS: Final[frozenset[str]] = BELARUSIAN_LETTERS | frozenset(APOSTROPHE_CLASS + "-")
+#: The same set as a negated character class, both cases, so membership is one regex
+#: search over the token rather than a genexpr allocating per character.
+_NOT_BELARUSIAN: Final[regex.Pattern[str]] = regex.compile(
+    "[^" + regex.escape("".join(sorted(_WORD_CHARS | {c.upper() for c in _WORD_CHARS}))) + "]"
+)
 
 
 def tokenize(text: str) -> list[Token]:
+    # The hot loop of the whole pipeline: one Token per match over the entire input.
+    # Locals for the attribute lookups, span() for one call instead of start()+end(),
+    # and no str() around lastgroup, which is already a string.
     tokens: list[Token] = []
+    append = tokens.append
+    kinds = _KIND_BY_GROUP
     for m in _TOKEN_RE.finditer(text):
-        kind = _KIND_BY_GROUP[str(m.lastgroup)]
-        tokens.append(Token(m.group(0), m.start(), m.end(), kind))
+        start, end = m.span()
+        append(Token(text[start:end], start, end, kinds[m.lastgroup]))
     return tokens
 
 
@@ -67,7 +79,7 @@ def is_belarusian_word(token: Token) -> bool:
     """
     if token.kind is not TokenKind.WORD:
         return False
-    return all(c.lower() in _WORD_CHARS for c in token.text)
+    return not _NOT_BELARUSIAN.search(token.text)
 
 
 def context_of(tokens: Sequence[Token], i: int, window: int = 2) -> list[Token]:
@@ -112,3 +124,35 @@ def next_word(tokens: Sequence[Token], i: int) -> Token | None:
         if tokens[j].kind is not TokenKind.SPACE:
             return None
     return None
+
+
+#: Збор 2005 §13 Заўвага: "Злучок і двукоссе не з'яўляюцца знакамі прыпынку і на
+#: правапіс й не ўплываюць" — a hyphen (злучок) or a quotation mark (двукоссе) between
+#: two words is an invisible bridge, so the conjunction still sees the vowel before it.
+#: A dash (працяжнік) is a real punctuation mark and blocks the rule, which is why the
+#: en and em dashes are absent here even though they look like long hyphens.
+HYPHENS: Final[frozenset[str]] = frozenset("-‐‑­")
+QUOTES: Final[frozenset[str]] = frozenset('«»“”„‟‹›"')
+
+
+def bridges_words(tokens: Sequence[Token], i: int) -> bool:
+    """Is ``tokens[i]`` transparent to the §13 conjunction rule?
+
+    True for whitespace and for quotation marks; true for a hyphen only when it is
+    written against a word, as in "адна- і шматмоўныя". A hyphen with space on both
+    sides is a dash that someone typed on an ASCII keyboard, and a dash blocks the rule.
+    """
+    token = tokens[i]
+    if token.kind is TokenKind.SPACE:
+        return True
+    if token.kind is not TokenKind.PUNCT:
+        return False
+    text = token.text
+    if all(c in QUOTES for c in text):
+        return True
+    if not all(c in HYPHENS or c in QUOTES for c in text):
+        return False
+    touches = (i > 0 and tokens[i - 1].kind is not TokenKind.SPACE) or (
+        i + 1 < len(tokens) and tokens[i + 1].kind is not TokenKind.SPACE
+    )
+    return touches

@@ -116,7 +116,9 @@
 цыліндр	цыліндар
 кадр	кадар
 універсітэт	унівэрсытэт
-універсітэта	унівэрсытэту
+# §71 genitive singular -у; forward-only — see the note in exceptions.tsv, the reverse
+# would corrupt the dative
+універсітэта	унівэрсытэту	n2t
 універсітэце	унівэрсытэце
 універсітэцкі	унівэрсытэцкі
 універсальны	унівэрсальны
@@ -192,8 +194,9 @@
 спецыяліст	спэцыяліст
 кафедра	катэдра
 тэзіс	тэза
-крызіс	крызыс
-аналіз	аналіза
+# аналіз stays masculine: the feminine аналіза is the historical variant, and the
+# masculine lemma is what a deterministic converter should emit. Genitive аналізу is
+# already the Narkamaŭka form, so nothing moves.
 арыфметыка	арытмэтыка
 геаметрыя	геамэтрыя
 сіметрыя	сымэтрыя
@@ -201,8 +204,6 @@
 тэрмометр	тэрмомэтар
 міліметр	мілімэтар
 сантыметр	сантымэтар
-камп’ютар	кампутар
-камп’ютэр	кампутар
 інтэрв’ю	інтэрвію
 лідар	лідэр
 партнёр	партнэр

@@ -63,9 +63,12 @@ T → N is *right*, and the two columns landing on an identical 96.7% with ident
 denominators is the tell. `pravapis eval` prints this caveat itself, from the file's own
 header, so a future edit cannot quietly drop it.
 
-Measured against **genuine Taraškievica** instead — 150 hand-reviewed sentences from
+Measured against **genuine Taraškievica** instead — 150 sentences from
 be-tarask.wikipedia.org that nobody derived from Narkamaŭka — T → N change accuracy is
-**94.7%**, not 98.7%. That gap is the entire reason `data/eval/tarask/` exists. See
+**98.4%** (245/249). Of the four remaining misses one is a typo in the gold's Narkamaŭka
+column (`еўрапйскім`) and one is the §71 genitive, which runs forward only by design. It
+read 94.7% until 28 of its 150 rows were found to have drifted from the corpus and were
+restored — see
 [Independent T → N](#independent-t--n).
 
 The directions did diverge before Phase A: the reverse loanword rules were inverse
@@ -75,7 +78,7 @@ recall of 0.22 and 0.36. T → N is now a stem substitution derived from the for
 inventory, so it cannot disagree with it, and its recall is 1.0.
 
 The full scored set (637 sentences; `converter_checked` rows included, `uncertain` excluded) is
-within 0.5 points of these on every metric. Throughput: **0.6–1.0 MB/s**.
+within 0.5 points of these on every metric. Throughput: **1.2 MB/s** (~93k words/s).
 
 Most of the gap from 96.7% closed by adding the stems the errors named — the remaining
 misses are a grammatical-gender change (`Аналіз паказаў → Аналіза паказала`), a genitive
@@ -104,8 +107,9 @@ words; replacing it with the whitelist also took 752 KiB out of the deployment p
 §46 gives д + ск → дзк before the adjective suffix (мадрыдскі → мадрыдзкі, гарадскі →
 гарадзкі), where Narkamaŭka keeps the root consonant. It applies by the stem's final
 consonant, not by whether the word is foreign: бэрлінскі and нью-ёркскі keep their
-clusters. And the adjective suffix -ейск- keeps its е whatever the root does, so Эўропа
-gives эўрапейскі and never эўрапэйскі.
+clusters. And the adjective suffix -ейск- keeps its е whatever the root does (§11б заўвага), so
+Эўропа gives эўрапейскі and never эўрапэйскі; a wrongly-spelled эўрапэйскі arriving as
+input is normalised back on the way to Narkamaŭka.
 
 Where the codification allows more than one form, the converter leaves the input alone
 (`data/NORMS.md`, "Policy: optional forms"): Фёдар stays Фёдар, the conjunction і stays і.
@@ -175,10 +179,27 @@ mean anything.
 
 | T → N, 150 hand-reviewed be-tarask sentences | converter | baseline |
 |---|---|---|
-| **Change accuracy** (words that should change) | **94.7%** | 0.0% |
-| False-positive rate (words that should not) | **0.0%** | 0.0% |
-| Word accuracy (2,431 words) | 99.4% | 89.4% |
-| Sentence accuracy | 92.0% | 18.0% |
+| **Change accuracy** (249 words that should change) | **98.4%** | 0.0% |
+| False-positive rate (2,182 words that should not) | **0.0%** | 0.0% |
+| Word accuracy (2,431 words) | 99.8% | 89.8% |
+| Sentence accuracy | 96.7% | 23.3% |
+
+**This figure was 94.7% on a corrupted set, and the correction is worth reading.** The
+Taraškievica column is supposed to be the untouched original — the whole independent
+measurement rests on that. 28 of the 150 rows had drifted from `corpus.tsv`, by 50
+character edits, every one of them in this converter's direction: 11 × `і → й` (the
+*optional* §13 rule), 10 × `і → ы`, inserted and deleted `ь`, one `ґ → г` — which is this
+project's own ґ policy — and 7 vocabulary swaps (`работа → праца`, `саюз → звяз`,
+`германскі → нямецкі`, `пастаноўка → інсцэнізацыя`). Somebody had run the gold's *input*
+through the converter. All 28 were restored from the corpus; the hand-written Narkamaŭka
+column was not touched.
+
+The number rose because the repair deleted 26 change-opportunities that should never have
+existed (264 → 238), including the vocabulary swaps a spelling converter cannot and should
+not perform — **not** because the converter improved. That is the same
+scored-against-itself trap `gold.tsv` exists to document, arriving by a new route, so
+`test_independent_gold_taraskievica_column_is_the_untouched_corpus` now asserts every
+Taraškievica column appears verbatim in `corpus.tsv`.
 
 The false-positive rate is 0.0% on both gold sets. It got there by a route worth
 recording: the audit and the gold used to contradict each other on four changes
@@ -318,6 +339,27 @@ This replaced the runtime lemma-confirmation layer originally planned here. Meas
 first: of 51 native guards, only **3** changed any answer, so a per-lookup confirmation
 table would have added a data file and a deployment payload to solve a problem worth three
 rows. `data/NORMS.md` records the measurement.
+
+## Performance
+
+`pravapis bench --size 10mb` reports **1.2 MB/s, ~93k words/s**, single process. On real
+corpus text (`roundtrip_corpus.txt`) it is 0.84 MB/s, up from 0.54 before this pass — a
+**55% gain**, from profiling rather than guessing.
+
+The roadmap had a C++ lexicon lookup here. **The profile says don't write it**: lexicon
+lookup does not appear in the top sixteen entries at all. The cost was somewhere else
+entirely, and all of it was work being thrown away:
+
+| Fix | Why it was wasted |
+|---|---|
+| Skip `context_of` with no classifier | The neighbouring-word context exists only to featurise a word for the classifier, which is off by default. It was built for every token and discarded. |
+| Look up neighbours only for clitics | `next_word`/`previous_word` ran for every token, but only не/без/з and the case-dependent lexicon read them. |
+| Bail out of homoglyph folding early | Ordinary Belarusian text contains no Latin look-alikes, so every letter run was rebuilt character by character to produce itself. |
+| One regex instead of a per-character genexpr | `is_belarusian_word` allocated a generator per token. |
+| Tighten the `tokenize` loop | It is the one loop that runs over the entire input. |
+
+marisa-trie is already C; the Python around it was the cost. A pybind11 extension would
+have optimised the one part that was never slow.
 
 ## Install
 

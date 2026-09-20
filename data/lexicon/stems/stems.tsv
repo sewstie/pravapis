@@ -66,6 +66,98 @@
 дэпазіт	loan	i	Збор 2005 §67	cited
 -пазіц	loan	i	Збор 2005 §67	cited
 
+# --- §67 Заўвага А: long-adapted loans whose hardness is fixed, so і → ы ---
+кармазін	loan	i	Збор 2005 §67 Заўвага А	cited
+кузін	loan	i	Збор 2005 §67 Заўвага А	cited
+магазін	loan	i	Збор 2005 §67 Заўвага А	cited
+разінк	loan	i	Збор 2005 §67 Заўвага А	cited
+экзіл	loan	i	Збор 2005 §67 Заўвага А	cited
+
+# --- §67 Заўвага А: fixed soft, and the homonym pairs і exists to keep apart ---
+# `native` here means only "the loanword alternations do not apply" — кракадзіл is a
+# borrowing, but its і is permanent. Дзіна/дына, сіці/сыты and цік/тык are distinct
+# words that і → ы would collapse into one another.
+кракадзіл	native	-	Збор 2005 §67 Заўвага А	cited
+лацін	native	-	Збор 2005 §67 Заўвага А	cited
+дзін	native	-	Збор 2005 §67 Заўвага А	cited
+сіці	native	-	Збор 2005 §67 Заўвага А	cited
+цік	native	-	Збор 2005 §67 Заўвага А	cited
+
+# --- §68: the bound nominal group -энсія / -энзія. The е of the stem hardens to э, and
+# --- the і of the suffix stays soft — пэнсія, пэнсіі, пэнсію, пэнсіямі. Carried as stems
+# --- rather than as one lexicon row per form: listing only the nominative left every
+# --- oblique case unconverted (пенсіі → пенсіі).
+пенс	loan	e	Збор 2005 §68	cited
+інданез	loan	e	Збор 2005 §68	cited
+# the derived noun needs its own entry: its -нер also hardens, which пенс- alone misses
+пенсіянер	loan	e	Збор 2005 §68	cited
+
+# --- §68 holds the line here: a word-final -сія / -зія keeps its і soft, so no stem in
+# --- this file may give one ы. дывізі, гімназі and азіяц used to, all three `reviewed`
+# --- rather than cited; the held-out corpus in data/eval/tarask/corpus.tsv writes
+# --- дывізія, дывізіяў, гімназія, Азіі, Азіяцкай and неагрэсіі — 13 soft forms, no ы.
+# --- клясычны and фізык stay, being §67's own cited examples and not -сія nouns.
+
+# ============================================================ paradigm-wide stems
+# Every entry below replaced a lexicon row that covered only the citation form, found by
+# scripts/check_paradigms.py. A stem carries the whole declension: расійскі converted but
+# расійскага did not, and 365 paradigms were split that way.
+
+# --- the adjective group (§50, §11б, §67): 68 paradigms, mechanically uniform ---
+-расійск	loan	-	Збор 2005 §50	cited	расейск
+-лагічн	loan	l	Збор 2005 §50	cited
+-метад	loan	e	Збор 2005 §11б	cited
+-медыцын	loan	e	Збор 2005 §11б	cited
+# медычны is a separate stem from медыцынскі, not a form of it
+-медычн	loan	e	Збор 2005 §11б	cited
+-іспанск	loan	-	Збор 2005 §50	cited	гішпанск
+філа	loan	l	Збор 2005 §55.1	cited
+# Only one stem matches a word — the longest — so a compound carrying two changes
+# needs its own entry: філалагічны takes both the філя- and the -лягічн-.
+філалагічн	loan	l	Збор 2005 §50, §55.1	cited
+метадалагічн	loan	e,l	Збор 2005 §11б, §50	cited
+
+# --- §68 abstract suffix matrices: root е → э, suffix і left soft ---
+дыферэнц	loan	e	Збор 2005 §11б, §68	cited
+канферэнц	loan	e	Збор 2005 §11б, §68	cited
+
+# --- agentive -ер / -ор (§11б). Narkamaŭka reduces the suffix to -ар or softens it to
+# --- -ер; Taraškievica keeps the West European -эр.
+лідар	loan	-	Збор 2005 §11б	cited	лідэр
+# §53 prefers кампутар — the direct English/Latin borrowing, without the iotated
+# vowel. The recognised Taraškievica variant камп’ютэр is handled the other way
+# round, as t2n rows in exceptions.tsv: two stems deriving one reverse key is a
+# collision the inventory forbids, and кампутар must come back as one spelling.
+камп’ютар	loan	-	Збор 2005 §53	cited	кампутар
+менеджэр	loan	e	Збор 2005 §11б	cited
+прынтар	loan	-	Збор 2005 §11б	cited	прынтэр
+рэжысёр	loan	-	Збор 2005 §11б	cited	рэжысэр
+трыгер	loan	-	Збор 2005 §11б	cited	трыгэр
+
+# --- toponyms and proper names (§67, §11б, §55.1) ---
+лондан	loan	l	Збор 2005 §55.1	cited
+сідней	loan	i,e	Збор 2005 §67, §11б	cited
+# `сілез`, not `сілезі`: і → ы must reach the і after с and stop before the
+# suffix's own і, which §68 keeps soft — Сылезія, never Сылезыя.
+сілез	loan	i	Збор 2005 §67, §68	cited
+сіцылі	loan	i	Збор 2005 §67	cited
+# n2t only: Сымон is also a Belarusian given name that Narkamaŭka spells that way —
+# Сымон Будны, «Касьцёл Сьвятых Сымона і Алены» — so the reverse must never fire.
+сімон	loan	i:n2t	Збор 2005 §67	cited
+тыбет	loan	e	Збор 2005 §11б	cited
+цюбінген	loan	-	Збор 2005 §11б	cited	цюбінгэн
+
+# --- §67: і → ы after a hard dental in a settled loan ---
+паразіт	loan	i	Збор 2005 §67	cited
+# §67: hard з takes ы. Held as a stem, not the single lexicon row it used to be —
+# that row converted крызіс and left крызісу and крызісны behind.
+крызіс	loan	i	Збор 2005 §67	cited
+транзіт	loan	i	Збор 2005 §67	cited
+сегмент	loan	-	Збор 2005 §11б	cited	сэгмэнт
+# §46: a velar before -ск- drops rather than mutating — never a цк cluster
+гамбургск	loan	-	Збор 2005 §46	cited	гамбурск
+эдынбургск	loan	-	Збор 2005 §46	cited	эдынбурск
+
 # ============================================================ loan: е → э (§11б)
 # §11б: "пасьля зычных, акрамя л і заднеязычных (г (ґ), к, х)". Stems marked `cited`
 # appear in the book's own list at §11б; `reviewed` ones are read against that rule.
@@ -122,14 +214,10 @@
 сімвал	loan	-	Збор 2005 §55.1	reviewed	сымбал
 
 # --- added after the first independent T → N measurement named them ---
-дывізі	loan	i	Збор 2005 §67	reviewed
-гімназі	loan	i	Збор 2005 §67	reviewed
 # Narrowed to the adjective: tests/test_pipeline.py has Азія staying Азія, while the
 # corpus writes азыяцкі. азіяц- reaches the adjective without touching the noun.
-азіяц	loan	i	Збор 2005 §67	reviewed
 # -агрэсі is unanchored so it also reaches неагрэсія, рэагрэсія and the like; every
 # word containing it is a Latin borrowing.
--агрэсі	loan	i	Збор 2005 §67	reviewed
 
 # --- named by the independent be-tarask gold set ---
 максім	loan	i	Збор 2005 §67	reviewed

@@ -120,3 +120,21 @@ rules:
         - { input: "гарадзкі", expected: "гарадскі" }
       negative:
         - { input: "бэрлінскі", expected: "бэрлінскі" }
+
+  - id: morph.ejsk_normalise
+    description: "The adjective suffix is -ейск-, never -эйск-: эўрапэйскі → еўрапейскі"
+    direction: taraskievica_to_narkamauka
+    # Збор 2005 §11б, заўвага: the suffix -ейск- keeps its е after a hard consonant,
+    # so эўрапэйскі is an error rather than a variant — be-tarask writes it by applying
+    # §11б where the заўвага exempts it. The forward direction can never produce it
+    # (e_to_eh exempts the suffix), so this only normalises input that arrives wrong.
+    pattern: 'эйск'
+    replacement: 'ейск'
+    priority: 60
+    tests:
+      positive:
+        - { input: "эўрапэйскі", expected: "эўрапейскі" }
+        - { input: "армэйскі", expected: "армейскі" }
+      negative:
+        - { input: "эўрапейскі", expected: "эўрапейскі" }
+        - { input: "мадрыдзкі", expected: "мадрыдзкі" }

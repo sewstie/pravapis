@@ -446,3 +446,24 @@ def test_audit_describes_changes_the_converter_actually_makes(converter: Convert
         f"{len(stale)} audit row(s) describe changes the converter does not make — "
         f"re-run `pravapis audit -o data/eval/tarask/audit.tsv` to resync: {stale[:5]}"
     )
+
+
+def test_independent_gold_taraskievica_column_is_the_untouched_corpus() -> None:
+    """The Taraškievica side of gold_t2n.tsv must be the corpus sentence, character for
+    character.
+
+    The file's header promises that column is genuine be-tarask.wikipedia.org text, not
+    derived from any Narkamaŭka source, and the whole point of the independent T → N
+    figure rests on it. 28 rows had drifted: і → ы in агрэсыі, Азыі, Азыяцкай, гімназыя,
+    дывізыя, і → й from the optional §13 rule, inserted ь, and vocabulary swapped for a
+    preferred synonym — every one of them a change this converter makes. Gold edited
+    toward the converter measures the converter against itself, which is the mistake
+    data/eval/gold.tsv already exists to document.
+    """
+    corpus = {row.sentence for row in read_corpus(CORPUS)}
+    rows = read_gold_rows(GOLD_T2N)
+    drifted = [r.taraskievica for r in rows if r.taraskievica and r.taraskievica not in corpus]
+    assert not drifted, (
+        f"{len(drifted)} gold_t2n row(s) have a Taraškievica column that is not in "
+        f"{CORPUS.name} verbatim: {drifted[:3]}"
+    )

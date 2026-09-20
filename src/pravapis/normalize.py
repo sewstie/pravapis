@@ -95,6 +95,14 @@ REVERSE_HOMOGLYPH_MAP: Final[dict[str, str]] = {
 _LETTER_RUN: Final[regex.Pattern[str]] = regex.compile(r"\p{L}+")
 _HAS_CYRILLIC: Final[regex.Pattern[str]] = regex.compile(r"\p{Cyrillic}")
 _HAS_LATIN: Final[regex.Pattern[str]] = regex.compile(r"\p{Latin}")
+#: Cheap pre-checks: ordinary Belarusian text contains none of these, so the common case
+#: returns the run untouched instead of rebuilding it character by character.
+_ANY_HOMOGLYPH: Final[regex.Pattern[str]] = regex.compile(
+    "[" + regex.escape("".join(HOMOGLYPH_MAP)) + "]"
+)
+_ANY_REVERSE_HOMOGLYPH: Final[regex.Pattern[str]] = regex.compile(
+    "[" + regex.escape("".join(REVERSE_HOMOGLYPH_MAP)) + "]"
+)
 _APOSTROPHE_RE: Final[regex.Pattern[str]] = regex.compile(
     "[" + "".join(regex.escape(a) for a in sorted(APOSTROPHES)) + "]"
 )
@@ -110,14 +118,14 @@ def to_nfc(text: str) -> str:
 
 def _fold_run(match: regex.Match[str]) -> str:
     run = match.group(0)
-    if not _HAS_CYRILLIC.search(run):
+    if not _ANY_HOMOGLYPH.search(run) or not _HAS_CYRILLIC.search(run):
         return run
     return "".join(HOMOGLYPH_MAP.get(ch, ch) for ch in run)
 
 
 def _fold_run_latin(match: regex.Match[str]) -> str:
     run = match.group(0)
-    if not _HAS_LATIN.search(run):
+    if not _ANY_REVERSE_HOMOGLYPH.search(run) or not _HAS_LATIN.search(run):
         return run
     return "".join(REVERSE_HOMOGLYPH_MAP.get(ch, ch) for ch in run)
 

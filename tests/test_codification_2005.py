@@ -122,6 +122,284 @@ def test_conjunction_i_to_j_is_optional(
     assert converter.convert(text, N2T, aggressive=True).text == aggressive_out
 
 
+@pytest.mark.parametrize(
+    ("text", "aggressive_out"),
+    [
+        # §13 Заўвага: a hyphen and a quotation mark are not punctuation marks, so the
+        # vowel before them still reaches the conjunction.
+        ("адна- і шматмоўныя", "адна- й шматмоўныя"),
+        ("«Паўлінка» і «Тутэйшыя»", "«Паўлінка» й «Тутэйшыя»"),
+        ('"Паўлінка" і "Тутэйшыя"', '"Паўлінка" й "Тутэйшыя"'),
+        # a dash is punctuation and does block it, including one typed as an ASCII
+        # hyphen standing on its own
+        ("бацька — і сын", "бацька — і сын"),
+        ("бацька - і сын", "бацька - і сын"),
+    ],
+)
+def test_hyphens_and_quotes_bridge_the_conjunction(
+    converter: Converter, text: str, aggressive_out: str
+) -> None:
+    assert converter.convert(text, N2T).text == text
+    assert converter.convert(text, N2T, aggressive=True).text == aggressive_out
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [
+        # §67 Заўвага А: loans settled in the language long enough that the hardness is
+        # fixed — і → ы even though the rule's usual conditions do not call for it.
+        ("кармазін", "кармазын"),
+        ("кузіна", "кузына"),
+        ("магазін", "магазын"),
+        ("магазіна", "магазына"),
+        ("разінкі", "разынкі"),
+        ("экзіль", "экзыль"),
+        # fixed soft, and the homonyms і exists to keep apart: Дзіна is not дына,
+        # сіці is not сыты, цік is not тык
+        ("кракадзіл", "кракадзіл"),
+        ("лаціна", "лаціна"),
+        ("лацінскі", "лацінскі"),
+        ("Дзіна", "Дзіна"),
+        ("сіці", "сіці"),
+        ("цік", "цік"),
+    ],
+)
+def test_67_note_a_fixed_hardness(converter: Converter, source: str, target: str) -> None:
+    assert converter.convert(source, N2T).text == target
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [
+        # §71: masculine loanwords naming institutions and abstractions take the
+        # genitive singular -у where Narkamaŭka writes -а
+        ("універсітэта", "унівэрсытэту"),
+        ("інстытута", "інстытуту"),
+        ("парламента", "парлямэнту"),
+        # the nominative is untouched — only the genitive ending moves
+        ("універсітэт", "унівэрсытэт"),
+        ("інстытут", "інстытут"),
+        ("парламент", "парлямэнт"),
+    ],
+)
+def test_71_genitive_singular_u(converter: Converter, source: str, target: str) -> None:
+    assert converter.convert(source, N2T).text == target
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    ["дзякуючы інстытуту", "дзякуючы унівэрсытэту", "рэктар унівэрсытэту"],
+)
+def test_71_genitive_does_not_run_backwards(converter: Converter, phrase: str) -> None:
+    """T → N must leave -у alone: it is genitive *or* dative, and Narkamaŭka spells the
+    dative -у too. Rewriting it would turn "дзякуючы інстытуту" into a broken case."""
+    assert converter.convert(phrase, T2N).text == phrase
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        # §47: the prosthetic в, including the roots that keep it unstressed (Заўвага А)
+        "вока",
+        "вачніцы",
+        "вожык",
+        "вокал",
+        "восем",
+        "воспа",
+        "востры",
+        "возера",
+        "азёры",
+        # §47: loanwords and interjections that never take one
+        "оптыка",
+        "опцыён",
+        "опера",
+        "ордэн",
+        "ого",
+        "ой",
+        # §48–§49: prosthetic в before у, and the г of гэты
+        "вуха",
+        "вучань",
+        "вуліца",
+        "гэты",
+        "гэны",
+        # §47 Заўвага Б: permitted doublets — a converter must not pick a side
+        "араць",
+        "гараць",
+        "арэх",
+        "гарэх",
+        "востры",
+        "гостры",
+        "гастрыня",
+    ],
+)
+def test_47_49_prosthetic_consonants_are_not_an_orthography_difference(
+    converter: Converter, word: str
+) -> None:
+    """Narkamaŭka and Taraškievica write the prosthetic в and г identically, so §47–§49
+    needs no rules — only the guarantee that nothing else disturbs these forms."""
+    assert converter.convert(word, N2T).text == word
+    assert converter.convert(word, T2N).text == word
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [
+        # §68: in the bound nominal group -энсія / -энзія the stem's е hardens to э while
+        # the і of the suffix stays soft. Held as stems, so the whole paradigm follows —
+        # listing only the nominative left пенсіі, пенсію and пенсіямі unconverted.
+        ("пенсія", "пэнсія"),
+        ("пенсіі", "пэнсіі"),
+        ("пенсію", "пэнсію"),
+        ("пенсіяй", "пэнсіяй"),
+        ("пенсіямі", "пэнсіямі"),
+        ("пенсійны", "пэнсійны"),
+        ("пенсіянер", "пэнсіянэр"),
+        ("пенсіянеры", "пэнсіянэры"),
+        ("пенсіянерка", "пэнсіянэрка"),
+        ("Інданезія", "Інданэзія"),
+        ("Інданезіі", "Інданэзіі"),
+        # already hard in Narkamaŭka; the і must survive untouched
+        ("рэцэнзія", "рэцэнзія"),
+        ("рэцэнзіі", "рэцэнзіі"),
+        ("прэтэнзія", "прэтэнзія"),
+        ("прэтэнзіі", "прэтэнзіі"),
+        # §68 reaches every word-final -сія noun, not only the -энсія group
+        ("агрэсія", "агрэсія"),
+        ("агрэсіі", "агрэсіі"),
+        ("агрэсіўны", "агрэсіўны"),
+        ("прагрэсія", "прагрэсія"),
+        ("прагрэсіўны", "прагрэсіўны"),
+        # the neighbours that were already right
+        ("сесія", "сэсія"),
+        ("сесіі", "сэсіі"),
+        ("версія", "вэрсія"),
+        ("прафесія", "прафэсія"),
+        ("камісія", "камісія"),
+        ("дыскусія", "дыскусія"),
+    ],
+)
+def test_68_sija_zija_keep_soft_i(converter: Converter, source: str, target: str) -> None:
+    assert converter.convert(source, N2T).text == target
+
+
+@pytest.mark.parametrize(
+    "word",
+    ["пэнсія", "пэнсіі", "пэнсіянэр", "агрэсія", "рэцэнзія", "Інданэзія"],
+)
+def test_68_reverse_never_invents_y(converter: Converter, word: str) -> None:
+    """T → N may soften the stem's э but must never turn the suffix's і into ы."""
+    assert "ы" not in converter.convert(word, T2N).text[-4:]
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [
+        # The adjective group: one stem each, covering every gender, number and case.
+        # These were 68 split paradigms — the citation form converted, the obliques did not.
+        ("расійскі", "расейскі"),
+        ("расійскага", "расейскага"),
+        ("расійскімі", "расейскімі"),
+        ("агульнарасійскі", "агульнарасейскі"),
+        ("лагічны", "лягічны"),
+        ("лагічнага", "лягічнага"),
+        ("біялагічны", "біялягічны"),
+        ("археалагічнага", "археалягічнага"),
+        ("філалагічнымі", "філялягічнымі"),
+        ("метадычны", "мэтадычны"),
+        ("метадычнай", "мэтадычнай"),
+        ("метадалагічны", "мэтадалягічны"),
+        ("медыцынскі", "мэдыцынскі"),
+        ("медыцынскага", "мэдыцынскага"),
+        ("іспанскі", "гішпанскі"),
+        ("іспанскага", "гішпанскага"),
+        # agentive -ер / -ор: Taraškievica keeps the West European -эр
+        ("лідар", "лідэр"),
+        ("лідара", "лідэра"),
+        ("лідараў", "лідэраў"),
+        ("менеджэра", "мэнэджэра"),
+        ("прынтара", "прынтэра"),
+        ("рэжысёра", "рэжысэра"),
+        ("трыгер", "трыгэр"),
+        # toponyms, through their oblique cases
+        ("Лондане", "Лёндане"),
+        ("лонданскі", "лёнданскі"),
+        ("Берліне", "Бэрліне"),
+        ("Сідней", "Сыднэй"),
+        ("Сіцылія", "Сыцылія"),
+        ("Сімон", "Сымон"),
+        ("Тыбет", "Тыбэт"),
+        ("гамбургскі", "гамбурскі"),
+        ("эдынбургскі", "эдынбурскі"),
+        ("мадрыдскі", "мадрыдзкі"),
+        # §68 again: і → ы reaches the root and stops at the suffix
+        ("Сілезія", "Сылезія"),
+        ("канферэнцыі", "канфэрэнцыі"),
+        ("дыферэнцыялу", "дыфэрэнцыялу"),
+        # §67: крызіс hardens after з, and now does so through the whole paradigm —
+        # it used to be a single lexicon row that left крызісу and крызісны behind
+        ("крызіс", "крызыс"),
+        ("крызісу", "крызысу"),
+        ("крызісны", "крызысны"),
+        # §53 prefers кампутар, the direct borrowing without the iotated vowel
+        ("камп’ютар", "кампутар"),
+        ("камп’ютары", "кампутары"),
+        # крытэрый → крытэр is a lemma change, mapped form by form
+        ("крытэрый", "крытэр"),
+        ("крытэрыя", "крытэру"),
+        ("крытэрыяў", "крытэраў"),
+        # аналіз stays masculine; its genitive is already -у in Narkamaŭka
+        ("аналіз", "аналіз"),
+        ("аналізу", "аналізу"),
+    ],
+)
+def test_paradigm_wide_stems(converter: Converter, source: str, target: str) -> None:
+    assert converter.convert(source, N2T).text == target
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [
+        ("аргумента", "аргумэнту"),
+        ("інструмента", "інструмэнту"),
+        ("сегмента", "сэгмэнту"),
+        ("сіндыката", "сындыкату"),
+        ("сіноніма", "сыноніму"),
+    ],
+)
+def test_71_genitive_singular_additions(converter: Converter, source: str, target: str) -> None:
+    assert converter.convert(source, N2T).text == target
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [("камп’ютэр", "камп’ютар"), ("камп’ютэра", "камп’ютара"), ("кампутар", "камп’ютар")],
+)
+def test_53_computer_variant_normalises_only_backwards(
+    converter: Converter, source: str, target: str
+) -> None:
+    """камп’ютэр is a recognised Taraškievica variant, not a Narkamaŭka spelling, so it
+    is read on the way back and never produced on the way out."""
+    assert converter.convert(source, T2N).text == target
+    assert converter.convert("камп’ютар", N2T).text == "кампутар"
+
+
+@pytest.mark.parametrize(
+    "word",
+    ["бюджэту", "візіту", "транзіту", "дэпазіту", "аналізу", "крэдыту", "дызайну", "дэфіцыту"],
+)
+def test_71_leaves_alone_what_narkamauka_already_writes_with_u(
+    converter: Converter, word: str
+) -> None:
+    """GrammarDB gives these -у in Narkamaŭka already, so §71 has nothing to move."""
+    assert converter.convert(word, N2T).text.endswith("у")
+
+
+def test_71_does_not_reach_a_concrete_animate_noun(converter: Converter) -> None:
+    """§71 covers abstractions and institutions. A parasite is neither, and its
+    genitive -а is obligatory."""
+    assert converter.convert("паразіта", N2T).text == "паразыта"
+
+
 def test_aggressive_explain_names_the_rule(converter: Converter) -> None:
     ex = converter.explain("Сала і цыбуля", N2T, aggressive=True)
     assert [(e.source, e.target, e.rule_id) for e in ex][1] == ("і", "й", "morph.conj_i_j")

@@ -19,19 +19,25 @@ group: loanwords
 rules:
   # ---------------------------------------------------------------- N → T
   - id: loan.eu
-    description: "Word-initial еў → эў in loanwords and classical names: Еўропа → Эўропа, Еўклід → Эўклід"
+    description: "Word-initial еў/еу → эў/эу: Еўропа → Эўропа, Еурапейская → Эурапейская"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §52: Greek ευ / Latin eu → эў (эўфарыя, Эўклід, Эўропа, Эўфрат). Out of scope
     # (§52 "але даўно асвоеныя імёны …"; §72 Заўвага А, footnote 68): traditional Christian
     # given names, borrowed through Church Slavonic, which keep Е- (Еўдакія – Аўдоцьця,
     # Е(ў)фрасіньня – Эўфрасіньня). That class is not visible in the spelling, so it is
     # excluded by the stems of the names the book gives.
-    pattern: '^еў(?!дакі|фрасін)'
-    replacement: 'эў'
+    #
+    # Both ў and plain у are matched. Belarusian writes ў after a vowel, so Еуропа is a
+    # misspelling of Еўропа — but it is one people type, and the е is wrong either way.
+    # Only the е is rewritten, so whichever u the input used survives.
+    pattern: '^е(?=[ўу])(?![ўу](?:дакі|фрасін))'
+    replacement: 'э'
     priority: 185
     tests:
       positive:
         - { input: "еўропа", expected: "эўропа" }
+        - { input: "еурапейская", expected: "эурапейская" }
+        - { input: "еуропа", expected: "эуропа" }
         - { input: "еўрапейскі", expected: "эўрапейскі" }
         - { input: "еўклід", expected: "эўклід" }
         - { input: "еўфрат", expected: "эўфрат" }
@@ -185,8 +191,8 @@ rules:
   - id: loan.eu_reverse
     description: "Word-initial эўр → еўр: Эўропа → Еўропа"
     direction: taraskievica_to_narkamauka
-    pattern: '^эў(?=р)'
-    replacement: 'еў'
+    pattern: '^э(?=[ўу]р)'
+    replacement: 'е'
     priority: 185
     exceptions:
       - эўрыстыка
@@ -194,5 +200,6 @@ rules:
     tests:
       positive:
         - { input: "эўропа", expected: "еўропа" }
+        - { input: "эурапейская", expected: "еурапейская" }
       negative:
         - { input: "эўрыстыка", expected: "эўрыстыка" }

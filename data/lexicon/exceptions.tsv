@@ -98,3 +98,55 @@
 аналагам	аналёгам
 аналагі	аналёгі
 аналагаў	аналёгаў
+
+# --- Genitive singular -у (§71). Taraškievica gives masculine loanwords naming
+# --- institutions, abstractions and structural concepts the genitive singular -у/-ю
+# --- where Narkamaŭka writes -а: унівэрсытэту, інстытуту, парлямэнту.
+# --- A whitelist, for the same reason the genitive plural in -аў is one: nothing in the
+# --- spelling of a word says whether it is an abstraction or a countable thing, and
+# --- masculine -а is also the ending of concrete nouns that keep it. Guessing the class
+# --- from the form would rewrite ordinary text. Extending the list is one line per word.
+# ---
+# --- Forward-only (n2t), and that asymmetry is the whole point: Narkamaŭka -а is
+# --- unambiguously the genitive, but Taraškievica -у is genitive *or* dative, and
+# --- Narkamaŭka spells the dative -у too. Mapping it back would turn "дзякуючы
+# --- інстытуту" into "дзякуючы інстытута". Going T → N the ending is left alone:
+# --- under-converting an ambiguous form beats corrupting an unambiguous one.
+інстытута	інстытуту	n2t
+парламента	парлямэнту	n2t
+аргумента	аргумэнту	n2t
+інструмента	інструмэнту	n2t
+сегмента	сэгмэнту	n2t
+сіндыката	сындыкату	n2t
+сіноніма	сыноніму	n2t
+# --- Checked against GrammarDB rather than assumed: бюджэт, візіт, транзіт, дэпазіт,
+# --- крэдыт, дэфіцыт, дызайн, візіт, крызіс and аналіз already take -у in Narkamaŭka,
+# --- so there is
+# --- nothing to convert. паразіт is deliberately absent — §71 covers abstractions and
+# --- institutions, and a parasite is a concrete animate noun whose -а is obligatory.
+# --- праект is absent for the same reason, and it is the clearest case: the word is
+# --- abstract in one use and concrete in another. «без пісьмовай згоды праекта» names
+# --- an entity and keeps -а; a design or plan would take -у. Nothing in the form says
+# --- which, and adding it cost the project its only N → T false positive.
+
+# --- крытэрый → крытэр (§11б). A lemma change, not a stem change: Narkamaŭka's -ый
+# --- noun has a -ыя/-ыю/-ыем declension and Taraškievica's is a plain hard-stem
+# --- masculine, so every form is mapped explicitly. Forward only — крытэру is the
+# --- genitive *and* the dative, and Narkamaŭka spells the dative крытэрыю.
+крытэрый	крытэр	n2t
+крытэрыя	крытэру	n2t
+крытэрыю	крытэру	n2t
+крытэрыем	крытэрам	n2t
+крытэрыі	крытэры	n2t
+крытэрыяў	крытэраў	n2t
+крытэрыям	крытэрам	n2t
+крытэрыямі	крытэрамі	n2t
+крытэрыях	крытэрах	n2t
+
+# --- камп’ютэр is a recognised Taraškievica variant (§53 prefers кампутар). Narkamaŭka
+# --- writes камп’ютар, so this only ever runs T → N: the variant normalises, and the
+# --- forward direction is left to the `камп’ютар` stem.
+камп’ютар	камп’ютэр	t2n
+камп’ютара	камп’ютэра	t2n
+камп’ютары	камп’ютэры	t2n
+камп’ютараў	камп’ютэраў	t2n

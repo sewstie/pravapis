@@ -38,7 +38,14 @@ from pravapis.rules.morphology import (
     convert_particle,
 )
 from pravapis.stress import StressTable
-from pravapis.tokenize import context_of, is_belarusian_word, next_word, previous_word, tokenize
+from pravapis.tokenize import (
+    bridges_words,
+    context_of,
+    is_belarusian_word,
+    next_word,
+    previous_word,
+    tokenize,
+)
 from pravapis.translit import PAIRED, REVERSIBLE, Transliterator, detect_script
 from pravapis.translit.engine import TransliterationResult
 from pravapis.types import (
@@ -66,6 +73,9 @@ CACHE_LIMIT: Final[int] = 200_000
 CONTEXT_SENSITIVE: Final[frozenset[str]] = (
     frozenset(PARTICLES_N2T) | frozenset(PARTICLES_T2N) | SOFTENING_PREPOSITIONS
 )
+
+#: Shared empty context, so the no-classifier path allocates no list per token.
+_NO_CONTEXT: Final[list[Token]] = []
 
 #: (lowercase target, method, rule ids) for a context-free word.
 Resolved = tuple[str, Method, str | None]
@@ -281,14 +291,24 @@ class Converter:
         # Words the deterministic stages could not resolve are batched through
         # the classifier once per call: one predict_proba, not one per word.
         pending: list[tuple[int, int, Token, list[Token]]] = []
+        # The neighbouring-word context exists only to featurise a word for the
+        # classifier. With no classifier loaded — the default — building it for every
+        # token is the single largest cost in the hot path and is thrown away.
+        wants_context = self.disambiguator is not None
         for i, tok in enumerate(tokens):
             if tok.kind is not TokenKind.WORD:
                 out.append(tok.text)
                 continue
-            ctx = context_of(tokens, i)
-            conv = self._cascade(
-                tok, ctx, next_word(tokens, i), direction, previous_word(tokens, i)
-            )
+            ctx = context_of(tokens, i) if wants_context else _NO_CONTEXT
+            # The neighbouring words are read only by the clitic rules (не/без/з) and by
+            # the case-dependent lexicon. Both are keyed on the word itself, so scanning
+            # for neighbours around every token is work thrown away for all but a few.
+            lw = tok.text.lower()
+            if lw in CONTEXT_SENSITIVE or lw in self.case_forms:
+                following, preceding = next_word(tokens, i), previous_word(tokens, i)
+            else:
+                following = preceding = None
+            conv = self._cascade(tok, ctx, following, direction, preceding, lw)
             if conv is None:
                 pending.append((len(conversions), i, tok, ctx))
             words.append((i, len(conversions)))
@@ -383,15 +403,13 @@ class Converter:
         prev: int | None = None
         for i, tok in enumerate(tokens):
             if tok.kind is TokenKind.WORD:
-                if prev is not None and all(
-                    tokens[j].kind is TokenKind.SPACE for j in range(prev + 1, i)
-                ):
+                if prev is not None and all(bridges_words(tokens, j) for j in range(prev + 1, i)):
                     new = conjunction_i_to_j(tok.text, out[prev])
                     if new is not None:
                         changes.append((i, new))
                         out = [*out[:i], new, *out[i + 1 :]]
                 prev = i
-            elif tok.kind is not TokenKind.SPACE:
+            elif not bridges_words(tokens, i):
                 prev = None
         return changes
 
@@ -432,6 +450,7 @@ class Converter:
         following: Token | None,
         direction: Orthography,
         preceding: Token | None = None,
+        lw: str | None = None,
     ) -> Conversion | None:
         """Steps 1-3 and 5 of the cascade; None means "ask the classifier" (step 4).
 
@@ -442,7 +461,8 @@ class Converter:
         source = token.text
         if not is_belarusian_word(token):
             return Conversion(source, source, Method.UNKNOWN)
-        lw = source.lower()
+        if lw is None:
+            lw = source.lower()
         if direction is Orthography.TARASKIEVICA and lw in self.case_forms:
             # One form, several cases, different Taraškievica endings: the preposition
             # before it decides (Германіі → Нямеччыны / у Нямеччыне).

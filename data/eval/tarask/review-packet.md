@@ -20,10 +20,10 @@ None — the two files agree.
 
 ## 3. Two cited sections pointing different ways
 
-- **эўрапейскі or эўрапэйскі?** §52 gives еў → эў; §11б gives е → э after a consonant. Applying both gives эўрапэйскі, which is what be-tarask writes; the project's codification test expects эўрапейскі. Which is used?
-- **мадрыдзкі or мадрыдскі?** The corpus writes мадрыдзкі; no section was found licensing дз before с here. Is мадрыдзкі right, and does it generalise (бэрлінскі/бэрлінзкі, лёнданскі/лёнданзкі)?
-- **Genitive plural -аў**: хвілін or хвілінаў, краін or краінаў? The project converts краінаў only, on instruction, and leaves every other noun alone. Is -аў general, or does it depend on the noun?
-- **Softness across a hyphen**: §29 limits assimilative softness to "у межах слова". In a compound like сьвятлова-зялёны, does the softness of the first part carry?
+    - **эўрапейскі or эўрапэйскі?** §52 gives еў → эў; §11б gives е → э after a consonant. Applying both gives эўрапэйскі, which is what be-tarask writes; the project's codification test expects эўрапейскі. Which is used?
+    - **мадрыдзкі or мадрыдскі?** The corpus writes мадрыдзкі; no section was found licensing дз before с here. Is мадрыдзкі right, and does it generalise (бэрлінскі/бэрлінзкі, лёнданскі/лёнданзкі)?
+    - **Genitive plural -аў**: хвілін or хвілінаў, краін or краінаў? The project converts краінаў only, on instruction, and leaves every other noun alone. Is -аў general, or does it depend on the noun?
+    - **Softness across a hyphen**: §29 limits assimilative softness to "у межах слова". In a compound like сьвятлова-зялёны, does the softness of the first part carry?
 
 
 ## 4. Is the gold set trustworthy at all?

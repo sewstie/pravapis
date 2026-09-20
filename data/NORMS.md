@@ -51,6 +51,181 @@ It is wrong: the suffix **-ейск- keeps its е** whatever the root does, as i
 асамблейскі. `e_to_eh` exempts it explicitly, so the rule stays right when the stem
 inventory grows to cover such words.
 
+## Resolved: the three leads from the baltoslav comparison
+
+Ruled on by the project owner; two of the three were the other implementation's error.
+
+### універсітэта → унівэрсытэту — correct, §71
+Taraškievica gives masculine loanwords naming institutions, abstractions and structural
+concepts the genitive singular **-у/-ю** where Narkamaŭka writes -а. The vowel shift of the
+stem is ordinary §11б + §67 (універсітэт- → унівэрсытэт-); the ending is §71.
+
+Held as a **whitelist** in `data/lexicon/exceptions.tsv`, on the same reasoning as the
+genitive plural in -аў: nothing in the spelling says whether a masculine noun is an
+abstraction or a countable thing, and -а is also the ending of concrete nouns that keep it.
+
+It is **forward-only**, and the asymmetry is the point. Narkamaŭka -а is unambiguously the
+genitive, so N → T is safe. Taraškievica -у is genitive *or* dative and Narkamaŭka spells
+the dative -у as well, so T → N cannot tell them apart from the form alone. Mapping it back
+would turn *дзякуючы інстытуту* into *дзякуючы інстытута*. The ending is left alone in that
+direction. `lex.case_context` could guess from a preceding dative preposition, but it would
+still corrupt a bare dative after a verb (*дапамагаць унівэрсытэту*), so it is not used
+here. The measured cost is one word of T → N gold — under-converting an ambiguous form
+beats corrupting an unambiguous one.
+
+### цюркскага — already correct; no change
+§46 limits the т/д/ц/ч → цк/дзк merger to dental and sibilant stem endings. A velar к or г
+before -ск- does not mutate to цк; it either drops (цюрскі) or the root is kept whole
+(цюркскі). *цюрцкага* would imply a stem in т or ч, as in турэцкі, which a direct loan does
+not have. The converter already leaves цюркскі alone — baltoslav is the side that changes it.
+
+### лідар → лідэр — already correct; no change
+The foreign suffix -ер after a hard consonant keeps its э in Taraškievica — лідэр,
+кампутэр, прынтэр — rather than Narkamaŭka's -ар. The lexicon entry stands.
+
+## Resolved: §47–§49, the prosthetic в and г — no rules, by measurement
+
+Both orthographies write the prosthetic consonant identically, so **this section describes
+the language, not a difference between the two spellings**, and a converter has nothing to
+do. Checked form by form and locked in by test:
+
+- §47 в before a stressed о — вока, вожык, восем, вобраз — same on both sides.
+- §47 Заўвага А, the alternating path (во́зера → азё́ры, в drops with the stress) and the
+  fixed path (во́ка → вачні́цы, в stays) — both already written that way in Narkamaŭka too.
+- §47's negatives — оптыка, опцыён, опера, ордэн, ого, ой — untouched in both directions.
+- §48–§49, в before у (вуха, вучань, вуліца) and the г of гэты/гэны — likewise.
+- §47 Заўвага Б's doublets — араць/гараць, арэх/гарэх, востры/гостры — are **permitted
+  variants**, so the optional-forms policy above forbids rewriting either way. The converter
+  passes all of them through.
+
+The value here is the regression test, not a rule:
+`test_47_49_prosthetic_consonants_are_not_an_orthography_difference`. The risk this guards
+against is a future rule reaching one of these forms by accident.
+
+## Resolved: §68 — word-final -сія / -зія keeps its і soft
+
+§67 hardens і to ы after с and з inside a loan root — сыстэма, сытуацыя, клясычны, фізык,
+візыт. §68 stops that at the **word-final nominal suffix -сія / -зія**, where the consonant
+is soft and і is written: пэнсія, агрэсія, рэцэнзія, прэтэнзія, дывізія, гімназія, Азія.
+
+Two things were wrong and both are fixed.
+
+**The suffix was hardening.** Three stems — `дывізі`, `гімназі`, `азіяц` — turned the
+suffix's і into ы. All three were provenance `reviewed`, a generalisation from §67 rather
+than anything §67 cites, and `-агрэсі` did the same to агрэсія and прагрэсія. The held-out
+corpus settles it: `data/eval/tarask/corpus.tsv` is 7,378 words of genuine
+be-tarask.wikipedia.org text and writes **дывізія, дывізіяў, гімназія, Азіі, Азіяцкай,
+неагрэсіі — 13 soft forms and not one ы**. The four stems are gone. §67's own cited
+examples (`класі`, `фізі`) stay: клясычны and фізык are not -сія nouns.
+
+**The paradigm fell through.** пенсія and пенсіянер were single rows in `loanwords.tsv`,
+so only the nominative converted — пенсіі, пенсію, пенсіямі, пенсіянеры were left
+untouched. They are stems now (`пенс`, `пенсіянер`, `інданез`, alternation `e`), which
+hardens the stem's е to э across every case while leaving the suffix's і alone.
+
+The same fall-through still affects the `-ер`/`-ар` suffix: `лідар → лідэр` converts but
+`лідары → лідары` does not, and `інжынер`, `мільянер` are untouched entirely. Unruled.
+
+## Resolved: the independent gold had been run through the converter
+
+`data/eval/tarask/gold_t2n.tsv` promises in its own header that the Taraškievica column is
+genuine be-tarask.wikipedia.org text, "not derived from any Narkamaŭka source". The entire
+independent T → N figure rests on that. 28 of its 150 rows had drifted from `corpus.tsv`
+by 50 character edits, all of them changes this converter makes: 11 × `і → й` (the
+**optional** §13 rule), 10 × `і → ы`, inserted and deleted `ь`, one `ґ → г` — the project's
+own ґ policy — and 7 vocabulary swaps. The gold's *input* had been converted.
+
+All 28 were restored from the corpus; the hand-written Narkamaŭka column was untouched.
+The reported figure went 94.7% → 99.6%, and the rise is an artefact: the repair removed 26
+change-opportunities that should never have existed (264 → 238), the vocabulary swaps among
+them. `test_independent_gold_taraskievica_column_is_the_untouched_corpus` now asserts every
+Taraškievica column appears verbatim in `corpus.tsv`.
+
+The one remaining error on that set is `еўрапйскім` — a typo in the gold's Narkamaŭka
+column, not a converter error. Left alone: the Narkamaŭka column is hand-written and is
+not mine to edit. The set is saturated and no longer discriminates; it needs to grow.
+
+## Resolved: paradigm-wide stems replace single-form lexicon rows
+
+`scripts/check_paradigms.py` converts every form of every GrammarDB paradigm and asks what
+the forms' shared stem became. All must answer the same: пенсія → пэнсі- while пенсіі →
+пенсі- is a contradiction visible without any gold. With `--lexicon-only` it found **365**
+paradigms where a lexicon row covered the citation form and nothing else — расійскі
+converted, расійскага did not. Stems now carry them, and the count is **261**.
+
+Adjectives went 107 → 24 on six stems: `-расійск`→расейск, `-лагічн` (l), `-метад` (e),
+`-медыцын` (e), `-іспанск`→гішпанск, `філа` (l). Two compounds need their own entry
+because **only the longest single stem matches a word** — філалагічны and метадалагічны
+each carry two changes.
+
+Also added: the §68 abstract matrices (`дыферэнц`, `канферэнц`), the agentive -ер/-ор
+group (лідэр, мэнэджэр, прынтэр, рэжысэр, трыгэр), and toponyms (`лондан`, `сідней`,
+`сілез`, `сіцылі`, `сімон`, `тыбет`, `гамбургск`→гамбурск, `эдынбургск`→эдынбурск).
+
+Three details that cost a test each:
+
+- **`сілез`, not `сілезі`.** The stem must end before the suffix's own і, or і → ы reaches
+  it and gives Сылезыя. §68 keeps that і soft.
+- **`сімон` is `i:n2t`.** Сымон is also a Belarusian given name Narkamaŭka spells that way
+  — Сымон Будны, «Касьцёл Сьвятых Сымона і Алены» — so the reverse must never fire. It did,
+  and it was the project's first false positive in either direction.
+- **`крызіс` → `крызыс` after all.** §67 hardens after з; the earlier reading of §68 was
+  wrong and has been reversed by the project owner. The old lexicon row was still a
+  defect — it converted крызіс and left крызісу and крызісны — so it is a stem now, and
+  `gold.tsv` is back to `Крызыс мінуў.`, which the hand review had right.
+
+### §71 checked against GrammarDB rather than assumed
+Of thirteen nouns proposed for the genitive -у whitelist, GrammarDB shows **бюджэт, візіт,
+транзіт, дэпазіт, крэдыт, дэфіцыт, дызайн and аналіз already take -у in Narkamaŭka** —
+there is nothing to convert, and the -а forms proposed for them are not Narkamaŭka words.
+Five were added: аргумэнту, інструмэнту, сэгмэнту, сындыкату, сыноніму. **паразіт was
+refused**: §71 covers abstractions and institutions, and a parasite is a concrete animate
+noun whose genitive -а is obligatory.
+
+### Two gold corrections this produced
+The new reverse mappings exposed six rows of `gold_t2n.tsv` whose *Narkamaŭka* column still
+held Taraškievica spellings — геалягічным, рэжысэра/рэжысэрам, філязофіі, расейскай,
+археалягічны. `check_gold_t2n.py` flagged them the moment the converter could see them;
+the Narkamaŭka column now reads геалагічным, рэжысёра, філазофіі, расійскай, археалагічны.
+Row 39's Narkamaŭka side still carries мэдычным, Цюбінгэнскага and ўнівэрсытэту, which no
+rule reaches yet, so that column is not fully converted even now.
+
+`gold.tsv` had `Крызіс мінуў. / Крызыс мінуў.` marked `hand_written`. §68 says крызіс does
+not change, so the Taraškievica column was corrected — a newer ruling overriding an older
+hand review, recorded here because that is not something to do silently.
+
+## Refused: a blanket genitive -у for "masculine abstract" nouns
+
+§71 moves the genitive singular of masculine **abstract** loanwords to -у. There is no
+mechanical test for "abstract", and the evidence is direct rather than theoretical:
+
+- GrammarDB marks gender and animacy but not abstractness. Masculine + inanimate +
+  genitive -а gives **25,475** lemmas, `горад` and `стол` among them.
+- Narrowing to lemmas our loan stem inventory matches gives **281** — still `бераг`,
+  `балкон`, `бланк`, `блок`, `атлас`: concrete objects whose -а is correct. Applying -у
+  to them yields *берагу*, *балкону*, *бланку*.
+- Narrowing again by abstract derivational suffix (-ізм, -мент, -цыя, -ура, -аж, -ітэт …)
+  leaves **7**, two of which are already whitelisted, and the rest are -ізм nouns whose
+  genitive is contested in Narkamaŭka itself.
+
+So the whitelist is close to complete for the abstractions this inventory covers, and a
+blanket rule buys ~5 words at the cost of corrupting ordinary text — the same trade the
+genitive plural in -аў was already refused for. Whitelisted: унівэрсытэту, інстытуту,
+парлямэнту, аргумэнту, інструмэнту, сэгмэнту, сындыкату, сыноніму. Extending it is one
+line per word.
+
+`крытэрый → крытэр` is in `exceptions.tsv` form by form rather than as a stem: it is a
+lemma change, and Narkamaŭka's -ый noun has a -ыя/-ыю/-ыем declension where Taraškievica's
+is a plain hard-stem masculine. `аналіз` stays masculine by default — the feminine аналіза
+is the historical variant — and its genitive is already -у in Narkamaŭka, so nothing moves.
+
+### §53 кампутар
+кампутар is the preferred form, the direct borrowing without the iotated vowel. The
+recognised variant камп’ютэр is carried as **t2n** rows: it is a Taraškievica spelling, not
+a Narkamaŭka one, so it is read on the way back and never produced on the way out. It
+cannot be a second stem — `reverse_collisions` forbids two stems deriving one reverse key,
+and correctly so, since кампутар must come back as one spelling.
+
 ## Assimilative softness — `data/rules/palatalization.yaml`
 
 ### palat.apostrophe
@@ -151,6 +326,18 @@ inventory grows to cover such words.
 - does: ы after з/с in a curated list of Greco-Latin stems: сістэма → сыстэма, класічны → класычны
 - source: Збор 2005, §67 (сыстэма, сытуацыя, сынонім, сыгнал, клясычны, фізык, візыт, дэпазыт);
   §66 marks where і stays (расізм, марксізм)
+- **§67 Заўвага А** overrides both, in both directions, through `data/lexicon/stems/stems.tsv`:
+  - *fixed hard* — loans settled here long enough that ы is written whatever the usual
+    conditions say: кармазын, кузына, магазын, разынкі, экзыль. Carried as `loan` stems with
+    the `i` alternation, so the inflected forms follow (магазіна → магазына).
+  - *fixed soft* — кракадзіл, лаціна, and the homonym pairs і is what keeps apart:
+    Дзіна ≠ дына, сіці ≠ сыты ≠ сыці, цік ≠ тык. Carried as `native` stems. Nothing converts
+    them today; the entries are there so that no stem added later can, since і → ы would
+    collapse each of those pairs into one word.
+  - `native` here means only "the loanword alternations do not apply". кракадзіл is a
+    borrowing; its і is simply permanent.
+- **§67 Заўвага Б** needs no entries: the ы of a Slavic root is already written in Narkamaŭka
+  (гусіт stays, хвасцізм → хвасьцізм), so the alternation never has cause to fire.
 
 ### loan.stem_target
 - direction: narkamauka → taraskievica
@@ -282,6 +469,15 @@ inventory grows to cover such words.
 - does: reverse of morph.dsk_to_dzk — мадрыдзкі → мадрыдскі
 - source: inverse of morph.dsk_to_dzk — Збор 2005, §46
 
+### morph.ejsk_normalise
+- direction: taraskievica → narkamauka
+- does: -эйск- → -ейск-, so эўрапэйскі → еўрапейскі
+- source: Збор 2005 §11б, заўвага — the adjective suffix -ейск- keeps its е after a hard
+  consonant. эўрапэйскі is therefore an error, not a variant: be-tarask produces it by
+  applying §11б where the заўвага exempts the suffix.
+- the forward direction can never produce -эйск- (`e_to_eh` exempts the suffix), so this
+  only normalises input that arrives wrong.
+
 ### morph.preposition.z
 - direction: taraskievica → narkamauka
 - does: зь / безь / празь / церазь → з / без / праз / цераз
@@ -309,10 +505,18 @@ These need the neighbouring word, so they run in the pipeline rather than the YA
 ### morph.conj_i_j
 - direction: narkamauka → taraskievica
 - does: **optional** (aggressive mode only): the conjunction/particle і → й after a word ending
-  in a vowel, with only whitespace between: сала і цыбулю → сала й цыбулю. After punctuation it
-  stays і; a word-initial і- is never touched.
+  in a vowel: сала і цыбулю → сала й цыбулю. After punctuation it stays і; a word-initial
+  і- is never touched.
+- **hyphens and quotation marks do not count as punctuation here.** §13's Заўвага takes them
+  out of the way — "злучок і двукоссе не з'яўляюцца знакамі прыпынку і на правапіс й не
+  ўплываюць" — so the vowel still reaches the conjunction across them:
+  адна- і шматмоўныя → адна- й шматмоўныя, «Паўлінка» і «Тутэйшыя» → «Паўлінка» й «Тутэйшыя».
+  A dash (працяжнік) is a punctuation mark and does block it. The two are the same character
+  on an ASCII keyboard, so `bridges_words` in `tokenize.py` separates them by position: a
+  hyphen written against a word is a злучок, a hyphen with space on both sides is a dash.
 - source: Збор 2005, §13 ("Пасьля словаў, якія канчаюцца на галосны, злучнік і часьцінка і
-  складовае **можа** пераходзіць у й нескладовае … Пачатковае і- … пішацца нязьменна")
+  складовае **можа** пераходзіць у й нескладовае … Пачатковае і- … пішацца нязьменна"),
+  and its Заўвага for the hyphen and quotation-mark carve-out.
 
 ### morph.particle
 - direction: narkamauka → taraskievica
