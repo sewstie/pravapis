@@ -45,6 +45,7 @@ from pravapis.metrics import (
     write_audit,
 )
 from pravapis.pipeline import Converter
+from pravapis.translit import detect_script
 from pravapis.types import Method, Orthography, Script
 
 app = typer.Typer(
@@ -185,12 +186,19 @@ def translit(
         str | None, typer.Argument(help="Text to transliterate (or use --file / stdin).")
     ] = None,
     to: Annotated[
-        str,
-        typer.Option("--to", help="Target script: lacinka, official, or cyrillic."),
-    ] = "lacinka",
+        str | None,
+        typer.Option(
+            "--to",
+            help="Target script: lacinka, official or cyrillic. "
+            "Defaults to lacinka, or to cyrillic when --from is given.",
+        ),
+    ] = None,
     from_: Annotated[
         str | None,
-        typer.Option("--from", help="Source script when reading Latin back (lacinka)."),
+        typer.Option(
+            "--from",
+            help="Source script when reading Latin back: lacinka, or 'auto' to detect it.",
+        ),
     ] = None,
     no_convert: Annotated[
         bool,
@@ -217,14 +225,35 @@ def translit(
         pravapis translit "снег" --to lacinka --no-convert  # snieh
         pravapis translit "снег" --to official              # snieh
         pravapis translit "śnieh" --from lacinka            # сьнег
+        pravapis translit "śnieh" --from auto                # detects Łacinka
+        pravapis translit "śnieh" --from lacinka --to official  # snieh
     """
     converter = _converter(config)
     source = _read_input(text, file)
+    # Reading a script and naming no target means "back to Cyrillic" — the only reading
+    # that does anything. Writing one defaults to Łacinka.
+    to = to or ("cyrillic" if from_ is not None else "lacinka")
 
     if from_ is not None:
-        script = _script(from_)
-        direction = _direction(orthography) if orthography else None
-        output = converter.read_script(source, script, direction)
+        if from_.strip().lower() == "auto":
+            found = detect_script(source)
+            if found.script is None:
+                errors.print(f"[red]cannot detect the script: {found.reason}[/red]")
+                raise typer.Exit(2)
+            if not found.certain:
+                errors.print(
+                    f"[yellow]assuming {found.script.value}: {found.reason}[/yellow] "
+                    "Pass --from explicitly if that is wrong."
+                )
+            script = found.script
+        else:
+            script = _script(from_)
+        target = _script(to)
+        if target is Script.CYRILLIC:
+            direction = _direction(orthography) if orthography else None
+            output = converter.read_script(source, script, direction)
+        else:
+            output = converter.transcode(source, target, from_script=script)
     else:
         output = converter.render(source, _script(to), convert=not no_convert)
 

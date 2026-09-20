@@ -80,10 +80,14 @@ def test_every_scheme_declares_a_source() -> None:
 
 def test_translit_md_documents_no_scheme_that_is_gone() -> None:
     names = {load_scheme(p).name for p in _scheme_files()}
+    # Only headings shaped like a scheme id count; the file also has prose sections
+    # ("Detecting the script", "Policy: …") whose titles are sentences, not names.
     documented = {
-        line[3:].strip().split()[0]
+        word
         for line in TRANSLIT.read_text(encoding="utf-8").splitlines()
-        if line.startswith("## ") and not line[3:].startswith(("Script", "Policy"))
+        if line.startswith("## ")
+        for word in [line[3:].strip().split()[0]]
+        if word.islower() and word.isidentifier()
     }
     assert documented <= names, (
         f"TRANSLIT.md documents schemes that no longer exist: {documented - names}"

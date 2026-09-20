@@ -119,6 +119,36 @@ Everything else has the same shape.
 
 ---
 
+## Detecting the script
+
+`pravapis.translit.detect_script` returns the script plus **whether the evidence actually
+settled it**. Cyrillic is decided by the alphabet. The two Latin schemes share almost
+everything — š, č, ž, ŭ, ś, ź, ć, ń and every digraph — and differ in one place that
+occurs constantly in running text:
+
+| | hard л | soft ль |
+|---|---|---|
+| Łacinka | `ł` | `l` |
+| official 2007 | `l` | `ĺ` |
+
+So `ł` means Łacinka and `ĺ` means the 2007 scheme. A Latin text with **neither** is
+genuinely ambiguous — usually too short to contain an л at all — and detection says so
+rather than picking one, because guessing wrong silently corrupts every l in the output.
+A text with **both** belongs to no scheme and is refused outright.
+
+## Scheme to scheme
+
+`Converter.transcode` converts between writing systems, detecting the source if not told.
+Latin → Latin goes through Cyrillic **and through both orthographies**, because the two
+Latin schemes are paired with different ones:
+
+    śnieh  →  сьнег  →  снег  →  snieh
+    Łacinka   Taraškievica  Narkamaŭka  official 2007
+
+Skipping the orthography step would hand the official scheme a Taraškievica input and
+produce a spelling neither convention uses. Only schemes in `REVERSIBLE` can be read
+*from*, so Łacinka → official works and official → Łacinka does not.
+
 ## Policy: a scheme is a table, not code
 
 Schemes are YAML with inline tests, read by `pravapis.translit.engine`. Conditions are a

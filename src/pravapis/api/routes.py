@@ -72,6 +72,14 @@ def transliterate(req: TransliterateRequest, converter: ConverterDep) -> Transli
                     "not write assimilative softness, so the reverse would not round-trip"
                 ),
             )
+        # Latin → Latin goes through Cyrillic and through both orthographies, because the
+        # two Latin schemes are paired with different ones. See data/TRANSLIT.md.
+        if req.script.is_latin and req.script is not req.from_script:
+            return TransliterateResponse(
+                text=converter.transcode(req.text, req.script, from_script=req.from_script),
+                script=req.script,
+                direction=PAIRED[req.script],
+            )
         text = converter.read_script(req.text, req.from_script, req.direction)
         return TransliterateResponse(text=text, script=Script.CYRILLIC, direction=req.direction)
     if req.script is Script.CYRILLIC:

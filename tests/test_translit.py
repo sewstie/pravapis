@@ -21,6 +21,7 @@ from pravapis.translit import (
     PAIRED,
     REVERSIBLE,
     Transliterator,
+    detect_script,
     scheme_path,
 )
 from pravapis.translit.engine import (
@@ -288,3 +289,71 @@ def test_sanitize_is_idempotent_per_script(script: Script) -> None:
     for text in ("сьнег", "śnieh", "Eŭropa", "аб’ява"):
         once = sanitize(text, script)
         assert sanitize(once, script) == once
+
+
+# --- detection ---------------------------------------------------------------------------
+def test_cyrillic_is_detected_by_alphabet() -> None:
+    d = detect_script("Сьнег і сьвет у Эўропе")
+    assert d.script is Script.CYRILLIC and d.certain
+
+
+def test_lacinka_is_told_from_official_by_hard_l() -> None:
+    """The two schemes differ in one place that occurs often: ł vs l for hard л."""
+    lac = detect_script("Čałaviek i jahonyja pravy")
+    off = detect_script("Zeĺva i Svislač")
+    assert lac.script is Script.LACINKA and lac.certain
+    assert off.script is Script.OFFICIAL and off.certain
+
+
+def test_latin_without_l_is_admitted_to_be_ambiguous() -> None:
+    """Both schemes spell this identically, so the honest answer is 'not sure'."""
+    d = detect_script("śnieh i śviet")
+    assert d.script is Script.LACINKA
+    assert not d.certain, "a guess must not be reported as settled"
+
+
+def test_text_with_both_markers_is_refused() -> None:
+    """ł is Łacinka's and ĺ is the 2007 scheme's; no scheme writes both."""
+    d = detect_script("Zeĺva i Śvisłač")
+    assert d.script is None and not d.certain
+    assert "both" in d.reason
+
+
+def test_empty_text_detects_nothing() -> None:
+    d = detect_script("   123 ...")
+    assert d.script is None and not d
+    assert "no letters" in d.reason
+
+
+def test_detection_is_not_fooled_by_a_stray_latin_word() -> None:
+    d = detect_script("Гурт «Pink Floyd» у Менску")
+    assert d.script is Script.CYRILLIC
+
+
+# --- scheme to scheme --------------------------------------------------------------------
+def test_latin_to_latin_goes_through_both_orthographies(converter: Converter) -> None:
+    """Łacinka is paired with Taraškievica and the 2007 scheme with Narkamaŭka, so a
+    scheme swap is also an orthography swap: śnieh → сьнег → снег → snieh."""
+    assert converter.transcode("śnieh", Script.OFFICIAL, from_script=Script.LACINKA) == "snieh"
+
+
+def test_transcode_detects_the_source_when_not_told(converter: Converter) -> None:
+    assert converter.transcode("Śnieh i śviet", Script.CYRILLIC) == "Сьнег і сьвет"
+
+
+def test_transcode_to_the_same_script_is_a_no_op(converter: Converter) -> None:
+    assert converter.transcode("śnieh", Script.LACINKA, from_script=Script.LACINKA) == "śnieh"
+
+
+def test_transcode_from_cyrillic_is_just_render(converter: Converter) -> None:
+    assert converter.transcode("снег", Script.LACINKA) == converter.render("снег", Script.LACINKA)
+
+
+def test_cannot_transcode_out_of_a_forward_only_scheme(converter: Converter) -> None:
+    with pytest.raises((ValueError, SchemeError)):
+        converter.transcode("snieh", Script.LACINKA, from_script=Script.OFFICIAL)
+
+
+def test_transcode_refuses_text_it_cannot_place(converter: Converter) -> None:
+    with pytest.raises(ValueError):
+        converter.transcode("12345", Script.CYRILLIC)

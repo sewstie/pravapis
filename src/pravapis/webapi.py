@@ -160,6 +160,16 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
     # Reading a Latin script back: transliterate first, then convert. The orthography
     # the caller asked for is the one they get.
     if from_script is not None:
+        # Latin → Latin goes through Cyrillic and through both orthographies, because the
+        # two Latin schemes are paired with different ones. See data/TRANSLIT.md.
+        if script.is_latin:
+            return {
+                "result": converter.transcode(text, script, from_script=from_script),
+                "direction": PAIRED[script].value,
+                "from_script": from_script.value,
+                "script": script.value,
+                "aggressive": aggressive,
+            }
         return {
             "result": converter.read_script(text, from_script, direction),
             "direction": direction.value,

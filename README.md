@@ -224,6 +224,8 @@ $ pravapis translit "снег" --to official
 snieh
 $ pravapis translit "śnieh i śviet" --from lacinka
 сьнег і сьвет
+$ pravapis translit "śnieh i śviet" --from auto --to official
+snieh i sviet
 ```
 
 They are not independent in practice, and that is the design's one real decision.
@@ -237,6 +239,13 @@ idiomatic rather than merely legible. `--no-convert` transliterates the input as
 |---|---|---|
 | `lacinka` | both ways | Taraškievič, *Biełaruskaja hramatyka dla škoł* (1918), łacinka ed. |
 | `official` | forward only | Інструкцыя па транслітарацыі… (2000, amended 2007); UNGEGN 2012 |
+
+`--from auto` detects the script. Cyrillic is decided by the alphabet; the two Latin
+schemes are told apart by the one letter that distinguishes them — Łacinka writes hard л
+as `ł`, the 2007 scheme writes soft ль as `ĺ`. Text with neither is genuinely ambiguous
+and detection says so instead of guessing; text with both is refused. Scheme-to-scheme
+(`--from lacinka --to official`) routes through Cyrillic *and* both orthographies, since
+each Latin scheme is paired with a different one.
 
 `official` is forward-only on purpose: it does not write assimilative softness, so
 reading it back would be a guess about something the source never recorded, and this

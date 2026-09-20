@@ -18,6 +18,7 @@ this. It is a pure character-level pass, and the orthography step lives here.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Final
@@ -36,11 +37,15 @@ from pravapis.translit.engine import (
 from pravapis.types import Orthography, Script, TokenKind
 
 __all__ = [
+    "LACINKA_ONLY",
+    "OFFICIAL_ONLY",
     "PAIRED",
     "Scheme",
     "SchemeError",
+    "ScriptDetection",
     "TransliterationResult",
     "Transliterator",
+    "detect_script",
     "load_scheme",
     "reverse_scheme_name",
     "scheme_path",
@@ -128,4 +133,61 @@ def transliterate(text: str, script: Script, *, reverse: bool = False) -> str:
         Transliterator.load(script, reverse=reverse)
         .transliterate(sanitize(text, source_script))
         .text
+    )
+
+
+# --- detection ---------------------------------------------------------------------------
+#: Letters only Łacinka writes. Hard л is frequent in running Belarusian, so ł shows up in
+#: any real Łacinka sentence; the 2007 scheme spells the same sound plain l.
+LACINKA_ONLY: Final[frozenset[str]] = frozenset("łŁ")
+#: Letters only the 2007 scheme writes: ль is ĺ there and plain l in Łacinka.
+OFFICIAL_ONLY: Final[frozenset[str]] = frozenset("ĺĹ")
+
+
+@dataclass(frozen=True, slots=True)
+class ScriptDetection:
+    """What script a text is in, and whether the evidence actually settled it."""
+
+    script: Script | None
+    certain: bool
+    reason: str
+
+    def __bool__(self) -> bool:
+        return self.script is not None
+
+
+def detect_script(text: str) -> ScriptDetection:
+    """Guess the script of ``text``, saying plainly when it could not be settled.
+
+    Cyrillic is decided by the alphabet. The two Latin schemes share most of their
+    letters — š, č, ž, ŭ, ś, ź, ć, ń and the digraphs — and differ in exactly one place
+    that shows up often: Łacinka writes hard л as ``ł`` and soft ль as ``l``, while the
+    2007 scheme writes ``l`` and ``ĺ``. So ``ł`` means Łacinka and ``ĺ`` means official.
+
+    A Latin text with neither is genuinely ambiguous — usually because it is too short to
+    contain an л at all — and this says so rather than picking one. Guessing the scheme
+    wrong silently corrupts every soft l in the output.
+    """
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return ScriptDetection(None, False, "no letters")
+    cyrillic = sum(1 for c in letters if "Ѐ" <= c <= "ӿ")
+    if cyrillic > len(letters) / 2:
+        return ScriptDetection(Script.CYRILLIC, True, f"{cyrillic}/{len(letters)} Cyrillic")
+    found = set(text)
+    has_lacinka, has_official = found & LACINKA_ONLY, found & OFFICIAL_ONLY
+    if has_lacinka and has_official:
+        # ł belongs to Łacinka and ĺ to the 2007 scheme; no single scheme writes both,
+        # so this is mixed or mis-typed and picking either would corrupt half of it.
+        return ScriptDetection(None, False, "contains both ł and ĺ — no scheme writes both")
+    if has_lacinka:
+        return ScriptDetection(Script.LACINKA, True, "contains ł, which only Łacinka writes")
+    if has_official:
+        return ScriptDetection(
+            Script.OFFICIAL, True, "contains ĺ, which only the 2007 scheme writes"
+        )
+    return ScriptDetection(
+        Script.LACINKA,
+        False,
+        "Latin, but no ł or ĺ to tell the two schemes apart — too short, or it has no л",
     )

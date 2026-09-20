@@ -38,7 +38,7 @@ from pravapis.rules.morphology import (
 )
 from pravapis.stress import StressTable
 from pravapis.tokenize import context_of, is_belarusian_word, next_word, previous_word, tokenize
-from pravapis.translit import PAIRED, REVERSIBLE, Transliterator
+from pravapis.translit import PAIRED, REVERSIBLE, Transliterator, detect_script
 from pravapis.translit.engine import TransliterationResult
 from pravapis.types import (
     METHOD_PRIORITY,
@@ -169,6 +169,31 @@ class Converter:
         if direction is None or direction is PAIRED[script]:
             return cyrillic
         return self.convert(cyrillic, direction).text
+
+    def transcode(self, text: str, to: Script, *, from_script: Script | None = None) -> str:
+        """Convert between writing systems, detecting the source when not told.
+
+        Latin → Latin goes through Cyrillic, and through *both* orthographies, because
+        the two Latin schemes are paired with different ones: Łacinka ``śnieh`` reads back
+        to Taraškievica ``сьнег``, which becomes Narkamaŭka ``снег``, which the 2007
+        scheme writes ``snieh``. Skipping the orthography step would hand the official
+        scheme a Taraškievica input and produce a spelling neither convention uses.
+
+        Only schemes in :data:`pravapis.translit.REVERSIBLE` can be read *from*; the 2007
+        romanisation does not write assimilative softness, so there is nothing faithful to
+        read back.
+        """
+        source = from_script or detect_script(text).script
+        if source is None:
+            raise ValueError("cannot tell what script this text is in")
+        if source is to:
+            return text
+        if source is Script.CYRILLIC:
+            return self.render(text, to)
+        cyrillic = self.read_script(text, source)
+        if to is Script.CYRILLIC:
+            return cyrillic
+        return self.render(cyrillic, to)
 
     @classmethod
     def from_config(cls, path: Path | Config | None = None) -> Converter:
