@@ -89,6 +89,9 @@
 {"id": "rule/morph.ejsk_normalise/pos/1","kind": "rule","direction": "taraskievica_to_narkamauka","script": "cyrillic","rule": "morph.ejsk_normalise","in": "армэйскі","out": "армейскі"}
 {"id": "rule/morph.ejsk_normalise/neg/0","kind": "rule","direction": "taraskievica_to_narkamauka","script": "cyrillic","rule": "morph.ejsk_normalise","in": "эўрапейскі","out": "эўрапейскі"}
 {"id": "rule/morph.ejsk_normalise/neg/1","kind": "rule","direction": "taraskievica_to_narkamauka","script": "cyrillic","rule": "morph.ejsk_normalise","in": "мадрыдзкі","out": "мадрыдзкі"}
+{"id": "rule/morph.ejsk_normalise/neg/2","kind": "rule","direction": "taraskievica_to_narkamauka","script": "cyrillic","rule": "morph.ejsk_normalise","in": "яўрэйскую","out": "яўрэйскую"}
+{"id": "rule/morph.ejsk_normalise/neg/3","kind": "rule","direction": "taraskievica_to_narkamauka","script": "cyrillic","rule": "morph.ejsk_normalise","in": "паліцэйскі","out": "паліцэйскі"}
+{"id": "rule/morph.ejsk_normalise/neg/4","kind": "rule","direction": "taraskievica_to_narkamauka","script": "cyrillic","rule": "morph.ejsk_normalise","in": "карэйскай","out": "карэйскай"}
 {"id": "rule/palat.apostrophe/pos/0","kind": "rule","direction": "narkamauka_to_taraskievica","script": "cyrillic","rule": "palat.apostrophe","in": "з’ява","out": "зьява"}
 {"id": "rule/palat.apostrophe/pos/1","kind": "rule","direction": "narkamauka_to_taraskievica","script": "cyrillic","rule": "palat.apostrophe","in": "з’езд","out": "зьезд"}
 {"id": "rule/palat.apostrophe/neg/0","kind": "rule","direction": "narkamauka_to_taraskievica","script": "cyrillic","rule": "palat.apostrophe","in": "аб’ява","out": "аб’ява"}
@@ -202,6 +205,40 @@
 {"id": "translit/official2007/008","kind": "translit","direction": null,"script": "official2007","in": "чалавек","out": "čalaviek"}
 {"id": "translit/official2007/009","kind": "translit","direction": null,"script": "official2007","in": "яблык","out": "jablyk"}
 {"id": "translit/official2007/010","kind": "translit","direction": null,"script": "official2007","in": "зэльва","out": "zeĺva"}
+{"id": "regression/000/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "зллю","out": "зьльлю"}
+{"id": "regression/000/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "зьльлю","out": "зллю"}
+{"id": "regression/001/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "лабараторыі","out": "лябараторыі"}
+{"id": "regression/001/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "лябараторыі","out": "лабараторыі"}
+{"id": "regression/002/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "дыпламатыя","out": "дыпляматыя"}
+{"id": "regression/002/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "дыпляматыя","out": "дыпламатыя"}
+{"id": "regression/003/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "тэхналогій","out": "тэхналёгій"}
+{"id": "regression/003/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "тэхналёгій","out": "тэхналогій"}
+{"id": "regression/004/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "тэрміналогіяй","out": "тэрміналёгіяй"}
+{"id": "regression/004/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "тэрміналёгіяй","out": "тэрміналогіяй"}
+{"id": "regression/005/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "класаў","out": "клясаў"}
+{"id": "regression/005/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "клясаў","out": "класаў"}
+{"id": "regression/006/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "класічнага","out": "клясычнага"}
+{"id": "regression/006/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "клясычнага","out": "класічнага"}
+{"id": "regression/007/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Класікі","out": "Клясыкі"}
+{"id": "regression/007/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "Клясыкі","out": "Класікі"}
+{"id": "regression/008/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "сінагогу","out": "сынагогу"}
+{"id": "regression/008/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "сынагогу","out": "сінагогу"}
+{"id": "regression/009/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "сінонімы","out": "сынонімы"}
+{"id": "regression/009/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "сынонімы","out": "сінонімы"}
+{"id": "regression/010/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "сістэму","out": "сыстэму"}
+{"id": "regression/010/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "сыстэму","out": "сістэму"}
+{"id": "regression/011/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "сінтэзу","out": "сынтэзу"}
+{"id": "regression/011/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "сынтэзу","out": "сінтэзу"}
+{"id": "regression/012/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "яўрэйскую","out": "яўрэйскую"}
+{"id": "regression/012/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "яўрэйскую","out": "яўрэйскую"}
+{"id": "regression/013/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Яўрэйскія","out": "Яўрэйскія"}
+{"id": "regression/013/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "Яўрэйскія","out": "Яўрэйскія"}
+{"id": "regression/014/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "паліцэйскі","out": "паліцэйскі"}
+{"id": "regression/014/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "паліцэйскі","out": "паліцэйскі"}
+{"id": "regression/015/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "карэйскай","out": "карэйскай"}
+{"id": "regression/015/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "карэйскай","out": "карэйскай"}
+{"id": "regression/016/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "разынкамі","out": "разынкамі"}
+{"id": "regression/016/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "разынкамі","out": "разынкамі"}
 {"id": "gold/0000","kind": "gold","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Учора ішоў снег.","out": "Учора ішоў сьнег."}
 {"id": "gold/0001","kind": "gold","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Свет вялікі.","out": "Сьвет вялікі."}
 {"id": "gold/0002","kind": "gold","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Мы жывём у Мінску.","out": "Мы жывём у Менску."}

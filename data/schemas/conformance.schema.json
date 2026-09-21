@@ -22,6 +22,10 @@
           "title": "Apply the scheme named in `script` directly to `in`, with no orthography conversion (the --no-convert path). Expect `out`."
         },
         {
+          "const": "regression",
+          "title": "A bug that was fixed and must stay fixed. Convert `in` through the public API in `direction` and expect `out`. Pinned in both directions, because the bug was that one direction invented something the other could not undo. A case whose `in` and `out` are identical is one where the converter used to change a word it should have left alone — the kind a port is most likely to reintroduce, since a rule that overreaches looks correct in isolation."
+        },
+        {
           "const": "gold",
           "title": "Convert the whole of `in` through the public API in `direction`. Expect `out` exactly. From the trusted hand-written gold subset."
         },
@@ -67,7 +71,7 @@
     {
       "title": "An orthography case has one",
       "if": {
-        "properties": { "kind": { "enum": ["rule", "gold", "heldout"] } },
+        "properties": { "kind": { "enum": ["rule", "gold", "heldout", "regression"] } },
         "required": ["kind"]
       },
       "then": { "properties": { "direction": { "type": "string" } } }

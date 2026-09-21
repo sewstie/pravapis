@@ -173,6 +173,38 @@ def _gold_cases(
         index += 1
 
 
+def _regression_cases(data_dir: Path, converter: Converter) -> Iterator[tuple[Case, str]]:
+    """Round-trip regressions, pinned once fixed, in both directions.
+
+    A regression is only pinned if it holds *both* ways: the bug was that one direction
+    invented something the other could not undo. Exporting both directions is what makes
+    the pin meaningful to a port.
+    """
+    from pravapis.metrics import read_regressions
+
+    path = data_dir / "eval" / "roundtrip_regressions.tsv"
+    if not path.is_file():
+        return
+    for index, (nark, tarask) in enumerate(read_regressions(path)):
+        for direction, source, expected in (
+            (Orthography.TARASKIEVICA, nark, tarask),
+            (Orthography.NARKAMAUKA, tarask, nark),
+        ):
+            yield (
+                Case(
+                    id=f"regression/{index:03d}/{_DIRECTION_NAMES[direction].split('_')[0][:1]}2"
+                    f"{_DIRECTION_NAMES[direction].split('_')[-1][:1]}",
+                    kind="regression",
+                    direction=_DIRECTION_NAMES[direction],
+                    script=Script.CYRILLIC.value,
+                    rule=None,
+                    input=source,
+                    expected=expected,
+                ),
+                converter.convert(source, direction).text,
+            )
+
+
 def build_corpus(
     data_dir: Path, converter: Converter | None = None
 ) -> tuple[list[Case], list[Case]]:
@@ -182,6 +214,7 @@ def build_corpus(
     produced: list[tuple[Case, str]] = []
     produced += list(_rule_cases(data_dir / "rules", stems))
     produced += list(_translit_cases(data_dir / "translit"))
+    produced += list(_regression_cases(data_dir, conv))
     produced += list(
         _gold_cases(
             data_dir / "eval" / "gold.tsv",

@@ -4,8 +4,10 @@ So far one: the *-мент* suffix, whose э belongs to the base noun and is inh
 everything derived from it.
 
 The genitive plural in -аў lived here too, table-driven from every GrammarDB noun. It was
-replaced by a whitelist in ``data/lexicon/exceptions.tsv``: §80 extends -аў to feminine
-and neuter nouns in a vowel, but for many words *both* forms are permissible — хвілін and
+replaced by a whitelist in ``data/lexicon/exceptions.tsv``. Taraškievica extends -аў to
+feminine and neuter nouns in a vowel — this is *not* Збор 2005 §80, which is the German
+*ei* rule; the 2005 code is a spelling code and does not legislate declension — but for
+many words *both* forms are permissible — хвілін and
 хвілінаў are equally valid — so a rule that fires on all of them corrupts ordinary text.
 Six nouns where -аў is strongly preferred are listed; everything else is left alone. That
 also took 752 KiB of tries out of the deployment payload.

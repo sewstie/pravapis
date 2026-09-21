@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from pravapis.lexicon.stems import WordClass, read_stem_sources, validate_stems
+from pravapis.metrics import read_regressions
 from pravapis.lexicon.store import Lexicon
 from pravapis.pipeline import Converter
 from pravapis.rules import loanwords, morphology
@@ -23,27 +24,7 @@ N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA
 
 
-@pytest.mark.parametrize(
-    ("nark", "tarask"),
-    [
-        # palatalization: unassim must run before ungeminate (found by hypothesis)
-        ("зллю", "зьльлю"),
-        # loan.l_palatalization had no reverse rule
-        ("лабараторыі", "лябараторыі"),
-        ("дыпламатыя", "дыпляматыя"),
-        ("тэхналогій", "тэхналёгій"),
-        ("тэрміналогіяй", "тэрміналёгіяй"),
-        ("класаў", "клясаў"),
-        # класічны got only the л half of its adaptation and could not come back
-        ("класічнага", "клясычнага"),
-        ("Класікі", "Клясыкі"),
-        # loan.i_to_y had no reverse rule
-        ("сінагогу", "сынагогу"),
-        ("сінонімы", "сынонімы"),
-        ("сістэму", "сыстэму"),
-        ("сінтэзу", "сынтэзу"),
-    ],
-)
+@pytest.mark.parametrize(("nark", "tarask"), read_regressions(), ids=lambda v: v)
 def test_word_round_trips(converter: Converter, nark: str, tarask: str) -> None:
     there = converter.convert(nark, N2T).text
     assert there == tarask

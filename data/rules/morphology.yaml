@@ -136,7 +136,15 @@ rules:
     # so эўрапэйскі is an error rather than a variant — be-tarask writes it by applying
     # §11б where the заўвага exempts it. The forward direction can never produce it
     # (e_to_eh exempts the suffix), so this only normalises input that arrives wrong.
-    pattern: 'эйск'
+    # The guard is a list of roots whose эй is part of the STEM, not the suffix, so the
+    # э is correct in Narkamaŭka too and rewriting it produces a word that does not
+    # exist. Found by the round-trip harness (яўрэйскую → яўрейскую) and confirmed
+    # against data/corpora/frequency_be.tsv, which is 44M tokens of Narkamaŭka:
+    #   яўрэйск- 5,500+ occurrences, яўрейск- 0
+    #   паліцэйск- 1,450+,            паліцейск- 0
+    #   карэйск-   390+,              карейск-   0
+    # The suffix cases it is meant to catch (эўрапэйскі, армэйскі) have no such root.
+    pattern: '(?<!яўр)(?<!паліц)(?<!кар)эйск'
     replacement: 'ейск'
     priority: 60
     tests:
@@ -146,3 +154,6 @@ rules:
       negative:
         - { input: "эўрапейскі", expected: "эўрапейскі" }
         - { input: "мадрыдзкі", expected: "мадрыдзкі" }
+        - { input: "яўрэйскую", expected: "яўрэйскую" }
+        - { input: "паліцэйскі", expected: "паліцэйскі" }
+        - { input: "карэйскай", expected: "карэйскай" }

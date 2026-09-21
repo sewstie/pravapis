@@ -75,7 +75,9 @@
 серада	серада
 месца	месца
 месяц	месяц
-# --- Genitive plural -аў (§80). Taraškievica extends the -аў/-яў genitive plural to
+# --- Genitive plural -аў. NOT §80 — that is the German ei rule (Ляйпцыг); Збор 2005 is a
+# --- spelling code and does not legislate declension. Source: project owner's instruction.
+# --- Taraškievica extends the -аў/-яў genitive plural to
 # --- feminine and neuter nouns in a vowel, but for many words both forms are permissible,
 # --- so this is a whitelist rather than a rule: a blanket conversion corrupts ordinary
 # --- text. Words where -аў is strongly preferred, on the project owner's instruction.

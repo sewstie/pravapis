@@ -1,0 +1,32 @@
+# narkamauka<TAB>taraskievica<TAB>note
+#
+# Round-trip regressions, pinned once fixed. Each row broke N → T → N at some point:
+# converting the Narkamaŭka side must give the Taraškievica side, and converting that
+# back must return the original, exactly.
+#
+# A row where the two sides are IDENTICAL is a case where the converter used to change
+# a word it should have left alone — those are the ones a port is most likely to
+# reintroduce, because the rule that overreaches looks correct in isolation.
+#
+# These are exported into conformance/cases.jsonl (kind: regression), so an
+# implementation in another language inherits them rather than rediscovering them.
+#
+# Found by scripts/mine_roundtrip.py over data/eval/roundtrip_corpus.txt, never the
+# gold set.
+зллю	зьльлю	palatalization: unassim must run before ungeminate (found by hypothesis)
+лабараторыі	лябараторыі	loan.l_palatalization had no reverse rule
+дыпламатыя	дыпляматыя	loan.l_palatalization had no reverse rule
+тэхналогій	тэхналёгій	loan.l_palatalization had no reverse rule
+тэрміналогіяй	тэрміналёгіяй	loan.l_palatalization had no reverse rule
+класаў	клясаў	loan.l_palatalization had no reverse rule
+класічнага	клясычнага	класічны got only the л half of its adaptation
+Класікі	Клясыкі	класічны got only the л half of its adaptation
+сінагогу	сынагогу	loan.i_to_y had no reverse rule
+сінонімы	сынонімы	loan.i_to_y had no reverse rule
+сістэму	сыстэму	loan.i_to_y had no reverse rule
+сінтэзу	сынтэзу	loan.i_to_y had no reverse rule
+яўрэйскую	яўрэйскую	morph.ejsk_normalise rewrote a stem э: яўрейскую is not a word
+Яўрэйскія	Яўрэйскія	morph.ejsk_normalise rewrote a stem э
+паліцэйскі	паліцэйскі	morph.ejsk_normalise would rewrite паліцэйскі (1,450+ in be.wiki)
+карэйскай	карэйскай	morph.ejsk_normalise would rewrite карэйскай (390+ in be.wiki)
+разынкамі	разынкамі	loan.stem_reverse invented разінкамі; both orthographies write ы

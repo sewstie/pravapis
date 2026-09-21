@@ -639,8 +639,14 @@ not a patch. Re-run it after every batch of mined stems.
 
 ## Known gaps (not implemented, need the codification)
 
-*(The genitive plural -аў was logged here for a long time. It is not a gap and not a rule:
-§80 extends -аў to feminine and neuter nouns in a vowel, but for many words **both** forms
+*(The genitive plural -аў was logged here for a long time. It is not a gap and not a rule.
+**Correction:** this paragraph, `src/pravapis/morphology.py` and the comment in
+`data/lexicon/exceptions.tsv` all used to cite "§80" for it. That is wrong — Збор 2005 §80
+is the German *ei* rule (Ляйпцыг, Айнштайн), which this file cites correctly elsewhere.
+There is no § to cite, because **Збор 2005 is a spelling code (§1–92) and does not legislate
+declension at all**; its preface calls it "даведнік цяжкасьцяў беларускага правапісу". The
+-аў genitive plural is a morphological feature of Taraškievica, sourced here to the project
+owner's instruction and not to the codification. For many words **both** forms
 are permissible — хвілін and хвілінаў are equally valid — so a rule that fires on all of
 them corrupts ordinary text. Six nouns where -аў is strongly preferred are whitelisted in
 `data/lexicon/exceptions.tsv`; everything else is left alone. A table-driven version was

@@ -256,6 +256,26 @@ def round_trip_failures(
     return n_words, failures
 
 
+def read_regressions(path: Path | None = None) -> list[tuple[str, str]]:
+    """Pinned round-trip regressions from ``data/eval/roundtrip_regressions.tsv``.
+
+    Data rather than a list in a test file, so the same rows can be exported into the
+    conformance corpus. A port that reimplements a rule which overreaches will
+    reintroduce exactly these, and rediscovering them costs whatever it cost here.
+    """
+    from pravapis.config import find_data_dir
+
+    target = path or find_data_dir() / "eval" / "roundtrip_regressions.tsv"
+    rows: list[tuple[str, str]] = []
+    for line in target.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            rows.append((sanitize(parts[0].strip()), sanitize(parts[1].strip())))
+    return rows
+
+
 def write_round_trip_failures(
     texts: Sequence[str],
     converter: Converter,
