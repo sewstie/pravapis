@@ -28,6 +28,7 @@ Re-running keeps pairs already fetched and appends only new ones.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -43,6 +44,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from pravapis.normalize import sanitize  # noqa: E402
+from pravapis.scope import neutral_fold  # noqa: E402
 
 TARASK_API: Final[str] = "https://be-tarask.wikipedia.org/w/api.php"
 NARK_API: Final[str] = "https://be.wikipedia.org/w/api.php"
@@ -58,10 +60,20 @@ _WORD: Final[regex.Pattern[str]] = regex.compile(r"[\p{Cyrillic}’ʼ'-]+")
 #: An aligned pair must be this similar on identical tokens, and the runner-up must be
 #: this much worse. Both are deliberately strict: a wrong alignment does not produce a
 #: weaker signal, it produces a *false* ground-truth change, which is worse than none.
-MIN_SIMILARITY: Final[float] = 0.6
+#: Similarity is measured on *folded* tokens, so it now reflects content overlap alone
+#: and can be demanded at a higher level than a raw-string threshold could: raising this
+#: no longer discriminates against sentences dense in orthographic change.
+MIN_SIMILARITY: Final[float] = 0.75
 MIN_MARGIN: Final[float] = 0.15
 MIN_WORDS: Final[int] = 4
 MAX_WORDS: Final[int] = 40
+
+#: Article-level split. The same loanword recurs throughout an article — a biography of
+#: Chopin says Шапэн thirty times — so splitting by sentence would put the same stem on
+#: both sides of the line and let a stem mined from train score itself on test. The unit
+#: has to be the article. Shares are of articles, not sentences, so the sentence counts
+#: come out uneven; that is correct and not worth "fixing".
+SPLITS: Final[tuple[tuple[str, float], ...]] = (("train", 0.6), ("dev", 0.2), ("test", 0.2))
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +85,26 @@ class Pair:
     title_tarask: str
     revid_tarask: int
     similarity: float
+    split: str
+
+
+def split_of(title: str) -> str:
+    """Which split an article belongs to, from a stable hash of its title.
+
+    Python's ``hash`` is salted per process, so it is useless for anything that has to
+    stay the same tomorrow. blake2b over the title gives the same answer on every
+    machine and every run, which is what makes the split reproducible — and the value is
+    written into the corpus file anyway, so the frozen split survives even a change to
+    this function.
+    """
+    digest = hashlib.blake2b(title.encode("utf-8"), digest_size=8).digest()
+    position = int.from_bytes(digest, "big") / float(1 << 64)
+    cumulative = 0.0
+    for name, share in SPLITS:
+        cumulative += share
+        if position < cumulative:
+            return name
+    return SPLITS[-1][0]
 
 
 def _get(api: str, params: dict[str, str]) -> dict[str, Any]:
@@ -175,11 +207,25 @@ def sentences_of(text: str) -> list[str]:
 
 
 def words(sentence: str) -> list[str]:
-    return [w.lower() for w in _WORD.findall(sentence)]
+    """Word tokens, **folded**, so orthography costs nothing when sentences are compared.
+
+    This is the whole anti-bias measure. Scored on raw strings, a sentence pair is less
+    similar the more orthographic changes it contains — so a similarity threshold drops
+    precisely the sentences with the most work in them, and the corpus ends up
+    under-representing the thing it exists to measure. Folding both sides first removes
+    that gradient: a sentence with fifteen softness marks scores exactly like one with
+    none.
+
+    The fold is fixed and etymology-free (see pravapis.scope). It is deliberately not
+    "convert one side and compare", which would keep the sentences the converter already
+    handles and drop the ones it does not — the same bias, pointing the other way, and
+    much harder to spot.
+    """
+    return [neutral_fold(w) for w in _WORD.findall(sentence)]
 
 
 def similarity(a: list[str], b: list[str]) -> float:
-    """Share of positions holding the identical word. Zero unless the lengths match.
+    """Share of positions holding the same folded word. Zero unless the lengths match.
 
     Requiring the same token count is the cheapest strong signal that two sentences are
     the same sentence: no orthographic difference pravapis models adds or removes a
@@ -205,9 +251,13 @@ def align(nark_sentences: list[str], tarask_sentences: list[str]) -> list[tuple[
             break
         best, index = scored[0]
         runner_up = scored[1][0] if len(scored) > 1 else 0.0
-        if best < MIN_SIMILARITY or best == 1.0 or best - runner_up < MIN_MARGIN:
-            # best == 1.0 means the sentences are identical, so they carry no change and
-            # would only pad the denominator.
+        if best < MIN_SIMILARITY or best - runner_up < MIN_MARGIN:
+            continue
+        if nark_sentences[index] == tarask:
+            # Byte-identical sentences carry no change and would only pad the
+            # denominator. Note this is *not* the same as a folded similarity of 1.0,
+            # which is the best possible evidence: a pair that differs only
+            # orthographically is exactly what this corpus is for.
             continue
         used.add(index)
         pairs.append((nark_sentences[index], tarask, best))
@@ -229,16 +279,24 @@ def read_existing(path: Path) -> set[tuple[str, str]]:
 
 HEADER = (
     "# narkamauka<TAB>taraskievica<TAB>title_be<TAB>revid_be<TAB>title_tarask"
-    "<TAB>revid_tarask<TAB>similarity\n"
+    "<TAB>revid_tarask<TAB>similarity<TAB>split\n"
     "#\n"
     "# Sentence pairs mined from be.wikipedia.org and be-tarask.wikipedia.org by\n"
     "# scripts/fetch_parallel_corpus.py. The two wikis are written independently, so\n"
     "# these are not translations: they are sentences the aligner judged to be the same\n"
-    "# sentence (same token count, >=60% of tokens identical, a clear margin over the\n"
-    "# runner-up). The sample is therefore biased towards short, formulaic sentences.\n"
+    "# sentence. The sample is biased towards short, formulaic sentences.\n"
+    "#\n"
+    "# similarity is measured on NEUTRALLY FOLDED tokens (pravapis.scope.neutral_fold),\n"
+    "# so orthographic density does not affect whether a pair is kept. Scoring raw\n"
+    "# strings would drop exactly the sentences carrying the most change.\n"
+    "#\n"
+    "# split is assigned PER ARTICLE, never per sentence: the same loanword recurs all\n"
+    "# through an article, so a sentence-level split would leak it across the line. The\n"
+    "# value is written here rather than recomputed, which is what freezes it.\n"
     "#\n"
     "# MEASUREMENT ONLY. Never read by lexicon building, stem mining or model training:\n"
     "# it exists to measure recall, and a set you have fitted to measures nothing.\n"
+    "# Stem mining reads the TRAIN split only; test is touched at milestones.\n"
     "# Text is CC BY-SA 4.0; see parallel.README.md.\n"
 )
 
@@ -319,7 +377,16 @@ def main(argv: list[str]) -> int:
                 continue
             existing.add((nark, tarask_sentence))
             fresh.append(
-                Pair(nark, tarask_sentence, title_be, revid_be, title_tarask, revid_tarask, score)
+                Pair(
+                    nark,
+                    tarask_sentence,
+                    title_be,
+                    revid_be,
+                    title_tarask,
+                    revid_tarask,
+                    score,
+                    split_of(title_be),
+                )
             )
 
     new_file = not args.out.is_file()
@@ -329,7 +396,7 @@ def main(argv: list[str]) -> int:
         for p in fresh:
             fh.write(
                 f"{p.narkamauka}\t{p.taraskievica}\t{p.title_be}\t{p.revid_be}\t"
-                f"{p.title_tarask}\t{p.revid_tarask}\t{p.similarity:.3f}\n"
+                f"{p.title_tarask}\t{p.revid_tarask}\t{p.similarity:.3f}\t{p.split}\n"
             )
     readme = OUT_DIR / "parallel.README.md"
     if not readme.is_file():

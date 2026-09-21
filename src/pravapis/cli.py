@@ -380,6 +380,14 @@ def eval_cmd(
     corpus: Annotated[
         Path | None, typer.Option("--corpus", help="Parallel corpus for --recall.")
     ] = None,
+    split: Annotated[
+        str,
+        typer.Option(
+            "--split",
+            help="Which split to score: dev (default), train, test, or all. "
+            "test is frozen — read it at milestones, not while iterating.",
+        ),
+    ] = "dev",
     misses: Annotated[
         Path | None, typer.Option("--misses", help="Write every miss, grouped by cause.")
     ] = None,
@@ -417,7 +425,12 @@ def eval_cmd(
     if recall or coverage or round_trip:
         data = Config.default().lexicon.parent
         if recall:
-            _report_recall(converter, corpus or data / "corpora" / "parallel.tsv", misses)
+            _report_recall(
+                converter,
+                corpus or data / "corpora" / "parallel.tsv",
+                misses,
+                None if split == "all" else split,
+            )
         if coverage:
             _report_coverage(converter, frequency or data / "corpora" / "frequency_be.tsv", top)
         if round_trip:
@@ -850,106 +863,95 @@ def serve(
     uvicorn.run("pravapis.api.main:app", host=host, port=port)
 
 
-def _report_recall(converter: Converter, corpus: Path, misses_out: Path | None) -> None:
-    """Recall against the aligned wiki corpus, as a bound, with misses bucketed by cause."""
-    from pravapis.recall import (
-        ORTHOGRAPHIC_SIMILARITY,
-        MissCause,
-        common_shapes,
-        measure_recall,
-        read_parallel,
-        write_misses,
-    )
+def _report_recall(
+    converter: Converter, corpus: Path, misses_out: Path | None, split: str | None
+) -> None:
+    """In-scope recall with a confidence interval, and the exclusions stated, not hidden."""
+    from pravapis.recall import common_shapes, measure_recall, read_parallel, write_misses
+    from pravapis.scope import Scope, format_interval
 
     if not corpus.is_file():
         errors.print(
             f"[red]no parallel corpus at {corpus}[/red] — build one with "
-            "`python scripts/fetch_parallel_corpus.py --articles 500`"
+            "`python scripts/fetch_parallel_corpus.py --articles 2600`"
         )
         raise typer.Exit(code=2)
-    pairs = read_parallel(corpus)
-    report = measure_recall(pairs, converter)
-    console.rule("recall — changes attested by be-tarask writers")
-    console.print(
-        f"corpus: {corpus.name} · [bold]{report.pairs}[/bold] aligned sentence pairs · "
-        f"[bold]{report.tokens}[/bold] comparable tokens · "
-        f"[bold]{report.changes}[/bold] attested changes"
-    )
-    console.print(
-        "[yellow]These wikis are written independently, so an aligned pair is a strict "
-        "aligner's judgement, not a translation. The sample skews short and formulaic, "
-        "and the recall below inherits that bias.[/yellow]"
-    )
-    table = Table(title="recall (a bound, not a number)", box=box.SIMPLE)
-    table.add_column("measure")
-    table.add_column("recall", justify="right")
-    table.add_column("n", justify="right")
-    table.add_column("reads")
-    table.add_row(
-        "[bold]strict[/bold] — every diff counts",
-        f"[bold]{report.strict_recall:.1%}[/bold]",
-        f"{report.hits}/{report.changes}",
-        "lower bound: word-choice differences count against it",
-    )
-    table.add_row(
-        "orthographic — diffs that are one word",
-        f"{report.orthographic_recall:.1%}",
-        f"{report.orthographic_hits}/{report.orthographic_changes}",
-        f"upper bound: similarity ≥ {ORTHOGRAPHIC_SIMILARITY:g} only",
-    )
-    console.print(table)
+    pairs = read_parallel(corpus, split)
+    if not pairs:
+        errors.print(f"[red]no rows in {corpus.name} for split {split!r}[/red]")
+        raise typer.Exit(code=2)
+    report = measure_recall(pairs, converter, split)
 
-    causes = Table(title="misses by cause — where a fix would go", box=box.SIMPLE)
+    console.rule(f"recall — split: {split or 'all'}")
+    console.print(
+        f"corpus: {corpus.name} · [bold]{report.articles}[/bold] articles · "
+        f"[bold]{report.pairs}[/bold] sentence pairs · [bold]{report.tokens}[/bold] tokens · "
+        f"[bold]{report.changes}[/bold] attested differences"
+    )
+    low, high = report.interval
+    console.print(
+        f"\n  [bold]in-scope N → T recall: {report.recall:.1%}[/bold] "
+        f"[[{low:.1%}, {high:.1%}] Wilson 95%]  "
+        f"({report.in_scope_hits}/{report.in_scope})\n"
+    )
+
+    buckets = Table(title="every attested difference, sorted by whose job it is", box=box.SIMPLE)
+    buckets.add_column("bucket")
+    buckets.add_column("n", justify="right")
+    buckets.add_column("share", justify="right")
+    buckets.add_column("counts toward the headline?")
+    reasons = {
+        Scope.IN_SCOPE: "[bold]yes — this is the contract[/bold]",
+        Scope.GRAMMATICAL: "no — Збор 2005 is a spelling code; declension is outside it",
+        Scope.REFERENCE_DEVIATES: "no — be-tarask contradicts the 2005 code here",
+        Scope.NOT_ORTHOGRAPHIC: "no — the two writers chose different words",
+    }
+    total = report.changes or 1
+    for scope in Scope:
+        n = report.by_scope.get(scope, 0)
+        buckets.add_row(scope.value, str(n), f"{n / total:.0%}", reasons[scope])
+    console.print(buckets)
+
+    causes = Table(title="in-scope misses by cause — where a fix would go", box=box.SIMPLE)
     causes.add_column("cause")
     causes.add_column("n", justify="right")
     causes.add_column("share", justify="right")
     causes.add_column("example")
-    counted = sum(n for c, n in report.by_cause.items() if c is not MissCause.NOT_ORTHOGRAPHIC)
+    counted = len(report.misses) or 1
     for cause, n in sorted(report.by_cause.items(), key=lambda kv: -kv[1]):
         if not n:
             continue
         example = next(m for m in report.misses if m.cause is cause)
-        share = "—" if cause is MissCause.NOT_ORTHOGRAPHIC else f"{n / counted:.0%}"
         causes.add_row(
             cause.value,
             str(n),
-            share,
+            f"{n / counted:.0%}",
             f"{example.change.source} → {example.change.expected} ({example.detail})",
         )
     console.print(causes)
-    n_other = report.by_cause[MissCause.NOT_ORTHOGRAPHIC]
-    console.print(
-        f"[dim]`not_orthographic` is excluded from the share: those are the {n_other} diffs "
-        "where the two wikis chose different words, which no converter should "
-        "reconcile.[/dim]"
-    )
 
-    if report.by_alternation:
-        per = Table(title="orthographic changes by alternation", box=box.SIMPLE)
-        per.add_column("alternation")
-        per.add_column("recall", justify="right")
-        per.add_column("n", justify="right")
-        for code, (ok, total) in sorted(report.by_alternation.items(), key=lambda kv: -kv[1][1]):
-            per.add_row(code, f"{ok / total:.1%}" if total else "—", f"{ok}/{total}")
-        console.print(per)
+    per = Table(title="in-scope recall by alternation, with 95% intervals", box=box.SIMPLE)
+    per.add_column("alternation")
+    per.add_column("recall [95% CI]", justify="right")
+    per.add_column("n", justify="right")
+    for code, (ok, n) in sorted(report.by_alternation.items(), key=lambda kv: -kv[1][1]):
+        per.add_row(code, format_interval(ok, n), f"{ok}/{n}")
+    console.print(per)
+    console.print(
+        "[dim]Intervals are Wilson 95%. A class of eighty cases cannot support a claim "
+        "narrower than its interval, however precise the point estimate looks.[/dim]"
+    )
 
     shapes = common_shapes(report)
     if shapes:
         inside = Table(
-            title="inside `other` — changes no modelled alternation explains", box=box.SIMPLE
+            title="inside `other` — in-scope changes no alternation models", box=box.SIMPLE
         )
         inside.add_column("edit")
         inside.add_column("n", justify="right")
         for shape, n in shapes:
             inside.add_row(shape, str(n))
         console.print(inside)
-        console.print(
-            "[dim]This is where a missing alternation would hide. `а→у` and `∅→аў` are "
-            "masculine genitive endings: grammatical differences a word-level converter "
-            "is not trying to make, and §80 -аў is a whitelist on purpose because both "
-            "forms are permissible. They are counted against recall anyway rather than "
-            "quietly excluded.[/dim]"
-        )
 
     if report.false_positives:
         console.print(
@@ -967,7 +969,7 @@ def _report_recall(converter: Converter, corpus: Path, misses_out: Path | None) 
 
     if misses_out is not None:
         write_misses(report, misses_out)
-        console.print(f"misses → {misses_out}")
+        console.print(f"in-scope misses → {misses_out}")
 
 
 def _report_coverage(converter: Converter, frequency: Path, top: int) -> None:

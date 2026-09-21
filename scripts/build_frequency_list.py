@@ -1,19 +1,23 @@
-"""Build a Narkamaŭka word-form frequency list from be.wikipedia.org.
+"""Build a Narkamaŭka word-form frequency list from the be.wikipedia dump.
 
-    python scripts/build_frequency_list.py --articles 4000 --top 20000
+    python scripts/build_frequency_list.py --dump bewiki-20260901-pages-articles.xml.bz2
 
 Coverage has to be measured against the forms Belarusian text is actually made of, not
-against the forms the project happened to think of. There is no redistributable
-frequency list for Belarusian that is easy to depend on, so this builds one from the
-encyclopedia — reproducible from a revision-stamped sample, and in the same register as
-the text the API receives.
+against the forms the project happened to think of, and the ranking that decides which
+stem to add next is only as good as the counts behind it.
 
-Intro extracts are used rather than whole articles because they are the only extracts
-the API will return in batches (20 per request against 1), which is the difference
-between a minute and an hour. The cost is register: intros are definition-shaped, so
-copulas and dates are over-represented relative to running prose. The header records
-this, since a frequency list whose provenance is unstated will eventually be quoted as
-though it were a balanced corpus.
+The dump rather than the API: it is one reproducible file with a date in its name, it is
+free of rate limits and sampling, and it contains the whole encyclopedia rather than
+whatever ``generator=random`` happened to return. An API sample also cannot be
+re-derived — run it twice and you get two different lists, so a coverage figure computed
+from one is not checkable against the other.
+
+The dump is streamed and decompressed in memory: nothing is written to disk but the
+counts, and memory stays flat regardless of dump size.
+
+Wikitext is stripped crudely — templates, links, refs, tables — because the alternative
+is a parser, and for counting word forms the residue of a crude strip is noise that
+falls off the end of the list rather than error that moves the head of it.
 
 Output: data/corpora/frequency_be.tsv — ``form<TAB>count``, most frequent first.
 """
@@ -21,14 +25,12 @@ Output: data/corpora/frequency_be.tsv — ``form<TAB>count``, most frequent firs
 from __future__ import annotations
 
 import argparse
-import json
+import bz2
 import sys
-import time
-import urllib.parse
-import urllib.request
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Final
+from typing import Final
 
 import regex
 
@@ -37,83 +39,117 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from pravapis.normalize import sanitize  # noqa: E402
 
-API: Final[str] = "https://be.wikipedia.org/w/api.php"
-USER_AGENT: Final[str] = "pravapis-eval/0.1 (https://github.com/sewstie/pravapis; research)"
 OUT: Final[Path] = ROOT / "data" / "corpora" / "frequency_be.tsv"
 
 _WORD: Final[regex.Pattern[str]] = regex.compile(r"[\p{Cyrillic}’ʼ'-]+")
+_TEXT_OPEN: Final[regex.Pattern[str]] = regex.compile(r"<text\b[^>]*>")
+_TEXT_CLOSE: Final[str] = "</text>"
+_TITLE: Final[regex.Pattern[str]] = regex.compile(r"<title>([^<]*)</title>")
+_REDIRECT: Final[regex.Pattern[str]] = regex.compile(r"<redirect\b")
+_NS: Final[regex.Pattern[str]] = regex.compile(r"<ns>(\d+)</ns>")
+
+#: Wikitext constructs whose *contents* are markup rather than prose.
+_STRIP: Final[tuple[regex.Pattern[str], ...]] = tuple(
+    regex.compile(p, regex.DOTALL)
+    for p in (
+        r"<ref[^>]*/>",
+        r"<ref.*?</ref>",
+        r"<!--.*?-->",
+        r"<math.*?</math>",
+        r"\{\{[^{}]*\}\}",  # templates, innermost first (applied repeatedly)
+        r"\{\|.*?\|\}",  # tables
+        r"\[\[[Ff]ile:.*?\]\]",
+        r"\[\[[Іі]мідж:.*?\]\]",
+        r"\[\[[Вв]ыява:.*?\]\]",
+        r"<[^>]+>",  # any remaining tag
+    )
+)
+_LINK_TARGET: Final[regex.Pattern[str]] = regex.compile(r"\[\[(?:[^\]|]*\|)?([^\]|]*)\]\]")
+_APOSTROPHES: Final[regex.Pattern[str]] = regex.compile(r"'{2,}")
 
 
-def _get(params: dict[str, str]) -> dict[str, Any]:
-    url = f"{API}?{urllib.parse.urlencode({**params, 'format': 'json'})}"
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=30) as fh:
-        data: dict[str, Any] = json.load(fh)
-    return data
-
-
-def sample_intros(articles: int) -> tuple[int, Counter[str]]:
-    """Word-form counts over ``articles`` random be.wikipedia intros."""
-    counts: Counter[str] = Counter()
-    seen: set[str] = set()
-    while len(seen) < articles:
-        data = _get(
-            {
-                "action": "query",
-                "generator": "random",
-                "grnnamespace": "0",
-                "grnlimit": "20",
-                "prop": "extracts",
-                "explaintext": "1",
-                "exintro": "1",
-                "exlimit": "max",
-            }
-        )
-        pages = data.get("query", {}).get("pages", {})
-        if not pages:
+def strip_wikitext(text: str) -> str:
+    for _ in range(4):  # templates nest; a few passes clear the common depths
+        before = text
+        for pattern in _STRIP:
+            text = pattern.sub(" ", text)
+        if text == before:
             break
-        for page in pages.values():
-            title, text = page.get("title", ""), page.get("extract") or ""
-            if not text or title in seen:
-                continue
-            seen.add(title)
-            for word in _WORD.findall(sanitize(text)):
-                if len(word) > 1:
-                    counts[word.lower()] += 1
-        print(f"  {len(seen)} articles, {len(counts)} distinct forms", end="\r", file=sys.stderr)
-        time.sleep(0.2)  # be a good API citizen
-    return len(seen), counts
+    text = _LINK_TARGET.sub(r"\1", text)
+    return _APOSTROPHES.sub("", text)
+
+
+def iter_article_text(path: Path) -> Iterator[str]:
+    """Yield the wikitext of every main-namespace, non-redirect article in the dump."""
+    with bz2.open(path, "rt", encoding="utf-8", errors="replace") as fh:
+        namespace, redirect, collecting = None, False, False
+        buffer: list[str] = []
+        for line in fh:
+            if not collecting:
+                if "<page>" in line:
+                    namespace, redirect = None, False
+                if (m := _NS.search(line)) is not None:
+                    namespace = int(m.group(1))
+                if _REDIRECT.search(line):
+                    redirect = True
+                if (m := _TEXT_OPEN.search(line)) is not None:
+                    if namespace != 0 or redirect:
+                        continue
+                    rest = line[m.end() :]
+                    if _TEXT_CLOSE in rest:
+                        yield rest.split(_TEXT_CLOSE, 1)[0]
+                    else:
+                        collecting, buffer = True, [rest]
+            else:
+                if _TEXT_CLOSE in line:
+                    buffer.append(line.split(_TEXT_CLOSE, 1)[0])
+                    collecting = False
+                    yield "".join(buffer)
+                    buffer = []
+                else:
+                    buffer.append(line)
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--articles", type=int, default=4000)
+    parser.add_argument("--dump", type=Path, required=True, help="bewiki pages-articles .xml.bz2")
     parser.add_argument("--top", type=int, default=20_000)
     parser.add_argument("--out", type=Path, default=OUT)
+    parser.add_argument("--max-articles", type=int, default=0, help="0 = the whole dump")
     args = parser.parse_args(argv)
 
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
-    sampled, counts = sample_intros(args.articles)
+    counts: Counter[str] = Counter()
+    articles = 0
+    for wikitext in iter_article_text(args.dump):
+        articles += 1
+        for word in _WORD.findall(sanitize(strip_wikitext(wikitext))):
+            if len(word) > 1:
+                counts[word.lower()] += 1
+        if articles % 5000 == 0:
+            print(f"  {articles} articles, {len(counts)} forms", file=sys.stderr)
+        if args.max_articles and articles >= args.max_articles:
+            break
+
     ranked = counts.most_common(args.top)
     total = sum(counts.values())
     kept = sum(c for _, c in ranked)
-
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(
             "# form<TAB>count — Narkamaŭka word-form frequency, most frequent first.\n"
-            f"# Built by scripts/build_frequency_list.py from {sampled} random\n"
-            "# be.wikipedia.org article INTROS (the only extracts the API batches), so the\n"
-            "# register is definition-shaped: copulas, dates and place names are\n"
-            "# over-represented relative to running prose. Text is CC BY-SA 4.0.\n"
-            f"# {len(counts)} distinct forms over {total} tokens; "
-            f"top {len(ranked)} kept, covering {kept / total:.1%} of tokens.\n"
+            f"# Built by scripts/build_frequency_list.py from {args.dump.name}:\n"
+            f"# {articles} main-namespace articles, {len(counts)} distinct forms over\n"
+            f"# {total} tokens; top {len(ranked)} kept, covering {kept / total:.1%} of tokens.\n"
+            "# Wikitext is stripped crudely, so the tail contains markup residue; the head,\n"
+            "# which is what the coverage figure and the mining rank depend on, does not.\n"
+            "# Text is CC BY-SA 4.0 (be.wikipedia.org).\n"
         )
         for form, count in ranked:
             fh.write(f"{form}\t{count}\n")
 
     print(
-        f"\n{sampled} articles → {len(counts)} distinct forms over {total} tokens; "
+        f"{articles} articles → {len(counts)} distinct forms over {total} tokens; "
         f"wrote top {len(ranked)} ({kept / total:.1%} of tokens) → {args.out}"
     )
     return 0

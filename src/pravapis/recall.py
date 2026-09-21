@@ -9,38 +9,37 @@ the gold set does not contain either. The blind spots agree.
 
 `data/corpora/parallel.tsv` supplies one from outside: the same article written
 independently on be.wikipedia.org and be-tarask.wikipedia.org, aligned sentence by
-sentence. Where the two differ token for token, a Taraškievica writer made a change the
-converter is supposed to make.
+sentence. Where the two differ token for token, a Taraškievica writer made a change.
 
-## Two numbers, not one
+## One headline, three declared exclusions
 
-A differing token pair is evidence of a difference, not proof that the difference is
-orthographic. The two wikis also make different word choices — `плошчы` / `пляцы`,
-`годзе` / `року` — and no converter should "fix" those. So this reports a **bound**:
+Not every difference between two writers is a change the converter owes. Each attested
+difference is sorted by :func:`pravapis.scope.classify_scope` into one of four buckets,
+and **only `in_scope` counts for or against the headline**:
 
-* **strict recall** counts every diff as a change that should have happened. It is a
-  lower bound: vocabulary differences the converter rightly ignores count against it.
-* **orthographic recall** counts only diffs that look like a spelling of the same word
-  (character similarity above a threshold). It is an upper bound: a genuine miss whose
-  Taraškievica form is very different — a lexicon gap like `Германія` / `Нямеччына` —
-  is excluded along with the noise.
+``in_scope``            differs only by alternations the converter models. The contract.
+``grammatical``         a case or form ending. Збор 2005 is a spelling code and does not
+                        legislate declension, so this is outside the contract by the
+                        code's own scope — a stated design decision, not a filter.
+``reference_deviates``  the be-tarask side contradicts a § of the 2005 code; the
+                        converter is right not to reproduce it. Cited per pattern.
+``not_orthographic``    the two writers chose different words.
 
-The truth is between them. Reporting one number would require deciding, silently and
-without evidence, which kind of error to make.
+The counts for all four are reported. An exclusion nobody can see is indistinguishable
+from a filter tuned until the number looked good, and this project has no way to tell
+those apart after the fact either.
+
+## Splits
+
+Recall is measured per split, and the split is **per article**: the same loanword
+recurs all through an article, so a sentence-level split would let a stem mined from
+train score itself on test. `test` is frozen and read at milestones; mining reads
+`train`; `dev` is the one to iterate against.
 
 ## Why a miss is missing
 
-Each miss is attributed to the first of these that explains it, which maps onto the
-places a fix would go:
-
-``stem_absent``     the word matches no stem in the inventory and no lexicon entry, so
-                    nothing could have told the rules it was a borrowing
-``stem_untagged``   a stem matched, but it is classed ``native`` or does not license the
-                    alternation this change needs — the fact is there and wrong
-``rule_silent``     the etymology was available and no rule changed the word
-``rule_wrong``      a rule fired and produced something other than the attested form
-``not_orthographic`` the two forms are not a spelling of the same word (reported, never
-                    counted as a converter failure)
+An in-scope miss is attributed to the first cause that explains it, which maps onto the
+place a fix would go: ``stem_absent``, ``stem_untagged``, ``rule_silent``, ``rule_wrong``.
 """
 
 from __future__ import annotations
@@ -55,13 +54,9 @@ from typing import Final
 from pravapis.lexicon.stems import WordClass
 from pravapis.normalize import sanitize
 from pravapis.pipeline import Converter
+from pravapis.scope import Scope, classify_scope, fold_similarity, format_interval, wilson
 from pravapis.tokenize import tokenize
 from pravapis.types import Orthography, TokenKind
-
-#: Character similarity above which two forms are taken to be spellings of one word.
-#: Calibrated against the corpus, not chosen a priori: see `pravapis eval --recall`,
-#: which prints the distribution either side of it so the cut can be argued with.
-ORTHOGRAPHIC_SIMILARITY: Final[float] = 0.7
 
 
 class MissCause(StrEnum):
@@ -69,18 +64,19 @@ class MissCause(StrEnum):
     STEM_UNTAGGED = "stem_untagged"
     RULE_SILENT = "rule_silent"
     RULE_WRONG = "rule_wrong"
-    NOT_ORTHOGRAPHIC = "not_orthographic"
 
 
 @dataclass(frozen=True, slots=True)
 class Change:
-    """One token pair the two wikis disagree on: a change that should happen."""
+    """One token pair the two wikis disagree on."""
 
     source: str  # the Narkamaŭka form
     expected: str  # the Taraškievica form attested opposite it
     sentence: str
-    similarity: float
+    similarity: float  # measured after folding, so orthography costs nothing
     alternations: frozenset[str]
+    scope: Scope
+    reason: str
     #: which word token of the sentence this is. Conversions are matched to changes by
     #: position, not by spelling: a sentence that repeats a word — and the clitics that
     #: convert differently depending on what follows — would otherwise collapse into one
@@ -88,8 +84,8 @@ class Change:
     index: int = -1
 
     @property
-    def orthographic(self) -> bool:
-        return self.similarity >= ORTHOGRAPHIC_SIMILARITY
+    def in_scope(self) -> bool:
+        return self.scope is Scope.IN_SCOPE
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,29 +99,46 @@ class Miss:
 @dataclass(frozen=True, slots=True)
 class RecallReport:
     pairs: int
+    articles: int
     tokens: int
-    changes: int
-    orthographic_changes: int
-    hits: int
-    orthographic_hits: int
+    split: str | None
+    #: attested differences per bucket
+    by_scope: dict[Scope, int] = field(default_factory=dict)
+    #: of those, how many the converter reproduced exactly
+    hits_by_scope: dict[Scope, int] = field(default_factory=dict)
     misses: list[Miss] = field(default_factory=list)
     false_positives: list[tuple[str, str, str]] = field(default_factory=list)
     by_alternation: dict[str, tuple[int, int]] = field(default_factory=dict)
 
     @property
-    def strict_recall(self) -> float:
-        return self.hits / self.changes if self.changes else 0.0
+    def changes(self) -> int:
+        """Every attested difference, in scope or not."""
+        return sum(self.by_scope.values())
 
     @property
-    def orthographic_recall(self) -> float:
-        return (
-            self.orthographic_hits / self.orthographic_changes if self.orthographic_changes else 0.0
-        )
+    def in_scope(self) -> int:
+        return self.by_scope.get(Scope.IN_SCOPE, 0)
+
+    @property
+    def in_scope_hits(self) -> int:
+        return self.hits_by_scope.get(Scope.IN_SCOPE, 0)
+
+    @property
+    def recall(self) -> float:
+        """The headline: in-scope changes the converter produced."""
+        return self.in_scope_hits / self.in_scope if self.in_scope else 0.0
+
+    @property
+    def interval(self) -> tuple[float, float]:
+        return wilson(self.in_scope_hits, self.in_scope)
 
     @property
     def by_cause(self) -> dict[MissCause, int]:
         counts = Counter(m.cause for m in self.misses)
         return {cause: counts.get(cause, 0) for cause in MissCause}
+
+    def headline(self) -> str:
+        return format_interval(self.in_scope_hits, self.in_scope)
 
 
 # --- reading the corpus ------------------------------------------------------------
@@ -135,10 +148,16 @@ class ParallelPair:
     taraskievica: str
     title: str
     similarity: float
+    split: str = "train"
 
 
-def read_parallel(path: Path) -> list[ParallelPair]:
-    """``narkamauka<TAB>taraskievica<TAB>title_be<TAB>…`` rows; ``#`` comments skipped."""
+def read_parallel(path: Path, split: str | None = None) -> list[ParallelPair]:
+    """Rows of the parallel corpus, optionally only those in one split.
+
+    ``split`` is read from the file rather than recomputed. That is what freezes it: a
+    change to the hash function, the split shares or the article set cannot silently
+    move a sentence from test into train.
+    """
     out: list[ParallelPair] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip() or line.startswith("#"):
@@ -146,13 +165,16 @@ def read_parallel(path: Path) -> list[ParallelPair]:
         parts = line.split("\t")
         if len(parts) < 2:
             continue
-        similarity = float(parts[6]) if len(parts) > 6 else 0.0
+        row_split = parts[7] if len(parts) > 7 else "train"
+        if split is not None and row_split != split:
+            continue
         out.append(
             ParallelPair(
                 sanitize(parts[0]),
                 sanitize(parts[1]),
                 parts[2] if len(parts) > 2 else "",
-                similarity,
+                float(parts[6]) if len(parts) > 6 else 0.0,
+                row_split,
             )
         )
     return out
@@ -209,7 +231,8 @@ def _alternation_of(old: str, new: str, previous: str) -> str:
 
 
 def form_similarity(source: str, expected: str) -> float:
-    return SequenceMatcher(None, source.lower(), expected.lower(), autojunk=False).ratio()
+    """Similarity after folding: two spellings of one word score 1.0."""
+    return fold_similarity(source, expected)
 
 
 def diff_pair(pair: ParallelPair) -> tuple[int, list[Change]]:
@@ -227,6 +250,7 @@ def diff_pair(pair: ParallelPair) -> tuple[int, list[Change]]:
     for index, (n, t) in enumerate(zip(n_tokens, t_tokens, strict=True)):
         if n.text.lower() == t.text.lower():
             continue
+        scope, reason = classify_scope(n.text, t.text)
         changes.append(
             Change(
                 n.text,
@@ -234,17 +258,17 @@ def diff_pair(pair: ParallelPair) -> tuple[int, list[Change]]:
                 pair.narkamauka,
                 form_similarity(n.text, t.text),
                 infer_alternations(n.text, t.text),
+                scope,
+                reason,
                 index,
             )
         )
     return len(n_tokens), changes
 
 
-# --- why a miss is missing -----------------------------------------------------------
+# --- why an in-scope miss is missing --------------------------------------------------
 def classify(change: Change, got: str, converter: Converter) -> Miss:
-    """Attribute a miss to the first cause that explains it."""
-    if not change.orthographic:
-        return Miss(change, got, MissCause.NOT_ORTHOGRAPHIC, "forms are not one word")
+    """Attribute an in-scope miss to the first cause that explains it."""
     if got.lower() != change.source.lower():
         return Miss(change, got, MissCause.RULE_WRONG, f"produced {got!r}")
 
@@ -257,10 +281,7 @@ def classify(change: Change, got: str, converter: Converter) -> Miss:
         if in_lexicon:
             return Miss(change, got, MissCause.RULE_SILENT, "lexicon hit did not change it")
         return Miss(
-            change,
-            got,
-            MissCause.STEM_ABSENT,
-            f"no stem covers it; needs {sorted(needed) or ['?']}",
+            change, got, MissCause.STEM_ABSENT, f"no stem covers it; needs {sorted(needed)}"
         )
     if needed and match is not None:
         if match.cls is not WordClass.LOAN:
@@ -278,20 +299,23 @@ def classify(change: Change, got: str, converter: Converter) -> Miss:
         return Miss(
             change, got, MissCause.RULE_SILENT, f"stem {match.stem!r} licenses {sorted(needed)}"
         )
-    # Softness and everything else: no etymology needed, so nothing fired.
     if in_lexicon:
         return Miss(change, got, MissCause.RULE_SILENT, "lexicon hit did not change it")
     return Miss(change, got, MissCause.RULE_SILENT, f"no rule fired; {sorted(change.alternations)}")
 
 
-def measure_recall(pairs: list[ParallelPair], converter: Converter) -> RecallReport:
+def measure_recall(
+    pairs: list[ParallelPair], converter: Converter, split: str | None = None
+) -> RecallReport:
     """Convert the Narkamaŭka side and compare its changes with the attested ones."""
-    tokens = hits = orth_hits = 0
-    changes_seen: list[Change] = []
+    tokens = 0
+    by_scope: Counter[Scope] = Counter()
+    hits_by_scope: Counter[Scope] = Counter()
     misses: list[Miss] = []
     false_positives: list[tuple[str, str, str]] = []
     by_alternation: dict[str, list[int]] = {}
     used = 0
+    articles: set[str] = set()
 
     for pair in pairs:
         n_tokens, changes = diff_pair(pair)
@@ -305,19 +329,20 @@ def measure_recall(pairs: list[ParallelPair], converter: Converter) -> RecallRep
             continue
         used += 1
         tokens += n_tokens
+        articles.add(pair.title)
         attested = {c.index for c in changes}
 
         for change in changes:
-            changes_seen.append(change)
+            by_scope[change.scope] += 1
             got = result.conversions[change.index].target
             correct = got.lower() == change.expected.lower()
-            hits += correct
-            if change.orthographic:
-                orth_hits += correct
-                for code in change.alternations or {"other"}:
-                    bucket = by_alternation.setdefault(code, [0, 0])
-                    bucket[0] += correct
-                    bucket[1] += 1
+            hits_by_scope[change.scope] += correct
+            if not change.in_scope:
+                continue
+            for code in change.alternations or {"other"}:
+                bucket = by_alternation.setdefault(code, [0, 0])
+                bucket[0] += correct
+                bucket[1] += 1
             if not correct:
                 misses.append(classify(change, got, converter))
 
@@ -329,14 +354,13 @@ def measure_recall(pairs: list[ParallelPair], converter: Converter) -> RecallRep
                     (conversion.source, conversion.target, str(conversion.rule_id))
                 )
 
-    orthographic = [c for c in changes_seen if c.orthographic]
     return RecallReport(
         pairs=used,
+        articles=len(articles),
         tokens=tokens,
-        changes=len(changes_seen),
-        orthographic_changes=len(orthographic),
-        hits=hits,
-        orthographic_hits=orth_hits,
+        split=split,
+        by_scope={s: by_scope.get(s, 0) for s in Scope},
+        hits_by_scope={s: hits_by_scope.get(s, 0) for s in Scope},
         misses=misses,
         false_positives=false_positives,
         by_alternation={k: (v[0], v[1]) for k, v in sorted(by_alternation.items())},
@@ -344,19 +368,15 @@ def measure_recall(pairs: list[ParallelPair], converter: Converter) -> RecallRep
 
 
 def common_shapes(report: RecallReport, limit: int = 8) -> list[tuple[str, int]]:
-    """The most frequent character-level shapes among misses filed under ``other``.
+    """The most frequent character-level shapes among in-scope misses filed as ``other``.
 
     ``other`` is the bucket for changes no modelled alternation explains, so it is the
-    one place a *missing* alternation would hide. It is worth looking at rather than
-    summarising: on the wiki corpus it turns out to be dominated by ``а→у``, the
-    masculine genitive ending, which is a grammatical difference a word-level converter
-    is not trying to make — so a large part of what looks like poor recall is out of
-    scope by design rather than a defect. Nothing here changes a number; it says what
-    the number is made of.
+    one place a *missing* alternation would hide. Nothing here changes a number; it says
+    what the number is made of.
     """
     shapes: Counter[str] = Counter()
     for miss in report.misses:
-        if miss.cause is MissCause.NOT_ORTHOGRAPHIC or miss.change.alternations != {"other"}:
+        if miss.change.alternations != {"other"}:
             continue
         a, b = miss.change.source.lower(), miss.change.expected.lower()
         edits = [
@@ -369,16 +389,16 @@ def common_shapes(report: RecallReport, limit: int = 8) -> list[tuple[str, int]]
 
 
 def write_misses(report: RecallReport, path: Path) -> None:
-    """Every miss, grouped by cause — the work queue this whole harness exists to produce."""
-    order = list(MissCause)
+    """Every in-scope miss, grouped by cause — the work queue this harness exists to produce."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(
-            f"# {len(report.misses)} miss(es) of {report.changes} attested changes "
-            f"across {report.pairs} aligned sentence pairs\n"
-            "# cause\tsource\texpected\tgot\talternations\tdetail\tsentence\n"
+            f"# {len(report.misses)} in-scope miss(es) of {report.in_scope} in-scope changes "
+            f"across {report.pairs} aligned sentence pairs"
+            + (f" (split: {report.split})" if report.split else "")
+            + "\n# cause\tsource\texpected\tgot\talternations\tdetail\tsentence\n"
         )
-        for cause in order:
+        for cause in MissCause:
             for miss in (m for m in report.misses if m.cause is cause):
                 alternations = ",".join(sorted(miss.change.alternations)) or "-"
                 fh.write(
