@@ -137,8 +137,50 @@ class RecallReport:
         counts = Counter(m.cause for m in self.misses)
         return {cause: counts.get(cause, 0) for cause in MissCause}
 
+    @property
+    def wrong_changes(self) -> int:
+        """In-scope positions the converter changed and got wrong.
+
+        Distinct from the other misses: ``stem_absent`` and ``rule_silent`` left the
+        word alone, which loses recall but costs no precision. Only ``rule_wrong``
+        actually put a wrong word on the page.
+        """
+        return self.by_cause[MissCause.RULE_WRONG]
+
+    @property
+    def wrong(self) -> int:
+        """Every change the converter made that this corpus says is wrong.
+
+        The two kinds are the same error seen from opposite sides: a change at a
+        position where the two wikis agreed (nothing was due), and a change at a
+        position where something was due but not this.
+        """
+        return len(self.false_positives) + self.wrong_changes
+
+    @property
+    def precision(self) -> float:
+        """Of the changes the converter made *here*, the share that were right.
+
+        The denominator is deliberately not every change the converter made. At a
+        position where the attested difference is out of scope — ``экзаменаў`` against
+        ``іспытаў``, two different words — converting ``экзаменаў`` to ``экзамэнаў`` is
+        correct and will still not match. Counting that as an error would penalise the
+        converter for the two wikis' word choices, so only positions the corpus can
+        actually adjudicate are scored: the ones where the wikis agree, and the ones
+        where they differ in scope.
+        """
+        made = self.in_scope_hits + self.wrong
+        return self.in_scope_hits / made if made else 1.0
+
+    @property
+    def precision_interval(self) -> tuple[float, float]:
+        return wilson(self.in_scope_hits, self.in_scope_hits + self.wrong)
+
     def headline(self) -> str:
         return format_interval(self.in_scope_hits, self.in_scope)
+
+    def precision_headline(self) -> str:
+        return format_interval(self.in_scope_hits, self.in_scope_hits + self.wrong)
 
 
 # --- reading the corpus ------------------------------------------------------------

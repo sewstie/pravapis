@@ -20,10 +20,12 @@ None — the two files agree.
 
 ## 3. Two cited sections pointing different ways
 
-    - **эўрапейскі or эўрапэйскі?** §52 gives еў → эў; §11б gives е → э after a consonant. Applying both gives эўрапэйскі, which is what be-tarask writes; the project's codification test expects эўрапейскі. Which is used?
-    - **мадрыдзкі or мадрыдскі?** The corpus writes мадрыдзкі; no section was found licensing дз before с here. Is мадрыдзкі right, and does it generalise (бэрлінскі/бэрлінзкі, лёнданскі/лёнданзкі)?
-    - **Genitive plural -аў**: хвілін or хвілінаў, краін or краінаў? The project converts краінаў only, on instruction, and leaves every other noun alone. Is -аў general, or does it depend on the noun?
-    - **Softness across a hyphen**: §29 limits assimilative softness to "у межах слова". In a compound like сьвятлова-зялёны, does the softness of the first part carry?
+- **эўрапейскі or эўрапэйскі?** §52 gives еў → эў; §11б gives е → э after a consonant. Applying both gives эўрапэйскі, which is what be-tarask writes; the project's codification test expects эўрапейскі. Which is used?
+- **мадрыдзкі or мадрыдскі?** The corpus writes мадрыдзкі; no section was found licensing дз before с here. Is мадрыдзкі right, and does it generalise (бэрлінскі/бэрлінзкі, лёнданскі/лёнданзкі)?
+- **Genitive plural -аў**: хвілін or хвілінаў, краін or краінаў? The project converts краінаў only, on instruction, and leaves every other noun alone. Is -аў general, or does it depend on the noun?
+- **Ва Ўкраіне or ва Украіне?** After a word ending in a vowel, does ў replace у at the start of a **capitalised proper noun** — Ўкраіна, Ўсходняя, Ўроцлаў, Ўілсан? be-tarask writes ў in all nine corpus cases; be.wikipedia writes у. The rule would be §15, which could not be read (the book is not redistributable and is absent from the checkout), so nothing is implemented. This is the largest rule-shaped gap the recall harness has found — the `other` class scores 0 of 35 and thirty of those are this question.
+- **унутр or унутар?** `morph.final_tr` inserts the epenthetic а in every word-final -тр (тэатр → тэатар, цэнтр → цэнтар), so it also makes унутр → унутар. Both wikis write унутр unchanged. §26 governs borrowings, and унутр is native (у + нутро), so the rule may simply not reach it — but §26 could not be read to confirm. If унутар is wrong, унутр joins сартр and нотр in the rule's exception list in `data/rules/morphology.yaml`.
+- **Softness across a hyphen**: §29 limits assimilative softness to "у межах слова". In a compound like сьвятлова-зялёны, does the softness of the first part carry?
 
 
 ## 4. Is the gold set trustworthy at all?

@@ -114,14 +114,18 @@ def previous_word(tokens: Sequence[Token], i: int) -> Token | None:
 
 
 def next_word(tokens: Sequence[Token], i: int) -> Token | None:
-    """The first word token after index ``i`` with only whitespace in between.
+    """The first word token after index ``i``, across whitespace and §13 bridges.
 
-    Punctuation breaks the clitic relationship: "не, быў" is not "ня быў".
+    Punctuation breaks the clitic relationship: "не, быў" is not "ня быў". A quotation
+    mark is not punctuation for this purpose — §13 Заўвага says so in as many words, and
+    the clitic hears what is spoken, where an opening quote is silent. So
+    ``з «Віцебскам»`` softens exactly as ``з Віцебскам`` does; be-tarask writes
+    зь in both. See :func:`bridges_words` for which marks are transparent.
     """
     for j in range(i + 1, len(tokens)):
         if tokens[j].kind is TokenKind.WORD:
             return tokens[j]
-        if tokens[j].kind is not TokenKind.SPACE:
+        if not bridges_words(tokens, j):
             return None
     return None
 

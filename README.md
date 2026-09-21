@@ -97,8 +97,11 @@ The -мент suffix (дакумент → дакумэнт, дакумента�
 paradigms: the э belongs to the base noun and is inherited by everything derived from it,
 even where the stress has moved, so per-form stress is the wrong fact to store.
 
-The genitive plural in -аў is a **whitelist, not a rule**. §80 extends -аў to feminine and
-neuter nouns in a vowel, but for many words both forms are permissible — хвілін and
+The genitive plural in -аў is a **whitelist, not a rule** — and not a § either. Збор 2005 is a
+spelling code (§1–92) and does not legislate declension; its §80 is the German *ei* rule
+(Ляйпцыг, Айнштайн). Taraškievica extends -аў to feminine and neuter nouns in a
+vowel — sourced here to the project owner's instruction — but for many words both forms
+are permissible — хвілін and
 хвілінаў equally — so six nouns where -аў is strongly preferred sit in
 `data/lexicon/exceptions.tsv` and everything else is left alone. A table-driven version
 built from every GrammarDB noun was tried first and cost 10 false positives to gain 3
@@ -159,78 +162,172 @@ about the same thing, aligned sentence by sentence and diffed token by token. Ea
 differing token pair is a change a Taraškievica writer actually made.
 
 ```bash
-python scripts/fetch_parallel_corpus.py --articles 500   # build the corpus
-pravapis eval --recall --misses misses.tsv               # measure against it
+python scripts/fetch_parallel_corpus.py --articles 400   # append to the corpus
+pravapis eval --recall --misses misses.tsv               # dev split
+pravapis eval --recall --split test                      # frozen; milestones only
 ```
 
-**The result is a bound, not a number.** A differing token pair is evidence of a
-difference, not proof that the difference is orthographic: the two wikis also choose
-different words (`плошчы` / `пляцы`, `годзе` / `року`), and no converter should reconcile
-those. So two figures are reported — strict recall, which counts every diff and is a
-lower bound, and orthographic recall, which counts only diffs that are a respelling of
-one word and is an upper bound. The truth is between them. Quoting one would mean
-deciding silently which kind of error to make.
+**5,063 sentence pairs from 895 article pairs.** Split **per article**, never per
+sentence: the same loanword recurs all through an article — a biography of Chopin says
+Шапэн thirty times — so a sentence split would put the same stem on both sides of the
+line and let a stem mined from train score itself on test. The split is written into the
+corpus file rather than recomputed, which is what freezes it against a change to the hash
+function or the article set.
 
-Misses are bucketed by the thing that would have to change to fix them:
+Sentence pairs are kept on similarity measured **after `pravapis.scope.neutral_fold`**,
+which erases exactly the alternations the converter is contracted to make and nothing
+else. Scoring raw strings would drop precisely the sentences carrying the most change:
+the denser a sentence is in orthography, the less similar its two versions look. The fold
+is deliberately not "convert one side and compare", which would keep what the converter
+already handles and drop what it does not — the same bias pointing the other way, and
+much harder to notice.
 
-| Bucket | Meaning |
-|---|---|
-| `stem_absent` | no stem and no lexicon entry covers the word, so nothing could have told the rules it was a borrowing |
-| `stem_untagged` | a stem matched, but it is classed `native` or does not license the alternation this change needs |
-| `rule_silent` | the etymology was available and no rule changed the word |
-| `rule_wrong` | a rule fired and produced something other than the attested form |
-| `not_orthographic` | the two forms are not a spelling of the same word — reported, never counted as a failure |
+### One headline, three declared exclusions
 
-Recall is also broken down per alternation, which is where the harness earns its keep:
-assimilative softness and the loanword alternations are not in the same state, and a
-single recall number hides that.
+Not every difference between two writers is a change the converter owes. Each attested
+difference is sorted into one of four buckets, and **only `in_scope` reaches the
+headline**. All four counts are printed: an exclusion nobody can see is indistinguishable
+from a filter tuned until the number looked good.
 
-### First measurement
-
-827 aligned sentence pairs from 384 article pairs; 2,186 attested changes.
-
-| | recall | n |
+| Bucket | dev | Meaning |
 |---|---|---|
-| **strict** (every diff counts) | **48.9%** | 1069/2186 |
-| **orthographic** (respellings only) | **56.8%** | 991/1744 |
+| `in_scope` | 58% | differs only by alternations the converter models. **The contract.** |
+| `grammatical` | 10% | a case or form ending. Збор 2005 is a spelling code (§1–92) and does not legislate declension, so this is outside the contract by the code's own scope |
+| `reference_deviates` | 0% | the be-tarask side contradicts a § of the 2005 code; cited per pattern |
+| `not_orthographic` | 33% | the two writers chose different words (`плошчы`/`пляцы`, `годзе`/`року`) |
 
-| alternation | recall | n | |
+### The numbers
+
+Every figure carries a Wilson 95% interval. A class of a hundred cases cannot support a
+claim narrower than its interval, however precise the point estimate looks.
+
+| split | in-scope N → T recall | precision |
+|---|---|---|
+| dev (1,006 pairs) | **74.2%** [72.0, 76.2] | 95.3% [94.0, 96.3] |
+| test (1,225 pairs, frozen) | **73.5%** [71.6, 75.4] | 96.2% [95.1, 97.0] |
+
+dev and test agree to within a point, which is the main thing a frozen split is for.
+
+| alternation | dev recall | n | |
 |---|---|---|---|
-| `soft` — assimilative softness | **95.0%** | 696/733 | the rules are in good shape |
-| `eu` — еў → эў | 100% | 12/12 | small n |
-| `l` — soft л | 55.1% | 65/118 | stem inventory, not rules |
-| `i` — і → ы | 41.2% | 28/68 | stem inventory |
-| `e` — е → э | 29.5% | 76/258 | stem inventory |
-| `other` | 19.5% | 131/673 | see below |
+| `soft` — assimilative softness | **98.8%** [98, 99] | 1035/1048 | the rules are done |
+| `eu` — еў → эў | 92.9% [69, 99] | 13/14 | small n |
+| `i` — і → ы | 69.8% [59, 78] | 60/86 | stem inventory |
+| `l` — soft л | 50.4% [42, 59] | 63/125 | stem inventory |
+| `e` — е → э | **22.1%** [18, 26] | 94/425 | stem inventory — the gap |
+| `other` | 0.0% [0, 10] | 0/35 | see below |
 
-| miss cause | n | share |
+| miss cause | dev n | share |
 |---|---|---|
-| `rule_silent` | 462 | 61% |
-| `stem_absent` | 213 | 28% |
-| `rule_wrong` | 70 | 9% |
-| `stem_untagged` | 8 | 1% |
-| `not_orthographic` | 364 | not counted |
+| `stem_absent` | 358 | 82% |
+| `rule_silent` | 40 | 9% |
+| `rule_wrong` | 30 | 7% |
+| `stem_untagged` | 8 | 2% |
+
+**The phonological rules are done and the gap is data.** Softness is at 98.8% over a
+thousand cases; 82% of every remaining miss is a stem that is simply absent
+(`імператара → імпэратара`, `Шапена → Шапэна`). That is a data problem with a known
+procedure, not a rule to think harder about.
+
+**A missing stem is a precision problem too, not only a recall one.** With no stem,
+`Снейдэр` keeps its е, the н after it reads as soft, and the softness rule fires:
+`Сьнейдэр`, where Taraškievica writes `Снэйдэр`. Same for `аспектаў → асьпектаў`
+(`аспэктаў`) and `спартсменам → спартсьменам` (`спартсмэнам`). The two halves of the
+loanword adaptation are not independent, and applying half of it is worse than none.
+
+**`other` is one question, not a miscellany.** Thirty of its thirty-five dev cases are
+у/ў — `Украіны`/`Ўкраіны`, `Усходняй`/`Ўсходняй` — a capitalised proper noun after a word
+ending in a vowel. It is not implemented because it cannot be cited: the rule would be
+§15, and the 2005 book is not redistributable and is absent from a checkout, so the
+section could not be read. See `data/NORMS.md`, "Known gap: ў before a capitalised proper
+noun", and the question logged in `data/eval/tarask/review-packet.md`.
 
 **Read this next to the precision figures, not instead of them.** Those are not wrong:
-the converter changes very little that it should not. It simply changes less than a
+the converter changes very little it should not. It simply changes less than a
 Taraškievica writer would, and until this harness existed there was no way to say so.
 
-Two things the breakdown makes clear. The phonological rules are close to done at 95%;
-the gap is the **stem inventory**, and 213 misses are stems that are simply absent
-(`Шапена → Шапэна`, `прафілактыкай → прафіляктыкай`) — a data problem with a known
-procedure, `scripts/mine_loan_stems.py`. And the `other` bucket is not one thing: of the 464
-misses whose *only* inferred alternation is `other`, 175 are `а→у`, the masculine
-genitive ending, and another 28 are the `-аў` genitive plural that §80 deliberately
-restricts to a whitelist because both forms are permissible. Those are grammatical differences a word-level converter is not trying to
-make. They are counted against recall anyway rather than quietly excluded, which is part
-of why the strict figure is a lower bound.
+### What the next review session is worth
+
+`scripts/mine_wikidata_labels.py` mines candidate stems from Wikidata labels, which carry
+a `be` and a `be-tarask` string for the same item and are therefore aligned by
+construction — no sentence alignment, no similarity threshold, no bias from either, and
+CC0 rather than CC BY-SA. 1,584 candidates are queued in `data/review/stem_candidates.tsv`.
+
+They are **not** ranked by impact alone. Impact counts the tokens a stem touches, and a
+short stem matching native vocabulary has the largest blast radius by construction: `бел`,
+mined from the name *Бела*, scores 454,828 on the Narkamaŭka frequency list and every one
+of those tokens is *беларускі*, *беларусь*, *Беларусі*. Ranking that way put eight
+catastrophic candidates above the first good one.
+
+So each candidate is screened against 15M tokens of genuine be-tarask
+(`data/corpora/frequency_tarask.tsv`, built with the recall corpus's own held-out articles
+excluded, so a stem is never believed partly on the evidence of sentences it is later
+scored against), and the queue is sorted by that verdict first:
+
+| verdict | n | example evidence |
+|---|---|---|
+| `supported` | 165 | `амэрыканскі`=2407 vs `амерыканскі`=0 |
+| `unknown` | 1376 | too rare in be-tarask to say |
+| `refuted` | 43 | `беларусі`=54829 vs `бэларусі`=0 |
+
+`scripts/recall_curve.py` then answers the question that actually decides whether to spend
+the session, without writing anything to `data/`:
+
+```
+ stems added      in-scope recall [95% CI]               precision
+           0              74.2% [72%, 76%]        95.3% [94%, 96%]
+          25              77.4% [75%, 79%]        95.6% [94%, 97%]
+          50              78.6% [77%, 80%]        95.8% [95%, 97%]
+         100              80.4% [78%, 82%]        95.7% [95%, 97%]
+         165              81.6% [80%, 83%]        95.7% [95%, 97%]
+```
+
+Recall rising while precision holds is the result to want: the stems are changing
+loanwords, not catching native vocabulary. **Accepting them is still a human step** — the
+inventory is what keeps the false-positive rate at zero, and the queue still contains
+things a person should catch, such as three overlapping rows for one fact (`амерык`,
+`амерыкан`, `амерыканск`).
+
+### The precision gate
+
+Two tests in `tests/test_negative_set.py` fail the build when a lexicon batch goes wrong.
+
+`data/eval/negative.tsv` holds **3,213 word forms the converter must not change**: forms
+both wikis wrote identically at an aligned position, at least twice, in the **train** split
+only, and which the corpus never shows converted anywhere else — so one author's lapse
+cannot be mistaken for agreement. Rebuilding is **additive**: a pinned row is never
+dropped, because otherwise "add bad stem, rebuild, commit" would turn a caught regression
+into a green build.
+
+The second test holds dev precision above a floor. It is a floor and not 99%, because
+almost every dev "false positive" is the converter correctly applying a cited rule
+(`Салідарнасць → Салідарнасьць`, `не → ня`) to an article that had not been converted.
+The exact gate is the negative set; this one catches the large drop a bad batch causes.
+
+Both earned their keep immediately. `scripts/mine_wikidata_labels.py` used to write its
+review queue into `data/lexicon/stems/`, which `read_stem_sources` globs, so 1,584
+unreviewed candidates became live inventory and the converter began writing *Бэларусь*,
+*пэршы* and *сэльсавет* without a single test going red. These two failed, and named the
+cause.
 
 ## Coverage — what the converter can even see
 
 ```bash
-python scripts/build_frequency_list.py --articles 4000
+# from a dump, not the API: one reproducible file, no rate limit, no sampling
+python scripts/build_frequency_list.py --dump bewiki-latest-pages-articles.xml.bz2
 pravapis eval --coverage --top 20000
 ```
+
+`data/corpora/frequency_be.tsv` is the top 20,000 Narkamaŭka forms from 266,050
+be.wikipedia articles — 44.1M tokens, 77.0% of them covered by those 20,000 forms.
+
+| what the converter knows | forms | of types | of tokens |
+|---|---|---|---|
+| stem — loan | 492 | 2.5% | 1.8% |
+| stem — native guard | 278 | 1.4% | 1.2% |
+| lexicon entry | 137 | 0.7% | 1.3% |
+| a rule changes it (no etymology needed) | 2,123 | 10.6% | 7.8% |
+| nothing | 16,970 | 84.9% | 87.8% |
 
 Recall is measured on sentences that happened to align. Coverage asks a blunter question
 with no sampling in it: of the word forms Belarusian text is made of, how many does the
@@ -611,7 +708,8 @@ pravapis explain "сімвал" --to taraskievica
 pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
 pravapis eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, compares subsets
 pravapis eval data/eval/gold.tsv --trusted          # hand_written rows only
-pravapis eval --recall --misses misses.tsv          # recall vs aligned be ↔ be-tarask
+pravapis eval --recall --misses misses.tsv          # recall + precision, dev split
+pravapis eval --recall --split test                 # the frozen split; milestones only
 pravapis eval --coverage --top 20000                # stem/lexicon coverage by frequency
 pravapis eval --round-trip                          # N→T→N identity rate + dump
 pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
@@ -620,6 +718,11 @@ pravapis validate-data                              # data vs data/schemas/
 pravapis export-conformance                         # regenerate the contract corpus
 pravapis export-conformance --check                 # fail if it is stale
 pravapis bench --size 10mb
+
+# growing the lexicon — mine, screen, decide, then review
+python scripts/mine_wikidata_labels.py --pages 60000   # → data/review/stem_candidates.tsv
+python scripts/recall_curve.py --steps 0,25,50,100,165 # what accepting them would buy
+python scripts/build_negative_set.py                   # refresh the precision gate
 pravapis serve
 ```
 
@@ -720,12 +823,20 @@ conformance/     cases.jsonl, known_failures.jsonl, manifest.json — the cross-
 data/rules/      YAML rules (palatalization, loanwords, morphology), each rule cited
 data/translit/   Łacinka + official-2007 scheme tables, with inline tests
 data/lexicon/    TSV sources → data/lexicon.marisa
-data/lexicon/stems/  stem etymology inventory (loan / native) gating the loanword rules
-data/corpora/    parallel.tsv (aligned be ↔ be-tarask sentence pairs, for recall) and
-                 frequency_be.tsv (word-form frequency, for coverage) — both generated,
-                 both measurement-only, never read by lexicon or stem building
+data/lexicon/stems/  stem etymology inventory (loan / native) gating the loanword
+                 rules. ONLY stems.tsv: the directory is globbed, so a file without the
+                 `#!schema` declaration is ignored rather than loaded as inventory
+data/corpora/    parallel.tsv (aligned be ↔ be-tarask sentence pairs, for recall),
+                 frequency_be.tsv (Narkamaŭka word-form frequency, for coverage and for
+                 ranking stem candidates) and frequency_tarask.tsv (the same from
+                 be-tarask, which is what says whether a candidate stem would corrupt
+                 real words) — all generated, all measurement-only, never read by
+                 lexicon or stem building
+data/review/     stem_candidates.tsv — mined proposals awaiting a human. Deliberately
+                 not under data/lexicon/stems/, which is loaded
 data/eval/       gold.tsv (held out, with provenance and an origin header),
-                 roundtrip_corpus.txt, ambiguous.tsv (classifier training)
+                 negative.tsv (words that must not change — the precision gate),
+                 roundtrip_corpus.txt, roundtrip_regressions.tsv, ambiguous.tsv
 data/eval/tarask/  genuine Taraškievica from be-tarask (CC BY-SA 4.0): corpus.tsv,
                  audit.tsv, gold_t2n.tsv — independent T → N evaluation.
                  REVIEW.md is the handoff: what is unreviewed and how to check it

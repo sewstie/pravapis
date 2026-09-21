@@ -276,6 +276,28 @@ def read_regressions(path: Path | None = None) -> list[tuple[str, str]]:
     return rows
 
 
+def read_negative_set(path: Path | None = None) -> list[tuple[str, int]]:
+    """``(form, attestations)`` the converter must leave unchanged, N → T.
+
+    Built by ``scripts/build_negative_set.py`` from the train split of the parallel
+    corpus: words a Narkamaŭka writer and a Taraškievica writer independently spelled
+    the same way. Recall cannot see the error these catch — a stem that quietly starts
+    matching native vocabulary loses no recall at all, it just changes words nobody
+    asked it to.
+    """
+    from pravapis.config import find_data_dir
+
+    target = path or find_data_dir() / "eval" / "negative.tsv"
+    rows: list[tuple[str, int]] = []
+    for line in target.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("	")
+        if len(parts) >= 2 and parts[1].strip().isdigit():
+            rows.append((sanitize(parts[0].strip()), int(parts[1].strip())))
+    return rows
+
+
 def write_round_trip_failures(
     texts: Sequence[str],
     converter: Converter,

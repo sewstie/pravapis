@@ -40,6 +40,10 @@ CODIFICATION_CLITICS = [
     ("не было", "не было"),  # было´: second syllable, no jakanne (endnote xxxi)
     # §29: softness extends to з, без/бяз, праз, цераз
     ("з вераю", "зь вераю"),
+    # §13 Заўвага: двукосье is not a punctuation mark, so it does not break the
+    # clitic — the quote is silent and з agrees with what is spoken. The dash does break it.
+    ("з «Віцебскам»", "зь «Віцебскам»"),
+    ("без «святла»", "безь «сьвятла»"),
     ("без слёз", "бязь сьлёз"),
     ("праз лес", "празь лес"),
     ("цераз сетку", "церазь сетку"),

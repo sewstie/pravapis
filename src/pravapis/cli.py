@@ -892,7 +892,17 @@ def _report_recall(
     console.print(
         f"\n  [bold]in-scope N → T recall: {report.recall:.1%}[/bold] "
         f"[[{low:.1%}, {high:.1%}] Wilson 95%]  "
-        f"({report.in_scope_hits}/{report.in_scope})\n"
+        f"({report.in_scope_hits}/{report.in_scope})"
+    )
+    p_low, p_high = report.precision_interval
+    console.print(
+        f"  [bold]precision: {report.precision:.1%}[/bold] "
+        f"[[{p_low:.1%}, {p_high:.1%}] Wilson 95%]  "
+        f"({report.in_scope_hits}/{report.in_scope_hits + report.wrong})"
+    )
+    console.print(
+        f"[dim]  {len(report.false_positives)} change(s) where none was due; "
+        f"{report.wrong_changes} wrong where one was[/dim]\n"
     )
 
     buckets = Table(title="every attested difference, sorted by whose job it is", box=box.SIMPLE)

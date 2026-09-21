@@ -38,6 +38,12 @@ jobs:
       # Independent T → N on genuine Taraškievica. No --out: CI reports, never rewrites
       # the reviewed verdicts in data/eval/tarask/audit.tsv.
       - run: uv run pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --top 15
+      # Recall and precision against the aligned be ↔ be-tarask corpus, so both numbers
+      # are in the log of every run rather than only in whatever was last pasted into the
+      # README. Reporting only: the gates that can fail the build are in pytest
+      # (tests/test_negative_set.py). The dev split — test is frozen and read at
+      # milestones, not on every push.
+      - run: uv run pravapis eval --recall --split dev
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest'
         with:

@@ -653,6 +653,35 @@ them corrupts ordinary text. Six nouns where -аў is strongly preferred are whi
 built from every GrammarDB noun first and cost 10 false positives against 3 words gained.)*
 
 
+## Known gap: ў before a capitalised proper noun (UNVERIFIED, needs §15)
+
+The parallel corpus attests this nine times and the converter makes none of them:
+
+| be.wikipedia | be-tarask | preceding word |
+|---|---|---|
+| Украіны | Ўкраіны | вобласці / Раду |
+| Усходняе / Усходняй | Ўсходняе / Ўсходняй | а / і |
+| Уілсан | Ўілсан | Бартлі |
+| Упсалай | Ўпсалай | і |
+| Урарту | Ўрарту | эпоху |
+| Уроцлаве | Ўроцлаве | ва |
+
+Every one is a **capitalised** word after a word ending in a vowel. The shape is regular
+enough to be a rule rather than a lexicon: Narkamaŭka restricts ў at the start of a proper
+noun, Taraškievica appears not to.
+
+**Not implemented, because it cannot be cited.** The rule would be §15, and
+`data/reference/pravapis2005.txt` is git-ignored and absent from a fresh checkout, so the
+section text could not be read to confirm what it says about уласныя назвы. Shipping it on
+the corpus alone would be exactly the UNVERIFIED rule this file exists to prevent — and the
+corpus disagrees with itself in the other direction (thirteen `ў → у` differences, several
+after a vowel, where be-tarask writes у against its own rule).
+
+This is the single largest rule-shaped gap the recall harness has found: the `other`
+alternation scores **0 of 35**, and thirty of those thirty-five are this у/ў question.
+Resolve §15 from the book and it becomes a rule with a citation. It is logged in
+`data/eval/tarask/REVIEW.md` as a question for a reviewer.
+
 ## Project decision: no ґ
 
 Збор 2005 зноска 55 licenses the plosive letter in a list of borrowings — "[ґ]анак,

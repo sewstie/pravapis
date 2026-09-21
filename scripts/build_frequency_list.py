@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import bz2
+import html
 import sys
 from collections import Counter
 from collections.abc import Iterator
@@ -79,21 +80,31 @@ def strip_wikitext(text: str) -> str:
     return _APOSTROPHES.sub("", text)
 
 
-def iter_article_text(path: Path) -> Iterator[str]:
-    """Yield the wikitext of every main-namespace, non-redirect article in the dump."""
+def iter_article_text(path: Path, exclude: frozenset[str] = frozenset()) -> Iterator[str]:
+    """Yield the wikitext of every main-namespace, non-redirect article in the dump.
+
+    ``exclude`` drops articles by title. That exists because this list is not only
+    descriptive: the be-tarask list decides which mined stems are believed, so if it counted
+    the articles the recall corpus holds out, a stem would be accepted partly on the
+    evidence of the sentences it is later scored against. Excluding them keeps the test
+    split a test split.
+    """
     with bz2.open(path, "rt", encoding="utf-8", errors="replace") as fh:
         namespace, redirect, collecting = None, False, False
+        title: str | None = None
         buffer: list[str] = []
         for line in fh:
             if not collecting:
                 if "<page>" in line:
-                    namespace, redirect = None, False
+                    namespace, redirect, title = None, False, None
+                if (m := _TITLE.search(line)) is not None:
+                    title = html.unescape(m.group(1))
                 if (m := _NS.search(line)) is not None:
                     namespace = int(m.group(1))
                 if _REDIRECT.search(line):
                     redirect = True
                 if (m := _TEXT_OPEN.search(line)) is not None:
-                    if namespace != 0 or redirect:
+                    if namespace != 0 or redirect or (title is not None and title in exclude):
                         continue
                     rest = line[m.end() :]
                     if _TEXT_CLOSE in rest:
@@ -111,17 +122,44 @@ def iter_article_text(path: Path) -> Iterator[str]:
 
 
 def main(argv: list[str]) -> int:
+    # Before parse_args: --help prints the docstring and the defaults, both of which
+    # contain ŭ, and the Windows console is cp1252 until told otherwise.
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dump", type=Path, required=True, help="bewiki pages-articles .xml.bz2")
     parser.add_argument("--top", type=int, default=20_000)
     parser.add_argument("--out", type=Path, default=OUT)
     parser.add_argument("--max-articles", type=int, default=0, help="0 = the whole dump")
+    parser.add_argument(
+        "--label",
+        default="Narkamaŭka",
+        help="orthography named in the header; the stripper is language-agnostic",
+    )
+    parser.add_argument(
+        "--wiki",
+        default="be.wikipedia.org",
+        help="wiki named in the CC BY-SA attribution line",
+    )
+    parser.add_argument(
+        "--exclude-titles",
+        type=Path,
+        default=None,
+        help="file of article titles, one per line, to leave out of the counts",
+    )
     args = parser.parse_args(argv)
 
-    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    exclude: frozenset[str] = frozenset()
+    if args.exclude_titles is not None:
+        exclude = frozenset(
+            line.strip()
+            for line in args.exclude_titles.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        )
+        print(f"excluding {len(exclude)} held-out article(s)")
+
     counts: Counter[str] = Counter()
     articles = 0
-    for wikitext in iter_article_text(args.dump):
+    for wikitext in iter_article_text(args.dump, exclude):
         articles += 1
         for word in _WORD.findall(sanitize(strip_wikitext(wikitext))):
             if len(word) > 1:
@@ -137,13 +175,20 @@ def main(argv: list[str]) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(
-            "# form<TAB>count — Narkamaŭka word-form frequency, most frequent first.\n"
+            f"# form<TAB>count — {args.label} word-form frequency, most frequent first.\n"
             f"# Built by scripts/build_frequency_list.py from {args.dump.name}:\n"
             f"# {articles} main-namespace articles, {len(counts)} distinct forms over\n"
             f"# {total} tokens; top {len(ranked)} kept, covering {kept / total:.1%} of tokens.\n"
             "# Wikitext is stripped crudely, so the tail contains markup residue; the head,\n"
             "# which is what the coverage figure and the mining rank depend on, does not.\n"
-            "# Text is CC BY-SA 4.0 (be.wikipedia.org).\n"
+            + (
+                f"# {len(exclude)} article(s) held out by the recall corpus are EXCLUDED,\n"
+                "# so a stem is never believed partly on the evidence of the sentences\n"
+                "# it is later scored against.\n"
+                if exclude
+                else ""
+            )
+            + f"# Text is CC BY-SA 4.0 ({args.wiki}).\n"
         )
         for form, count in ranked:
             fh.write(f"{form}\t{count}\n")

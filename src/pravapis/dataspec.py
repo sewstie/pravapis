@@ -373,6 +373,19 @@ def validate_data(root: Path | None = None) -> list[Problem]:
     for path in sorted((base / "rules").glob("*.yaml")):
         problems += validate_rules_file(path, base)
     for path in sorted((base / "lexicon" / "stems").glob("*.tsv")):
+        # An undeclared file in this directory is ignored by the loader, so validating it
+        # row by row would bury the one thing worth saying under six hundred column
+        # complaints. Say that one thing: it is here, and nothing reads it.
+        if read_declaration(path).schema != SCHEMA_ID:
+            problems.append(
+                Problem(
+                    path,
+                    "<declaration>",
+                    f"no '#!schema {SCHEMA_ID}' line, so pravapis.lexicon.stems ignores this "
+                    "file entirely. Working files do not belong in the inventory directory.",
+                )
+            )
+            continue
         problems += validate_stems_file(path, base)
     for path in sorted((base / "translit").glob("*.yaml")):
         problems += validate_scheme_file(path, base)
