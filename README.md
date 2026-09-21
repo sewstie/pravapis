@@ -143,6 +143,78 @@ Caveats:
   паказала`) that a word-level converter cannot make. The first class is the one that
   shrinks by adding data — see `scripts/mine_loan_stems.py`.
 
+## Recall — the changes that did not happen
+
+Everything above measures **precision**: of the changes the converter made, how many
+were right. None of it can measure recall, because a miss is a change that should have
+happened and there is no list of those. `gold.tsv` cannot supply one — its Taraškievica
+side was written by applying the same reading of the norm the converter implements, so a
+change the converter does not know about is a change the gold set does not contain
+either. The blind spots agree.
+
+`data/corpora/parallel.tsv` supplies one from outside. The same article, written
+independently in Narkamaŭka on be.wikipedia.org and in Taraškievica on
+be-tarask.wikipedia.org, matched by the Wikidata sitelink that says the two articles are
+about the same thing, aligned sentence by sentence and diffed token by token. Each
+differing token pair is a change a Taraškievica writer actually made.
+
+```bash
+python scripts/fetch_parallel_corpus.py --articles 500   # build the corpus
+pravapis eval --recall --misses misses.tsv               # measure against it
+```
+
+**The result is a bound, not a number.** A differing token pair is evidence of a
+difference, not proof that the difference is orthographic: the two wikis also choose
+different words (`плошчы` / `пляцы`, `годзе` / `року`), and no converter should reconcile
+those. So two figures are reported — strict recall, which counts every diff and is a
+lower bound, and orthographic recall, which counts only diffs that are a respelling of
+one word and is an upper bound. The truth is between them. Quoting one would mean
+deciding silently which kind of error to make.
+
+Misses are bucketed by the thing that would have to change to fix them:
+
+| Bucket | Meaning |
+|---|---|
+| `stem_absent` | no stem and no lexicon entry covers the word, so nothing could have told the rules it was a borrowing |
+| `stem_untagged` | a stem matched, but it is classed `native` or does not license the alternation this change needs |
+| `rule_silent` | the etymology was available and no rule changed the word |
+| `rule_wrong` | a rule fired and produced something other than the attested form |
+| `not_orthographic` | the two forms are not a spelling of the same word — reported, never counted as a failure |
+
+Recall is also broken down per alternation, which is where the harness earns its keep:
+assimilative softness and the loanword alternations are not in the same state, and a
+single recall number hides that.
+
+## Coverage — what the converter can even see
+
+```bash
+python scripts/build_frequency_list.py --articles 4000
+pravapis eval --coverage --top 20000
+```
+
+Recall is measured on sentences that happened to align. Coverage asks a blunter question
+with no sampling in it: of the word forms Belarusian text is made of, how many does the
+converter know anything about? Each of the top 20,000 forms is assigned to exactly one of
+*stem* (loan or native guard), *lexicon entry*, *a rule changes it anyway*, or *nothing*,
+and each is reported by type and by token — the share of the vocabulary and the share of
+running text, which are very different numbers.
+
+A low stem figure is not by itself a gap. Stems exist only to tell the loanword rules
+that a word is a borrowing; native vocabulary needs none, and most forms are native. The
+figure that matters is stem coverage read next to loanword recall above.
+
+## Round-trip drift
+
+```bash
+pravapis eval --round-trip --round-trip-dump data/eval/roundtrip_failures.tsv
+```
+
+N → T → N on unlabelled Narkamaŭka text that is deliberately **not** the gold set, so
+fixing what it finds does not tune the converter on its own test data. Reports the
+word-level and sentence-level identity rates and dumps every word that did not come back,
+grouped by the pair of stages that broke it (`palat.assim | palat.unassim`), which is
+usually enough to see the cause without opening the rule files.
+
 ## Independent T → N
 
 Everything above comes from one gold set whose Taraškievica side is derived. To measure
@@ -499,6 +571,9 @@ pravapis explain "сімвал" --to taraskievica
 pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
 pravapis eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, compares subsets
 pravapis eval data/eval/gold.tsv --trusted          # hand_written rows only
+pravapis eval --recall --misses misses.tsv          # recall vs aligned be ↔ be-tarask
+pravapis eval --coverage --top 20000                # stem/lexicon coverage by frequency
+pravapis eval --round-trip                          # N→T→N identity rate + dump
 pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
 pravapis audit data/eval/tarask/corpus.tsv --rule palat.unassim --sample 15
 pravapis validate-data                              # data vs data/schemas/
@@ -606,6 +681,9 @@ data/rules/      YAML rules (palatalization, loanwords, morphology), each rule c
 data/translit/   Łacinka + official-2007 scheme tables, with inline tests
 data/lexicon/    TSV sources → data/lexicon.marisa
 data/lexicon/stems/  stem etymology inventory (loan / native) gating the loanword rules
+data/corpora/    parallel.tsv (aligned be ↔ be-tarask sentence pairs, for recall) and
+                 frequency_be.tsv (word-form frequency, for coverage) — both generated,
+                 both measurement-only, never read by lexicon or stem building
 data/eval/       gold.tsv (held out, with provenance and an origin header),
                  roundtrip_corpus.txt, ambiguous.tsv (classifier training)
 data/eval/tarask/  genuine Taraškievica from be-tarask (CC BY-SA 4.0): corpus.tsv,

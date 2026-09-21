@@ -7,6 +7,9 @@ pravapis explain "сімвал" --to taraskievica
 pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
 pravapis train data/eval/ambiguous.tsv --out data/models/disambig.joblib
 pravapis eval data/eval/gold.tsv
+pravapis eval --recall --misses misses.tsv
+pravapis eval --coverage --top 20000
+pravapis eval --round-trip
 pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
 pravapis bench --size 10mb
 pravapis serve --port 8000
@@ -354,7 +357,7 @@ def train(
 
 @app.command("eval")
 def eval_cmd(
-    gold: Annotated[Path, typer.Argument(help="TSV: narkamauka, taraskievica.")],
+    gold: Annotated[Path | None, typer.Argument(help="TSV: narkamauka, taraskievica.")] = None,
     config: ConfigOption = None,
     direction: Annotated[
         str, typer.Option("--direction", "-d", help="taraskievica, narkamauka or both")
@@ -370,16 +373,63 @@ def eval_cmd(
             help="Score only hand_written rows (never adjusted after seeing converter output).",
         ),
     ] = False,
+    recall: Annotated[
+        bool,
+        typer.Option("--recall", help="Measure recall against the aligned be ↔ be-tarask corpus."),
+    ] = False,
+    corpus: Annotated[
+        Path | None, typer.Option("--corpus", help="Parallel corpus for --recall.")
+    ] = None,
+    misses: Annotated[
+        Path | None, typer.Option("--misses", help="Write every miss, grouped by cause.")
+    ] = None,
+    coverage: Annotated[
+        bool, typer.Option("--coverage", help="Stem and lexicon coverage over a frequency list.")
+    ] = False,
+    frequency: Annotated[
+        Path | None, typer.Option("--frequency", help="Frequency list for --coverage.")
+    ] = None,
+    top: Annotated[
+        int, typer.Option("--top", help="How many forms of the list to measure.")
+    ] = 20_000,
+    round_trip: Annotated[
+        bool, typer.Option("--round-trip", help="N→T→N identity rate; dumps non-identity cases.")
+    ] = False,
+    round_trip_corpus: Annotated[
+        Path | None, typer.Option("--round-trip-corpus", help="Text to round-trip.")
+    ] = None,
+    round_trip_dump: Annotated[
+        Path | None, typer.Option("--round-trip-dump", help="Where to write the failures.")
+    ] = None,
 ) -> None:
     """Score the converter on a gold set: accuracy, coverage split, round trip, throughput.
 
     Rows marked ``uncertain`` are never scored. By default the remaining rows
     are scored and the hand_written subset is scored alongside for comparison;
     ``--trusted`` scores only that subset.
+
+    ``--recall``, ``--coverage`` and ``--round-trip`` each answer a question the gold set
+    cannot, and each runs without a gold file.
     """
     from pravapis.metrics import HAND_WRITTEN, evaluate, read_gold, read_gold_rows
 
     converter = _converter(config)
+    if recall or coverage or round_trip:
+        data = Config.default().lexicon.parent
+        if recall:
+            _report_recall(converter, corpus or data / "corpora" / "parallel.tsv", misses)
+        if coverage:
+            _report_coverage(converter, frequency or data / "corpora" / "frequency_be.tsv", top)
+        if round_trip:
+            _report_round_trip(
+                converter,
+                round_trip_corpus or data / "eval" / "roundtrip_corpus.txt",
+                round_trip_dump or data / "eval" / "roundtrip_failures.tsv",
+            )
+        return
+    if gold is None:
+        errors.print("[red]a gold file is required[/red] (or use --recall/--coverage/--round-trip)")
+        raise typer.Exit(code=2)
     rows = read_gold_rows(gold)
     origin = read_gold_origin(gold)
     n_uncertain = sum(r.provenance in UNSCORED for r in rows)
@@ -798,6 +848,183 @@ def serve(
     if config is not None:
         os.environ["PRAVAPIS_CONFIG"] = str(config)
     uvicorn.run("pravapis.api.main:app", host=host, port=port)
+
+
+def _report_recall(converter: Converter, corpus: Path, misses_out: Path | None) -> None:
+    """Recall against the aligned wiki corpus, as a bound, with misses bucketed by cause."""
+    from pravapis.recall import (
+        ORTHOGRAPHIC_SIMILARITY,
+        MissCause,
+        measure_recall,
+        read_parallel,
+        write_misses,
+    )
+
+    if not corpus.is_file():
+        errors.print(
+            f"[red]no parallel corpus at {corpus}[/red] — build one with "
+            "`python scripts/fetch_parallel_corpus.py --articles 500`"
+        )
+        raise typer.Exit(code=2)
+    pairs = read_parallel(corpus)
+    report = measure_recall(pairs, converter)
+    console.rule("recall — changes attested by be-tarask writers")
+    console.print(
+        f"corpus: {corpus.name} · [bold]{report.pairs}[/bold] aligned sentence pairs · "
+        f"[bold]{report.tokens}[/bold] comparable tokens · "
+        f"[bold]{report.changes}[/bold] attested changes"
+    )
+    console.print(
+        "[yellow]These wikis are written independently, so an aligned pair is a strict "
+        "aligner's judgement, not a translation. The sample skews short and formulaic, "
+        "and the recall below inherits that bias.[/yellow]"
+    )
+    table = Table(title="recall (a bound, not a number)", box=box.SIMPLE)
+    table.add_column("measure")
+    table.add_column("recall", justify="right")
+    table.add_column("n", justify="right")
+    table.add_column("reads")
+    table.add_row(
+        "[bold]strict[/bold] — every diff counts",
+        f"[bold]{report.strict_recall:.1%}[/bold]",
+        f"{report.hits}/{report.changes}",
+        "lower bound: word-choice differences count against it",
+    )
+    table.add_row(
+        "orthographic — diffs that are one word",
+        f"{report.orthographic_recall:.1%}",
+        f"{report.orthographic_hits}/{report.orthographic_changes}",
+        f"upper bound: similarity ≥ {ORTHOGRAPHIC_SIMILARITY:g} only",
+    )
+    console.print(table)
+
+    causes = Table(title="misses by cause — where a fix would go", box=box.SIMPLE)
+    causes.add_column("cause")
+    causes.add_column("n", justify="right")
+    causes.add_column("share", justify="right")
+    causes.add_column("example")
+    counted = sum(n for c, n in report.by_cause.items() if c is not MissCause.NOT_ORTHOGRAPHIC)
+    for cause, n in sorted(report.by_cause.items(), key=lambda kv: -kv[1]):
+        if not n:
+            continue
+        example = next(m for m in report.misses if m.cause is cause)
+        share = "—" if cause is MissCause.NOT_ORTHOGRAPHIC else f"{n / counted:.0%}"
+        causes.add_row(
+            cause.value,
+            str(n),
+            share,
+            f"{example.change.source} → {example.change.expected} ({example.detail})",
+        )
+    console.print(causes)
+    n_other = report.by_cause[MissCause.NOT_ORTHOGRAPHIC]
+    console.print(
+        f"[dim]`not_orthographic` is excluded from the share: those are the {n_other} diffs "
+        "where the two wikis chose different words, which no converter should "
+        "reconcile.[/dim]"
+    )
+
+    if report.by_alternation:
+        per = Table(title="orthographic changes by alternation", box=box.SIMPLE)
+        per.add_column("alternation")
+        per.add_column("recall", justify="right")
+        per.add_column("n", justify="right")
+        for code, (ok, total) in sorted(report.by_alternation.items(), key=lambda kv: -kv[1][1]):
+            per.add_row(code, f"{ok / total:.1%}" if total else "—", f"{ok}/{total}")
+        console.print(per)
+
+    if report.false_positives:
+        console.print(
+            f"[yellow]{len(report.false_positives)} word(s) the two wikis spell identically "
+            "that the converter changed anyway[/yellow], e.g. "
+            + ", ".join(f"{s}→{t} ({r})" for s, t, r in report.false_positives[:5])
+        )
+        console.print(
+            "[dim]Weaker evidence than the false-positive rate on the gold set: be-tarask "
+            "articles are not uniformly Taraškievica, so an unconverted word on that side "
+            "looks the same here as a converter error.[/dim]"
+        )
+    else:
+        console.print("[green]no changes to words both wikis spell alike[/green]")
+
+    if misses_out is not None:
+        write_misses(report, misses_out)
+        console.print(f"misses → {misses_out}")
+
+
+def _report_coverage(converter: Converter, frequency: Path, top: int) -> None:
+    from pravapis.coverage import measure_coverage, read_frequency_list
+
+    if not frequency.is_file():
+        errors.print(
+            f"[red]no frequency list at {frequency}[/red] — build one with "
+            "`python scripts/build_frequency_list.py --articles 4000`"
+        )
+        raise typer.Exit(code=2)
+    forms = read_frequency_list(frequency, limit=top)
+    report = measure_coverage(forms, converter)
+    console.rule(f"coverage — top {report.forms} word forms")
+    console.print(
+        f"list: {frequency.name} · [bold]{report.forms}[/bold] forms · "
+        f"[bold]{report.occurrences}[/bold] occurrences"
+    )
+    table = Table(box=box.SIMPLE)
+    table.add_column("what the converter knows")
+    table.add_column("forms", justify="right")
+    table.add_column("of types", justify="right")
+    table.add_column("of tokens", justify="right")
+    for label, bucket in (
+        ("stem — loan", report.stem_loan),
+        ("stem — native guard", report.stem_native),
+        ("lexicon entry", report.lexicon),
+        ("a rule changes it (no etymology needed)", report.rule),
+        ("nothing", report.untouched),
+    ):
+        types, tokens = report.share(bucket)
+        table.add_row(label, str(bucket.types), f"{types:.1%}", f"{tokens:.1%}")
+    console.print(table)
+    stem_types, stem_tokens = report.share(report.stem)
+    console.print(
+        f"[bold]stem coverage: {stem_types:.1%} of forms, {stem_tokens:.1%} of tokens[/bold]"
+    )
+    console.print(
+        "[dim]A low stem figure is not in itself a gap: stems exist only to tell the "
+        "loanword rules that a word is a borrowing, and most Belarusian word forms are "
+        "native and need none. Read it next to the loanword recall above.[/dim]"
+    )
+
+
+def _report_round_trip(converter: Converter, corpus: Path, dump: Path) -> None:
+    from pravapis.metrics import round_trip_consistency, write_round_trip_failures
+
+    if not corpus.is_file():
+        errors.print(f"[red]no corpus at {corpus}[/red]")
+        raise typer.Exit(code=2)
+    lines = [
+        ln.strip()
+        for ln in corpus.read_text(encoding="utf-8").splitlines()
+        if ln.strip() and not ln.startswith("#")
+    ]
+    sentence_rate = round_trip_consistency(lines, converter)
+    n_words, failures, groups = write_round_trip_failures(lines, converter, dump, corpus.name)
+    console.rule("round-trip drift — N → T → N")
+    console.print(
+        f"corpus: {corpus.name} · [bold]{len(lines)}[/bold] sentences · "
+        f"[bold]{n_words}[/bold] words"
+    )
+    table = Table(box=box.SIMPLE)
+    table.add_column("identity rate")
+    table.add_column("rate", justify="right")
+    table.add_column("n", justify="right")
+    table.add_row(
+        "word level",
+        f"[bold]{1 - len(failures) / n_words if n_words else 0:.2%}[/bold]",
+        f"{n_words - len(failures)}/{n_words}",
+    )
+    table.add_row("sentence level", f"{sentence_rate:.2%}", f"{len(lines)}")
+    console.print(table)
+    for group, items in groups[:10]:
+        console.print(f"  {len(items):5d}  {group}")
+    console.print(f"non-identity cases → {dump}")
 
 
 @app.command("validate-data")

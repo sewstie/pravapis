@@ -256,6 +256,40 @@ def round_trip_failures(
     return n_words, failures
 
 
+def write_round_trip_failures(
+    texts: Sequence[str],
+    converter: Converter,
+    path: Path,
+    corpus_name: str = "corpus",
+    start: Orthography = Orthography.NARKAMAUKA,
+) -> tuple[int, list[RoundTripFailure], list[tuple[str, list[RoundTripFailure]]]]:
+    """Round-trip ``texts`` and dump every word that did not come back, grouped by cause.
+
+    Returns ``(words checked, failures, groups)``. Shared by ``pravapis eval
+    --round-trip`` and ``scripts/mine_roundtrip.py`` so the file one writes and the rate
+    the other prints can never describe different runs.
+    """
+    from collections import defaultdict
+
+    n_words, failures = round_trip_failures(texts, converter, start)
+    grouped: dict[str, list[RoundTripFailure]] = defaultdict(list)
+    for failure in failures:
+        grouped[failure.group].append(failure)
+    groups = sorted(grouped.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(
+            f"# {len(failures)} failing words of {n_words} "
+            f"({1 - len(failures) / n_words if n_words else 0:.2%} word round trip) "
+            f"from {corpus_name}\n"
+        )
+        fh.write("# group (N→T stage | T→N stage)\tsource\ttaraskievica\tback\tsentence\n")
+        for _, items in groups:
+            for f in items:
+                fh.write(f"{f.group}\t{f.source}\t{f.there}\t{f.back}\t{f.sentence}\n")
+    return n_words, failures, groups
+
+
 def error_report(
     pred: Sequence[str],
     gold: Sequence[str],

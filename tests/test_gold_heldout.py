@@ -36,6 +36,22 @@ def test_training_code_never_reads_gold() -> None:
         assert "gold" not in path.read_text(encoding="utf-8").lower(), path
 
 
+def test_training_code_never_reads_the_recall_corpus() -> None:
+    """The measurement corpora are the only evidence of *misses* this project has.
+
+    Mine a stem out of `parallel.tsv` and the recall it reports becomes recall on the
+    data it was fitted to — which is not a measurement of anything. Same argument as the
+    gold set, one step further out: the gold set can be re-derived from the norm, while
+    an independent attestation of a miss cannot be re-derived at all.
+    """
+    for path in TRAINING_CODE:
+        body = path.read_text(encoding="utf-8").lower()
+        # The filenames, not the words: builder.py legitimately discusses "parallel text"
+        # as a technique, which is not the same as reading the measurement corpus.
+        for name in ("parallel.tsv", "frequency_be.tsv", "data/corpora", "data\\corpora"):
+            assert name not in body, f"{path} reads {name}"
+
+
 def test_no_gold_sentence_in_training_contexts() -> None:
     gold = {_norm(n) for n, _ in read_gold(GOLD)}
     contexts: set[str] = set()
