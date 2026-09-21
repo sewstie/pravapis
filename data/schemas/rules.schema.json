@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:rules:1",
+  "title": "pravapis rule file",
+  "description": "A declarative orthography rule file (data/rules/*.yaml). NORMATIVE: an implementation in any language reads this schema, not src/pravapis/rules/engine.py. Rules are applied in descending priority order for the requested direction, ties broken by id; `repeat` rules are then re-run together until the word stops changing. The behavioural contract is conformance/cases.jsonl.",
+  "$defs": {
+    "direction": {
+      "description": "The orthography a rule PRODUCES. The long forms name both endpoints and are preferred; the short forms are accepted aliases naming the target only.",
+      "enum": [
+        "narkamauka_to_taraskievica",
+        "taraskievica_to_narkamauka",
+        "taraskievica",
+        "narkamauka",
+        "n2t",
+        "t2n"
+      ]
+    },
+    "alternation": {
+      "description": "An alternation code a loan stem may license, as declared in stems.schema.json: l = soft л, i = і→ы, e = е→э, g = г→ґ, eu = еў→эў.",
+      "enum": ["l", "i", "e", "g", "eu"]
+    },
+    "testCase": {
+      "type": "object",
+      "properties": {
+        "input": { "type": "string", "minLength": 1 },
+        "expected": { "type": "string" }
+      },
+      "required": ["input", "expected"],
+      "additionalProperties": false
+    },
+    "rule": {
+      "type": "object",
+      "description": "One rule. Exactly one of 'pattern' or 'function' must be present.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable identifier, reported in every change record as `rule`. Dotted namespace: group.name[.qualifier].",
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+)+$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the rule does, in prose, for a reader checking it against the codification."
+        },
+        "citation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the rule comes from, and it must come from somewhere. Either a place in the codification ('Збор 2005, §55.1'), or 'derived:<rule-id>' when the rule is the inverse of another — optionally carrying the section the pair rests on, 'derived:palat.assim (Збор 2005, §29)' — or 'convention:<short reason>' for a spelling the codification does not legislate. Surfaced on every change record as `citation`, which is why it is required: a change a caller cannot trace is a change they have to take on faith.",
+          "pattern": "^(Збор 2005, |derived:[a-z0-9._]+|convention:)"
+        },
+        "direction": { "$ref": "#/$defs/direction" },
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A regular expression applied to the lowercased word. Portability: ports must support the constructs used here — non-capturing groups, lookahead, lookbehind, alternation, and numbered backreferences in `replacement`. No flags are set externally; write any inline.",
+          "x-regex-dialect": "pcre-compatible subset; Python `regex` module syntax"
+        },
+        "replacement": {
+          "type": "string",
+          "description": "Substitution template for `pattern`. Backreferences are written \\1, \\2 … Only meaningful with `pattern`."
+        },
+        "function": {
+          "type": "string",
+          "description": "A named transformation the host implements, referenced as 'module:callable'. The escape hatch for transducers a regex cannot express — chiefly rewrites bounded to the matched stem span. A port MUST reimplement the named behaviour; the conformance corpus is what pins it down.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Higher runs first. The etymology rules sit above palatalization (which tops out at 120): softness is a consequence of the vowel, so the vowel has to be settled first.",
+          "minimum": -1000,
+          "maximum": 1000
+        },
+        "repeat": {
+          "type": "boolean",
+          "description": "Re-apply until the word stops changing (bounded at 8 passes), for softness that chains across a word.",
+          "default": false
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "The codification permits both the input and the output form. Applied only in aggressive mode; off by default.",
+          "default": false
+        },
+        "requires": {
+          "type": "array",
+          "description": "Rule ids that must already have fired on this word. Must name rules of the same direction; cycles are rejected.",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "exceptions": {
+          "type": "array",
+          "description": "Whole words (lowercased) the rule must leave alone.",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "requires_class": {
+          "description": "Fire only on a word whose longest matched stem has this etymology class, per stems.schema.json. This gate is what keeps план → плян from also producing лапа → ляпа.",
+          "enum": ["loan", "native"]
+        },
+        "alternation": {
+          "allOf": [{ "$ref": "#/$defs/alternation" }],
+          "description": "…and only if that stem licenses this alternation. Requires `requires_class`."
+        },
+        "tests": {
+          "type": "object",
+          "description": "Inline cases, exported verbatim into the conformance corpus. A positive case must change as given; a negative case must come back unchanged.",
+          "properties": {
+            "positive": { "type": "array", "items": { "$ref": "#/$defs/testCase" } },
+            "negative": { "type": "array", "items": { "$ref": "#/$defs/testCase" } }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        }
+      },
+      "required": ["id", "description", "citation", "priority", "tests"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "title": "A rule without a `function` must carry a `pattern`",
+          "if": { "not": { "required": ["function"] } },
+          "then": { "required": ["pattern"] }
+        },
+        {
+          "title": "…and a rule with one must not carry both",
+          "if": { "required": ["function"] },
+          "then": { "not": { "required": ["pattern"] } }
+        }
+      ],
+      "dependentRequired": { "alternation": ["requires_class"] }
+    }
+  },
+  "if": { "type": "array" },
+  "then": {
+    "title": "Flat layout (accepted)",
+    "description": "A bare list of rules, each stating its own direction.",
+    "type": "array",
+    "items": { "$ref": "#/$defs/rule" },
+    "minItems": 1
+  },
+  "else": {
+    "title": "Grouped layout (preferred)",
+    "description": "One group of rules per file, with a shared default direction.",
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "string",
+        "description": "Schema generation this file is written against, major.minor. Distinct from data/VERSION, which versions the content.",
+        "pattern": "^[0-9]+\\.[0-9]+$"
+      },
+      "group": {
+        "type": "string",
+        "description": "Name of the rule group; matches the file stem.",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "direction": {
+        "allOf": [{ "$ref": "#/$defs/direction" }],
+        "description": "Default direction for rules in this file that do not state one."
+      },
+      "rules": { "type": "array", "items": { "$ref": "#/$defs/rule" }, "minItems": 1 }
+    },
+    "required": ["version", "group", "rules"],
+    "additionalProperties": false
+  }
+}

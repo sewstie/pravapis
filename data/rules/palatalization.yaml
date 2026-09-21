@@ -8,6 +8,7 @@ rules:
   # ---------------------------------------------------------------- N → T
   - id: palat.apostrophe
     description: "Dental + apostrophe + iotated vowel is written with ь: з’ява → зьява"
+    citation: "Збор 2005, §29, §43"
     direction: narkamauka_to_taraskievica
     pattern: '([зс])’(?=[еёіюя])'
     replacement: '\1ь'
@@ -22,6 +23,7 @@ rules:
 
   - id: palat.geminate.dz
     description: "Soft geminate дз: суддзя → судзьдзя; not at a prefix boundary (аддзел)"
+    citation: "Збор 2005, §40, §32, §41 Заўвага А"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §40 (судзьдзя, стагодзьдзе); §32 and §41 Заўвага А: prefixes
     # ад-/пад-/над-/перад- before дз are written unchanged (аддзел, аддзячыць, паддзець).
@@ -40,6 +42,7 @@ rules:
 
   - id: palat.geminate
     description: "Soft geminates take ь: насенне → насеньне, жыццё → жыцьцё, вяселле → вясельле"
+    citation: "Збор 2005, §40"
     direction: narkamauka_to_taraskievica
     pattern: '(дз|[нлзсц])(?=\1[еёіюяь])'
     replacement: '\1ь'
@@ -58,6 +61,7 @@ rules:
 
   - id: palat.assim
     description: "з, с soften before a soft consonant (not г, к, х): снег → сьнег, свет → сьвет"
+    citation: "Збор 2005, §29"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §29. (?<!д) keeps the з of the digraph дз out; дз and ц are §30.
     pattern: '((?<!д)з|с)(?=(?:дз|[вмпблнсзц])[еёіюяь])'
@@ -86,6 +90,7 @@ rules:
 
   - id: palat.assim.ts_dz
     description: "ц, дз soften only before a soft в within a root: дзверы → дзьверы, цвік → цьвік"
+    citation: "Збор 2005, §30, §30 Заўвага А"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §30; Заўвага А: before other consonants they stay hard (мацнець, пэндзлік, Цнянка).
     pattern: '(дз|ц)(?=в[еёіюяь])'
@@ -107,6 +112,7 @@ rules:
   # ---------------------------------------------------------------- T → N
   - id: palat.ungeminate.dz
     description: "судзьдзя → суддзя"
+    citation: "derived:palat.geminate.dz (Збор 2005, §40)"
     direction: taraskievica_to_narkamauka
     pattern: 'дзь(?=дз[еёіюяь])'
     replacement: 'д'
@@ -117,6 +123,7 @@ rules:
 
   - id: palat.ungeminate
     description: "Drop ь inside soft geminates: насеньне → насенне, жыцьцё → жыццё"
+    citation: "derived:palat.geminate (Збор 2005, §40)"
     direction: taraskievica_to_narkamauka
     pattern: '(дз|[нлзсц])ь(?=\1[еёіюяь])'
     replacement: '\1'
@@ -134,6 +141,7 @@ rules:
 
   - id: palat.unassim
     description: "Drop assimilative ь of з, с before a soft consonant: сьнег → снег; keep genuine ь: пісьмо"
+    citation: "derived:palat.assim (Збор 2005, §29, §29 Заўвага Б)"
     direction: taraskievica_to_narkamauka
     pattern: '((?<!д)з|с)ь(?=(?:дз|[вмпблнсзц])[еёіюяь])'
     replacement: '\1'
@@ -159,6 +167,7 @@ rules:
 
   - id: palat.unassim.ts_dz
     description: "Drop the ь of ц, дз before a soft в: дзьверы → дзверы, цьвік → цвік"
+    citation: "derived:palat.assim.ts_dz (Збор 2005, §30)"
     direction: taraskievica_to_narkamauka
     pattern: '(дз|ц)ь(?=в[еёіюяь])'
     replacement: '\1'
@@ -174,6 +183,7 @@ rules:
 
   - id: palat.unapostrophe
     description: "зь/сь before an iotated vowel is the apostrophe in Narkamaŭka: зьява → з’ява"
+    citation: "derived:palat.apostrophe (Збор 2005, §29, §43)"
     direction: taraskievica_to_narkamauka
     pattern: '([зс])ь(?=[еёіюя])'
     replacement: '\1’'

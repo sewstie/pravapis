@@ -8,6 +8,7 @@ rules:
   # ---------------------------------------------------------------- N → T
   - id: morph.final_tr
     description: "Epenthetic а in word-final -тр/-др: тэатр → тэатар, цэнтр → цэнтар, кадр → кадар"
+    citation: "Збор 2005, §26, §26 Заўвага А"
     direction: narkamauka_to_taraskievica
     pattern: '([тд])р$'
     replacement: '\1ар'
@@ -33,6 +34,7 @@ rules:
   # ---------------------------------------------------------------- T → N
   - id: morph.particle.nya
     description: "Standalone ня → не"
+    citation: "derived:morph.particle (Збор 2005, §3)"
     direction: taraskievica_to_narkamauka
     pattern: '^ня$'
     replacement: 'не'
@@ -45,6 +47,7 @@ rules:
 
   - id: morph.particle.byaz
     description: "Standalone бяз / бязь → без"
+    citation: "derived:morph.particle (Збор 2005, §3, §29)"
     direction: taraskievica_to_narkamauka
     pattern: '^бязь?$'
     replacement: 'без'
@@ -56,6 +59,7 @@ rules:
 
   - id: morph.preposition.z
     description: "Softened prepositions зь / безь / празь / церазь → з / без / праз / цераз"
+    citation: "derived:morph.particle (Збор 2005, §29)"
     direction: taraskievica_to_narkamauka
     pattern: '^(з|без|праз|цераз)ь$'
     replacement: '\1'
@@ -70,6 +74,7 @@ rules:
 
   - id: morph.conj_j_i
     description: "The conjunction й has no Narkamaŭka form: сала й цыбуля → сала і цыбуля"
+    citation: "derived:morph.conj_i_j (Збор 2005, §13)"
     direction: taraskievica_to_narkamauka
     # Збор 2005 §13 lets the conjunction і become й after a vowel in Taraškievica; the
     # forward rule is optional (morph.conj_i_j, aggressive mode only) because і stays

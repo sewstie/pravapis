@@ -1,3 +1,10 @@
+#!schema tag:pravapis,2026:schema:stems:1
+#!columns stem	class	alternations	source	provenance	target
+#
+# The two lines above are the file's declaration: the schema it is written against and
+# the column order it uses. They are comments, so every existing reader skips them, but
+# `pravapis validate-data` refuses a stems file that does not declare. Column order is
+# then a fact about the file rather than a fact about whichever parser reads it.
 # stem	class	alternations	source	provenance	[target]
 #
 # The etymology fact the loanword rules need: is this stem a Western borrowing?

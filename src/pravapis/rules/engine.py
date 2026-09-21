@@ -80,6 +80,10 @@ class Rule:
     repeat: bool = False  # apply until fixpoint (for chained softness)
     exceptions: frozenset[str] = field(default_factory=frozenset)
     description: str = ""
+    #: where the rule comes from — a § of the codification, ``derived:<rule-id>`` for an
+    #: inverse, or ``convention:<reason>``. Required by data/schemas/rules.schema.json and
+    #: reported on every change record, so a caller can trace any rewrite to its source.
+    citation: str = ""
     tests: tuple[RuleTest, ...] = ()
     #: the codification permits both the input and the output form; applied only
     #: in aggressive mode (see data/NORMS.md, "Policy: optional forms")
@@ -202,6 +206,7 @@ def _parse_rule(raw: dict[str, Any], default_direction: Orthography | None) -> R
         repeat=bool(raw.get("repeat", False)),
         exceptions=frozenset(str(e).lower() for e in exceptions_raw),
         description=str(raw.get("description", "")),
+        citation=str(raw.get("citation", "")),
         tests=_parse_tests(raw.get("tests")),
         optional=bool(raw.get("optional", False)),
         requires_class=requires_class,
@@ -323,6 +328,11 @@ class RuleEngine:
     def rules(self) -> tuple[Rule, ...]:
         """Every loaded rule, optional ones included (applied or not)."""
         return self._rules
+
+    @property
+    def stems(self) -> dict[Orthography, StemIndex]:
+        """The etymology indexes this engine gates its class-bound rules on."""
+        return self._stems
 
     def __len__(self) -> int:
         return len(self._rules)

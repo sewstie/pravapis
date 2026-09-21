@@ -20,6 +20,7 @@ rules:
   # ---------------------------------------------------------------- N → T
   - id: loan.eu
     description: "Word-initial еў/еу → эў/эу: Еўропа → Эўропа, Еурапейская → Эурапейская"
+    citation: "Збор 2005, §52, §72 Заўвага А"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §52: Greek ευ / Latin eu → эў (эўфарыя, Эўклід, Эўропа, Эўфрат). Out of scope
     # (§52 "але даўно асвоеныя імёны …"; §72 Заўвага А, footnote 68): traditional Christian
@@ -49,6 +50,7 @@ rules:
 
   - id: loan.stem_target
     description: "Stems the regular alternations cannot derive: каланіял → калёніял"
+    citation: "Збор 2005, §55.1"
     direction: narkamauka_to_taraskievica
     # Narkamaŭka akanne wrote the etymological о of колон- as а, so no rule conditioned
     # on the Narkamaŭka spelling can recover калёніял. The 6th column of stems.tsv
@@ -64,6 +66,7 @@ rules:
 
   - id: loan.l_palatalization
     description: "Soft l in Western stems: план → плян, біялогія → біялёгія"
+    citation: "Збор 2005, §55.1, §55.2, §56.2"
     direction: narkamauka_to_taraskievica
     function: "pravapis.rules.loanwords:apply_l_palatalization"
     requires_class: loan
@@ -82,6 +85,7 @@ rules:
 
   - id: loan.i_to_y
     description: "ы after hard dentals in Greco-Latin stems: сістэма → сыстэма"
+    citation: "Збор 2005, §67, §66"
     direction: narkamauka_to_taraskievica
     function: "pravapis.rules.loanwords:apply_i_to_y"
     requires_class: loan
@@ -99,6 +103,7 @@ rules:
 
   - id: loan.e_to_eh
     description: "э after consonants in borrowings: сезон → сэзон, версія → вэрсія"
+    citation: "Збор 2005, §11б, §12 Заўвага Б"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §11б: "У пазычаньнях і вытворных ад іх словах … Літара э пішацца …
     # б) пасьля зычных, акрамя л і заднеязычных (г (ґ), к, х)".
@@ -132,6 +137,7 @@ rules:
 
   - id: loan.f_substitution
     description: "Traditional names: Фёдар → Хведар, Фядос → Хвядос (optional form)"
+    citation: "Збор 2005, §81 Заўвага Б"
     direction: narkamauka_to_taraskievica
     function: "pravapis.rules.loanwords:apply_f_substitution"
     # Збор 2005 §81 Заўвага Б: Тодар, Фёдар, Хведар, Ходар are all valid; Фёдар needs
@@ -150,6 +156,7 @@ rules:
   # ---------------------------------------------------------------- T → N
   - id: loan.g_remove
     description: "ґ → г: Narkamaŭka has no ґ, and this project does not write it either"
+    citation: "Збор 2005, альфабэт, зноска *"
     direction: taraskievica_to_narkamauka
     pattern: 'ґ'
     replacement: 'г'
@@ -160,6 +167,7 @@ rules:
 
   - id: loan.stem_reverse
     description: "Taraškievica loan stem back to its Narkamaŭka form: плян → план, сыстэма → сістэма, сэзон → сезон"
+    citation: "derived:loan.l_palatalization (Збор 2005, §55.1, §56.2, §67, §11б)"
     direction: taraskievica_to_narkamauka
     # The reverse index is derived from the forward one and every entry carries its
     # Narkamaŭka stem, so this is a substitution rather than an inverse transducer —
@@ -190,6 +198,7 @@ rules:
 
   - id: loan.eu_reverse
     description: "Word-initial эўр → еўр: Эўропа → Еўропа"
+    citation: "derived:loan.eu (Збор 2005, §52)"
     direction: taraskievica_to_narkamauka
     pattern: '^э(?=[ўу]р)'
     replacement: 'е'

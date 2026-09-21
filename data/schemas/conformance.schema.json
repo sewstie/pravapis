@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:conformance:1",
+  "title": "pravapis conformance case",
+  "description": "One line of conformance/cases.jsonl. The file is JSON Lines: one object per line, UTF-8, LF endings, no trailing comma, no wrapping array. NORMATIVE: an implementation is conformant for a given data version iff it reproduces every case in the corpus generated from that version. Cases are generated from the data by `pravapis export-conformance` and are never written by hand.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable identifier. Stable across regenerations as long as the underlying case stays put, so a port can track a specific failure over time.",
+      "minLength": 1
+    },
+    "kind": {
+      "description": "At which level the case applies — the project's test material is not all of one kind, and running a unit case through the whole pipeline would fail for the wrong reason.",
+      "oneOf": [
+        {
+          "const": "rule",
+          "title": "Apply the single rule named in `rule`, alone, to `in` (already lowercased), with etymology resolved from the stem inventory if that rule is class-gated. Expect `out`. This is NOT the converter's output for that word: palat.assim turns свіння into сьвіння, while the pipeline goes on to write сьвіньня."
+        },
+        {
+          "const": "translit",
+          "title": "Apply the scheme named in `script` directly to `in`, with no orthography conversion (the --no-convert path). Expect `out`."
+        },
+        {
+          "const": "gold",
+          "title": "Convert the whole of `in` through the public API in `direction`. Expect `out` exactly. From the trusted hand-written gold subset."
+        },
+        {
+          "const": "heldout",
+          "title": "The same as `gold`, on genuine Taraškievica that nobody derived from a Narkamaŭka source."
+        }
+      ]
+    },
+    "direction": {
+      "description": "The orthography conversion to perform. Null for `translit` cases, which change script and not spelling.",
+      "oneOf": [
+        { "enum": ["narkamauka_to_taraskievica", "taraskievica_to_narkamauka"] },
+        { "type": "null" }
+      ]
+    },
+    "script": {
+      "type": "string",
+      "description": "`cyrillic` for orthography cases; for a `translit` case, the name of the scheme to apply, as declared in its table's `scheme` field.",
+      "minLength": 1
+    },
+    "rule": {
+      "type": "string",
+      "description": "Present on `rule` cases only: which rule to apply in isolation.",
+      "minLength": 1
+    },
+    "in": { "type": "string", "description": "The input, exactly as given.", "minLength": 1 },
+    "out": { "type": "string", "description": "The expected output, exactly." }
+  },
+  "required": ["id", "kind", "direction", "script", "in", "out"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "title": "A rule case must name its rule",
+      "if": { "properties": { "kind": { "const": "rule" } }, "required": ["kind"] },
+      "then": { "required": ["rule"] }
+    },
+    {
+      "title": "A translit case has no orthography direction",
+      "if": { "properties": { "kind": { "const": "translit" } }, "required": ["kind"] },
+      "then": { "properties": { "direction": { "type": "null" } } }
+    },
+    {
+      "title": "An orthography case has one",
+      "if": {
+        "properties": { "kind": { "enum": ["rule", "gold", "heldout"] } },
+        "required": ["kind"]
+      },
+      "then": { "properties": { "direction": { "type": "string" } } }
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:stems:1",
+  "title": "pravapis stem inventory row",
+  "description": "The etymology inventory (data/lexicon/stems/*.tsv): one row per stem, answering the one question the spelling cannot — is this stem a Western borrowing? NORMATIVE for any implementation. The file is TSV, so this schema describes (a) the file dialect, in `x-tsv`, and (b) the object each data line parses into, in `$defs/row`. A validator reads `x-tsv.columns` to split the line, then validates the object.",
+
+  "x-tsv": {
+    "delimiter": "\t",
+    "comment": "#",
+    "encoding": "utf-8",
+    "blankLinesIgnored": true,
+    "cellsAreTrimmed": true,
+    "nullTokens": ["", "-", "?"],
+    "declaration": {
+      "required": true,
+      "description": "Every stems file must declare, in its first non-blank lines, the schema it is written against and the column order it uses. Directives are comments, so existing readers skip them, but a validator refuses a file that does not declare. This is what makes the column order a fact about the file rather than a fact about the parser.",
+      "directives": {
+        "schema": {
+          "syntax": "#!schema <schema $id>",
+          "example": "#!schema tag:pravapis,2026:schema:stems:1"
+        },
+        "columns": {
+          "syntax": "#!columns <name>\\t<name>…",
+          "example": "#!columns stem\tclass\talternations\tsource\tprovenance\ttarget",
+          "description": "Must list the columns below, in order. Trailing optional columns may be omitted only if no row uses them."
+        }
+      }
+    },
+    "columns": [
+      {
+        "name": "stem",
+        "index": 0,
+        "required": true,
+        "description": "The stem, lowercase. A leading '-' marks it UNANCHORED — it may match anywhere in the word rather than only at the start, which is how -логі reaches біялогія without also claiming падлогі. The '-' is a flag, not part of the stem.",
+        "pattern": "^-?[\\u0400-\\u04FF\\u2019'\\u02BC-]+$"
+      },
+      {
+        "name": "class",
+        "index": 1,
+        "required": true,
+        "description": "Etymology, as far as the loanword rules care.",
+        "pattern": "^(loan|native)$"
+      },
+      {
+        "name": "alternations",
+        "index": 2,
+        "required": true,
+        "description": "Comma-separated alternation codes this stem licenses, or a null token. A code may carry a direction restriction, written code:n2t or code:t2n, for an alternation that is derivable one way and ambiguous the other (салон → салён is safe; салёны → салоны is not).",
+        "pattern": "^(|-|\\?|(l|i|e|g|eu)(:(n2t|t2n))?(,\\s*(l|i|e|g|eu)(:(n2t|t2n))?)*)$"
+      },
+      {
+        "name": "source",
+        "index": 3,
+        "required": true,
+        "description": "Where the classification comes from: a section of the codification, or a named dictionary. Surfaced on every change record as `citation`. A null token means unsourced, which `cited` provenance forbids.",
+        "pattern": "^.*$"
+      },
+      {
+        "name": "provenance",
+        "index": 4,
+        "required": true,
+        "description": "How the row got here. `uncertain` rows are parsed, counted and NEVER applied — the inventory records doubt instead of deleting it.",
+        "pattern": "^(cited|reviewed|derived|uncertain)$"
+      },
+      {
+        "name": "target",
+        "index": 5,
+        "required": false,
+        "description": "Escape hatch: the Taraškievica form outright, for stems the regular alternations cannot derive (каланіял → калёніял restores an etymological о that akanne wrote as а, which no rule conditioned on the Narkamaŭka spelling can know). Prefer `alternations`.",
+        "pattern": "^[\\u0400-\\u04FF\\u2019'\\u02BC-]*$"
+      }
+    ]
+  },
+
+  "$defs": {
+    "alternationCode": { "enum": ["l", "i", "e", "g", "eu"] },
+    "row": {
+      "type": "object",
+      "description": "One parsed data line.",
+      "properties": {
+        "stem": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Lowercased, NFC-normalised, with the unanchored '-' flag removed."
+        },
+        "anchored": {
+          "type": "boolean",
+          "description": "False when the raw stem began with '-'. An anchored stem matches only as a prefix of the word."
+        },
+        "class": { "enum": ["loan", "native"] },
+        "alternations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/alternationCode" },
+          "uniqueItems": true
+        },
+        "forward_only": {
+          "type": "array",
+          "description": "The subset of `alternations` written with an :n2t restriction — applied Narkamaŭka → Taraškievica only.",
+          "items": { "$ref": "#/$defs/alternationCode" },
+          "uniqueItems": true
+        },
+        "source": { "type": "string" },
+        "provenance": { "enum": ["cited", "reviewed", "derived", "uncertain"] },
+        "target": { "type": ["string", "null"] }
+      },
+      "required": ["stem", "anchored", "class", "alternations", "source", "provenance"],
+      "additionalProperties": false,
+
+      "allOf": [
+        {
+          "title": "A native stem licenses nothing",
+          "description": "It makes no claim about the codification — it says the word is ordinary Belarusian vocabulary, which is precisely what makes the loanword rules leave it alone.",
+          "if": { "properties": { "class": { "const": "native" } }, "required": ["class"] },
+          "then": {
+            "properties": {
+              "alternations": { "maxItems": 0 },
+              "target": { "type": "null" }
+            }
+          }
+        },
+        {
+          "title": "A cited loan must say where from",
+          "if": {
+            "properties": {
+              "class": { "const": "loan" },
+              "provenance": { "const": "cited" }
+            },
+            "required": ["class", "provenance"]
+          },
+          "then": { "properties": { "source": { "minLength": 1 } } }
+        },
+        {
+          "title": "An applied loan must be able to fire",
+          "description": "A loan stem with neither alternations nor a target changes nothing, so it is dead weight that reads as coverage.",
+          "if": {
+            "properties": {
+              "class": { "const": "loan" },
+              "provenance": { "enum": ["cited", "reviewed", "derived"] }
+            },
+            "required": ["class", "provenance"]
+          },
+          "then": {
+            "anyOf": [
+              { "properties": { "alternations": { "minItems": 1 } } },
+              { "properties": { "target": { "type": "string", "minLength": 1 } } }
+            ]
+          }
+        },
+        {
+          "title": "forward_only is a subset of alternations",
+          "if": { "properties": { "forward_only": { "minItems": 1 } }, "required": ["forward_only"] },
+          "then": { "required": ["alternations"] }
+        }
+      ]
+    }
+  },
+
+  "type": "array",
+  "description": "A stems file, parsed: the ordered list of its data rows.",
+  "items": { "$ref": "#/$defs/row" },
+
+  "x-constraints": [
+    "Longest match wins. A word resolves against the longest stem that matches it, anchored beating unanchored on a tie. This is how false friends are handled: native `класц` beats loan `клас` on класці, so no rule needs a lookahead.",
+    "(stem, anchored) is the primary key. Duplicates are an error, not a last-one-wins.",
+    "Rows whose provenance is `uncertain` are loaded and counted but never applied."
+  ]
+}

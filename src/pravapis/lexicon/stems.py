@@ -73,6 +73,53 @@ ALTERNATIONS: Final[frozenset[str]] = frozenset({"l", "i", "e", "g", "eu"})
 
 _NO_VALUE: Final[frozenset[str]] = frozenset({"", "-", "?"})
 
+#: The schema a stems file must declare, and the column order it must declare using.
+#: Both live in ``data/schemas/stems.schema.json``; these constants are the copy the
+#: parser checks against, so a file whose columns were reordered fails loudly instead
+#: of being read in the wrong order.
+SCHEMA_ID: Final[str] = "tag:pravapis,2026:schema:stems:1"
+DECLARED_COLUMNS: Final[tuple[str, ...]] = (
+    "stem",
+    "class",
+    "alternations",
+    "source",
+    "provenance",
+    "target",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Declaration:
+    """A stems file's ``#!schema`` / ``#!columns`` header directives."""
+
+    schema: str | None = None
+    columns: tuple[str, ...] = ()
+
+
+def read_declaration(path: Path) -> Declaration:
+    """Read the ``#!`` directives at the head of a stems file.
+
+    The directives are comments, so a reader that does not care skips them for free;
+    a validator that does care gets the column order from the file itself rather than
+    from a convention it has to remember.
+    """
+    schema: str | None = None
+    columns: tuple[str, ...] = ()
+    with path.open(encoding="utf-8") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line:
+                continue
+            if not line.startswith("#"):
+                break  # directives must precede the data
+            if line.startswith("#!schema"):
+                schema = line[len("#!schema") :].strip() or None
+            elif line.startswith("#!columns"):
+                columns = tuple(
+                    c.strip() for c in line[len("#!columns") :].strip().split("\t") if c.strip()
+                )
+    return Declaration(schema, columns)
+
 
 @dataclass(frozen=True, slots=True)
 class StemEntry:

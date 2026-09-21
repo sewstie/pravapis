@@ -800,9 +800,97 @@ def serve(
     uvicorn.run("pravapis.api.main:app", host=host, port=port)
 
 
+@app.command("validate-data")
+def validate_data_cmd(
+    data_dir: Annotated[
+        Path | None,
+        typer.Argument(help="Data directory to check; defaults to the one pravapis reads."),
+    ] = None,
+) -> None:
+    """Check every data file against the JSON Schemas in data/schemas/.
+
+    The schemas are the specification. This command is what makes them binding, and it
+    is the same check CI runs.
+    """
+    from pravapis.dataspec import DATA_VERSION, validate_data
+
+    base = data_dir or Config.default().lexicon.parent
+    problems = validate_data(base)
+    if not problems:
+        console.print(
+            f"[green]ok[/green] — {base} is valid against data/schemas/ "
+            f"(this build implements data version {DATA_VERSION})"
+        )
+        return
+    table = Table(box=box.SIMPLE, header_style="bold")
+    table.add_column("file")
+    table.add_column("where")
+    table.add_column("problem")
+    for problem in problems:
+        table.add_row(str(problem.file.name), problem.where, problem.message)
+    console.print(table)
+    errors.print(f"[red]{len(problems)} problem(s)[/red]")
+    raise typer.Exit(code=1)
+
+
+@app.command("export-conformance")
+def export_conformance_cmd(
+    out: Annotated[
+        Path, typer.Option("--out", help="Directory for cases.jsonl and manifest.json")
+    ] = Path("conformance"),
+    data_dir: Annotated[Path | None, typer.Option("--data", help="Data directory")] = None,
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Fail if the committed corpus is not what this would write."),
+    ] = False,
+) -> None:
+    """Flatten every test case in the data into one cross-language contract.
+
+    Inline rule tests, inline transliteration tests, the trusted gold subset and the
+    independent held-out sentences become ``conformance/cases.jsonl``. A port is correct
+    iff it passes that file. Regenerate it on every data change and commit it.
+    """
+    import json as _json
+
+    from pravapis.conformance import export
+
+    base = data_dir or Config.default().lexicon.parent
+    if check:
+        before = (out / "cases.jsonl").read_bytes() if (out / "cases.jsonl").is_file() else b""
+    manifest = export(base, out)
+    if check:
+        after = (out / "cases.jsonl").read_bytes()
+        if before != after:
+            (out / "cases.jsonl").write_bytes(before)
+            errors.print(
+                "[red]conformance/cases.jsonl is stale[/red] — the data has changed since it "
+                "was generated. Run `pravapis export-conformance` and commit the result."
+            )
+            raise typer.Exit(code=1)
+    console.print(
+        f"[green]{manifest['cases']}[/green] cases → {out / 'cases.jsonl'}  "
+        f"(data version {manifest['data_version']}, sha256 {manifest['sha256'][:12]}…)"
+    )
+    for kind, count in manifest["cases_by_kind"].items():
+        console.print(f"  {kind:<9} {count:>5}")
+    if manifest["known_failures"]:
+        console.print(
+            f"  [yellow]{manifest['known_failures']} known failure(s)[/yellow] → "
+            f"{out / 'known_failures.jsonl'} — cases the reference implementation does not "
+            "pass, kept out of the contract and not hidden."
+        )
+    _json.loads((out / "manifest.json").read_text(encoding="utf-8"))  # written and parseable
+
+
 @app.command()
 def version() -> None:
+    from pravapis.dataspec import DATA_VERSION, read_data_version
+
     console.print(f"pravapis {__version__}")
+    try:
+        console.print(f"data {read_data_version()} (implements {DATA_VERSION})")
+    except Exception as exc:  # the package may be installed without its data
+        console.print(f"data [yellow]unavailable[/yellow] (implements {DATA_VERSION}): {exc}")
 
 
 if __name__ == "__main__":  # pragma: no cover
