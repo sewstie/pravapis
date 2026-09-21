@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from pravapis.lexicon.stems import WordClass, read_stem_sources, validate_stems
-from pravapis.metrics import read_regressions
 from pravapis.lexicon.store import Lexicon
+from pravapis.metrics import read_regressions
 from pravapis.pipeline import Converter
 from pravapis.rules import loanwords, morphology
 from pravapis.rules.engine import RuleEngine
