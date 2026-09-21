@@ -7,6 +7,7 @@ __pycache__/
 .ruff_cache/
 .hypothesis/
 .coverage
+graphify-out
 htmlcov/
 dist/
 build/
@@ -17,3 +18,4 @@ eval.json
 .benchmarks/
 data/reference/*
 !data/reference/README.md
+a human reviewer.md
