@@ -185,6 +185,46 @@ Recall is also broken down per alternation, which is where the harness earns its
 assimilative softness and the loanword alternations are not in the same state, and a
 single recall number hides that.
 
+### First measurement
+
+827 aligned sentence pairs from 384 article pairs; 2,186 attested changes.
+
+| | recall | n |
+|---|---|---|
+| **strict** (every diff counts) | **48.9%** | 1069/2186 |
+| **orthographic** (respellings only) | **56.8%** | 991/1744 |
+
+| alternation | recall | n | |
+|---|---|---|---|
+| `soft` — assimilative softness | **95.0%** | 696/733 | the rules are in good shape |
+| `eu` — еў → эў | 100% | 12/12 | small n |
+| `l` — soft л | 55.1% | 65/118 | stem inventory, not rules |
+| `i` — і → ы | 41.2% | 28/68 | stem inventory |
+| `e` — е → э | 29.5% | 76/258 | stem inventory |
+| `other` | 19.5% | 131/673 | see below |
+
+| miss cause | n | share |
+|---|---|---|
+| `rule_silent` | 462 | 61% |
+| `stem_absent` | 213 | 28% |
+| `rule_wrong` | 70 | 9% |
+| `stem_untagged` | 8 | 1% |
+| `not_orthographic` | 364 | not counted |
+
+**Read this next to the precision figures, not instead of them.** Those are not wrong:
+the converter changes very little that it should not. It simply changes less than a
+Taraškievica writer would, and until this harness existed there was no way to say so.
+
+Two things the breakdown makes clear. The phonological rules are close to done at 95%;
+the gap is the **stem inventory**, and 213 misses are stems that are simply absent
+(`Шапена → Шапэна`, `прафілактыкай → прафіляктыкай`) — a data problem with a known
+procedure, `scripts/mine_loan_stems.py`. And the `other` bucket is not one thing: of the 464
+misses whose *only* inferred alternation is `other`, 175 are `а→у`, the masculine
+genitive ending, and another 28 are the `-аў` genitive plural that §80 deliberately
+restricts to a whitelist because both forms are permissible. Those are grammatical differences a word-level converter is not trying to
+make. They are counted against recall anyway rather than quietly excluded, which is part
+of why the strict figure is a lower bound.
+
 ## Coverage — what the converter can even see
 
 ```bash

@@ -855,6 +855,7 @@ def _report_recall(converter: Converter, corpus: Path, misses_out: Path | None) 
     from pravapis.recall import (
         ORTHOGRAPHIC_SIMILARITY,
         MissCause,
+        common_shapes,
         measure_recall,
         read_parallel,
         write_misses,
@@ -931,6 +932,24 @@ def _report_recall(converter: Converter, corpus: Path, misses_out: Path | None) 
         for code, (ok, total) in sorted(report.by_alternation.items(), key=lambda kv: -kv[1][1]):
             per.add_row(code, f"{ok / total:.1%}" if total else "—", f"{ok}/{total}")
         console.print(per)
+
+    shapes = common_shapes(report)
+    if shapes:
+        inside = Table(
+            title="inside `other` — changes no modelled alternation explains", box=box.SIMPLE
+        )
+        inside.add_column("edit")
+        inside.add_column("n", justify="right")
+        for shape, n in shapes:
+            inside.add_row(shape, str(n))
+        console.print(inside)
+        console.print(
+            "[dim]This is where a missing alternation would hide. `а→у` and `∅→аў` are "
+            "masculine genitive endings: grammatical differences a word-level converter "
+            "is not trying to make, and §80 -аў is a whitelist on purpose because both "
+            "forms are permissible. They are counted against recall anyway rather than "
+            "quietly excluded.[/dim]"
+        )
 
     if report.false_positives:
         console.print(

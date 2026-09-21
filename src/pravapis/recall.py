@@ -81,6 +81,11 @@ class Change:
     sentence: str
     similarity: float
     alternations: frozenset[str]
+    #: which word token of the sentence this is. Conversions are matched to changes by
+    #: position, not by spelling: a sentence that repeats a word — and the clitics that
+    #: convert differently depending on what follows — would otherwise collapse into one
+    #: entry and be scored against the wrong occurrence.
+    index: int = -1
 
     @property
     def orthographic(self) -> bool:
@@ -219,7 +224,7 @@ def diff_pair(pair: ParallelPair) -> tuple[int, list[Change]]:
     if len(n_tokens) != len(t_tokens) or not n_tokens:
         return 0, []
     changes: list[Change] = []
-    for n, t in zip(n_tokens, t_tokens, strict=True):
+    for index, (n, t) in enumerate(zip(n_tokens, t_tokens, strict=True)):
         if n.text.lower() == t.text.lower():
             continue
         changes.append(
@@ -229,6 +234,7 @@ def diff_pair(pair: ParallelPair) -> tuple[int, list[Change]]:
                 pair.narkamauka,
                 form_similarity(n.text, t.text),
                 infer_alternations(n.text, t.text),
+                index,
             )
         )
     return len(n_tokens), changes
@@ -291,15 +297,19 @@ def measure_recall(pairs: list[ParallelPair], converter: Converter) -> RecallRep
         n_tokens, changes = diff_pair(pair)
         if not n_tokens:
             continue
+        result = converter.convert(pair.narkamauka, Orthography.TARASKIEVICA)
+        if len(result.conversions) != n_tokens:
+            # The converter saw a different number of word tokens than the diff did.
+            # Scoring by position would then compare the wrong words, so the pair is
+            # dropped entirely rather than counted with guessed alignments.
+            continue
         used += 1
         tokens += n_tokens
-        result = converter.convert(pair.narkamauka, Orthography.TARASKIEVICA)
-        produced = {c.source.lower(): c.target for c in result.conversions}
-        attested = {c.source.lower() for c in changes}
+        attested = {c.index for c in changes}
 
         for change in changes:
             changes_seen.append(change)
-            got = produced.get(change.source.lower(), change.source)
+            got = result.conversions[change.index].target
             correct = got.lower() == change.expected.lower()
             hits += correct
             if change.orthographic:
@@ -313,8 +323,8 @@ def measure_recall(pairs: list[ParallelPair], converter: Converter) -> RecallRep
 
         # A word the two wikis spell identically needs no change, so a converter that
         # changes it anyway is wrong on this corpus. Same evidence, opposite direction.
-        for conversion in result.conversions:
-            if conversion.changed and conversion.source.lower() not in attested:
+        for position, conversion in enumerate(result.conversions):
+            if conversion.changed and position not in attested:
                 false_positives.append(
                     (conversion.source, conversion.target, str(conversion.rule_id))
                 )
@@ -331,6 +341,31 @@ def measure_recall(pairs: list[ParallelPair], converter: Converter) -> RecallRep
         false_positives=false_positives,
         by_alternation={k: (v[0], v[1]) for k, v in sorted(by_alternation.items())},
     )
+
+
+def common_shapes(report: RecallReport, limit: int = 8) -> list[tuple[str, int]]:
+    """The most frequent character-level shapes among misses filed under ``other``.
+
+    ``other`` is the bucket for changes no modelled alternation explains, so it is the
+    one place a *missing* alternation would hide. It is worth looking at rather than
+    summarising: on the wiki corpus it turns out to be dominated by ``а→у``, the
+    masculine genitive ending, which is a grammatical difference a word-level converter
+    is not trying to make — so a large part of what looks like poor recall is out of
+    scope by design rather than a defect. Nothing here changes a number; it says what
+    the number is made of.
+    """
+    shapes: Counter[str] = Counter()
+    for miss in report.misses:
+        if miss.cause is MissCause.NOT_ORTHOGRAPHIC or miss.change.alternations != {"other"}:
+            continue
+        a, b = miss.change.source.lower(), miss.change.expected.lower()
+        edits = [
+            f"{a[i1:i2] or '∅'}→{b[j1:j2] or '∅'}"
+            for op, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+            if op != "equal"
+        ]
+        shapes["  ".join(edits)] += 1
+    return shapes.most_common(limit)
 
 
 def write_misses(report: RecallReport, path: Path) -> None:
