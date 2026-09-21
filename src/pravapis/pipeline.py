@@ -13,10 +13,10 @@ threshold.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, overload
 
 import regex
 
@@ -68,6 +68,17 @@ log = logging.getLogger(__name__)
 
 PARTICLE_RULE_ID: Final[str] = "morph.particle"
 CACHE_LIMIT: Final[int] = 200_000
+
+#: Citations for the rules that run here rather than in the YAML engine, because they
+#: need the neighbouring word or a morphological fact. The YAML rules carry their own
+#: `citation` field; these four have nowhere to carry one, so they are listed against
+#: their entries in data/NORMS.md. Every change record can then name its source.
+PSEUDO_RULE_CITATIONS: Final[dict[str, str]] = {
+    CASE_RULE_ID: "Збор 2005, §37; GrammarDB RELEASE-202601 paradigms",
+    PARTICLE_RULE_ID: "Збор 2005, §3, §29, §29 Заўвага А",
+    CONJ_RULE_ID: "Збор 2005, §13",
+    MENT_RULE_ID: "Збор 2005, §11б",
+}
 
 #: Words whose conversion depends on the next word; never memoised.
 CONTEXT_SENSITIVE: Final[frozenset[str]] = (
@@ -121,6 +132,10 @@ class Converter:
         triggers = config.ambiguity_triggers if config else DEFAULT_AMBIGUITY_TRIGGERS
         self._triggers: tuple[regex.Pattern[str], ...] = tuple(regex.compile(t) for t in triggers)
         self._cache: dict[tuple[str, Orthography], Resolved | None] = {}
+        #: rule_id (possibly several joined with "+") -> citation. Memoised because the
+        #: set of combinations that actually occur is small and closed, so after warmup
+        #: attaching a citation to a change is a dict hit.
+        self._citations: dict[str | None, str | None] = {None: None}
         self._variants: dict[bool, Converter] = {aggressive: self}
         if disambiguator is not None and config is not None:
             disambiguator.threshold = config.confidence_threshold
@@ -277,6 +292,26 @@ class Converter:
     def is_ambiguous(self, word: str) -> bool:
         return any(t.search(word) for t in self._triggers)
 
+    def citation_for(self, rule_id: str | None) -> str | None:
+        """Why the rewrite that ``rule_id`` names is permissible.
+
+        ``rule_id`` may name several rules joined with ``+`` — the cascade composes them
+        — in which case the citations are joined too, in firing order, without repeats.
+        """
+        try:
+            return self._citations[rule_id]
+        except KeyError:
+            pass
+        assert rule_id is not None
+        found: list[str] = []
+        for part in rule_id.split("+"):
+            citation = PSEUDO_RULE_CITATIONS.get(part) or self.engine.citation_for(part)
+            if citation and citation not in found:
+                found.append(citation)
+        result = "; ".join(found) or None
+        self._citations[rule_id] = result
+        return result
+
     # --- text-level API -------------------------------------------------------
     def convert(
         self, text: str, direction: Orthography, *, aggressive: bool | None = None
@@ -324,7 +359,14 @@ class Converter:
         for ti, new in self._optional_conjunctions(tokens, out, direction):
             ci = next(c for t, c in words if t == ti)
             out[ti] = new
-            conversions[ci] = Conversion(tokens[ti].text, new, Method.RULE, CONJ_RULE_ID)
+            conversions[ci] = Conversion(
+                tokens[ti].text,
+                new,
+                Method.RULE,
+                CONJ_RULE_ID,
+                offset=tokens[ti].start,
+                citation=self.citation_for(CONJ_RULE_ID),
+            )
         done = [c for c in conversions if c is not None]
         stats: dict[Method, int] = dict.fromkeys(Method, 0)
         for c in done:
@@ -353,41 +395,47 @@ class Converter:
     def explain(
         self, text: str, direction: Orthography, *, aggressive: bool | None = None
     ) -> list[TokenExplanation]:
+        """A **view** over :meth:`convert`, not a second pass over the text.
+
+        Every conversion decision — which stage resolved the word, which rules fired,
+        the citation, the offset — is already made and recorded by ``convert``, because
+        the cascade cannot convert a word without making it. All this adds is the
+        per-rule trace: the intermediate forms a word passed through on its way to the
+        answer, which nothing but an explanation needs.
+
+        Keeping these as one code path is the point. When they were two, they could
+        disagree, and an explanation that disagrees with the conversion it explains is
+        worse than no explanation.
+        """
         if aggressive is not None and aggressive != self.aggressive:
             return self.variant(aggressive).explain(text, direction)
-        text = sanitize(text)
-        tokens = tokenize(text)
-        explanations: list[TokenExplanation] = []
-        out = [t.text for t in tokens]
-        index: dict[int, int] = {}  # token index -> explanation index
-        for i, tok in enumerate(tokens):
-            if tok.kind is not TokenKind.WORD:
-                continue
-            conv = self._convert_token(
-                tok,
-                context_of(tokens, i),
-                next_word(tokens, i),
+        conversions = self.convert(text, direction).conversions
+        # The conversions are exactly the word tokens, in order, so the next word is the
+        # next conversion — no need to tokenize the text a second time to find it.
+        return [
+            self._explanation_for(
+                conv,
                 direction,
-                previous_word(tokens, i),
+                conversions[i + 1].source if i + 1 < len(conversions) else None,
             )
-            traces: tuple[RuleTrace, ...] = ()
-            if conv.method in (Method.RULE, Method.MODEL):
-                traces = self._traces_for(tok.text.lower(), conv, direction, next_word(tokens, i))
-            elif conv.rule_id == CASE_RULE_ID:
-                traces = (RuleTrace(CASE_RULE_ID, tok.text.lower(), conv.target.lower()),)
-            index[i] = len(explanations)
-            out[i] = conv.target
-            explanations.append(
-                TokenExplanation(
-                    conv.source, conv.target, conv.method, conv.rule_id, conv.confidence, traces
-                )
-            )
-        for ti, new in self._optional_conjunctions(tokens, out, direction):
-            src = tokens[ti].text
-            explanations[index[ti]] = TokenExplanation(
-                src, new, Method.RULE, CONJ_RULE_ID, 1.0, (RuleTrace(CONJ_RULE_ID, src, new),)
-            )
-        return explanations
+            for i, conv in enumerate(conversions)
+        ]
+
+    def _explanation_for(
+        self, conv: Conversion, direction: Orthography, following: str | None
+    ) -> TokenExplanation:
+        """One conversion, plus the trace of how it got there."""
+        lw = conv.source.lower()
+        traces: tuple[RuleTrace, ...] = ()
+        if conv.rule_id == CONJ_RULE_ID:
+            traces = (RuleTrace(CONJ_RULE_ID, conv.source, conv.target),)
+        elif conv.method in (Method.RULE, Method.MODEL):
+            traces = self._traces_for(lw, conv, direction, following)
+        elif conv.rule_id == CASE_RULE_ID:
+            traces = (RuleTrace(CASE_RULE_ID, lw, conv.target.lower()),)
+        return TokenExplanation(
+            conv.source, conv.target, conv.method, conv.rule_id, conv.confidence, traces
+        )
 
     def _optional_conjunctions(
         self, tokens: Sequence[Token], out: Sequence[str], direction: Orthography
@@ -438,10 +486,17 @@ class Converter:
         assert self.disambiguator is not None
         if predicted != lw and self.disambiguator.is_confident(score):
             final, ids = self.engine.apply(predicted, direction)
+            rule_id = "+".join(ids) or None
             return Conversion(
-                source, recase(source, final), Method.MODEL, "+".join(ids) or None, score
+                source,
+                recase(source, final),
+                Method.MODEL,
+                rule_id,
+                score,
+                offset=token.start,
+                citation=self.citation_for(rule_id),
             )
-        return Conversion(source, source, Method.UNKNOWN)
+        return Conversion(source, source, Method.UNKNOWN, offset=token.start)
 
     def _cascade(
         self,
@@ -460,7 +515,7 @@ class Converter:
         """
         source = token.text
         if not is_belarusian_word(token):
-            return Conversion(source, source, Method.UNKNOWN)
+            return Conversion(source, source, Method.UNKNOWN, offset=token.start)
         if lw is None:
             lw = source.lower()
         if direction is Orthography.TARASKIEVICA and lw in self.case_forms:
@@ -469,7 +524,12 @@ class Converter:
             choice = self.case_forms.choose(lw, preceding.text if preceding else None)
             assert choice is not None
             return Conversion(
-                source, _recase_like(source, lw, choice[0]), Method.LEXICON, CASE_RULE_ID
+                source,
+                _recase_like(source, lw, choice[0]),
+                Method.LEXICON,
+                CASE_RULE_ID,
+                offset=token.start,
+                citation=self.citation_for(CASE_RULE_ID),
             )
         if lw in CONTEXT_SENSITIVE:
             resolved = self._resolve_clitic(lw, following.text if following else None, direction)
@@ -478,7 +538,14 @@ class Converter:
         if resolved is None:
             return None
         target, method, rule_id = resolved
-        return Conversion(source, _recase_like(source, lw, target), method, rule_id)
+        return Conversion(
+            source,
+            _recase_like(source, lw, target),
+            method,
+            rule_id,
+            offset=token.start,
+            citation=self.citation_for(rule_id),
+        )
 
     def _lookup(self, lw: str, direction: Orthography) -> Resolved | None:
         """Steps 1 and 2: identity set, then lexicon."""
@@ -593,12 +660,12 @@ class Converter:
         return (lw, Method.UNKNOWN, None)
 
     def _traces_for(
-        self, lw: str, conv: Conversion, direction: Orthography, following: Token | None
+        self, lw: str, conv: Conversion, direction: Orthography, following: str | None
     ) -> tuple[RuleTrace, ...]:
         traces: list[RuleTrace] = []
         work = lw
         if conv.method is Method.RULE:
-            nxt = following.text if following else None
+            nxt = following
             particle = convert_particle(
                 lw, nxt, direction, self.stress, self._next_target(nxt, direction)
             )
@@ -622,5 +689,70 @@ def default_converter() -> Converter:
     return Converter.from_config()
 
 
-def convert(text: str, direction: Orthography, *, aggressive: bool = False) -> str:
-    return default_converter().convert(text, direction, aggressive=aggressive).text
+def parse_options(options: Mapping[str, str]) -> Orthography:
+    """``{"from": …, "to": …}`` → the direction to convert in.
+
+    ``to`` is required. ``from`` is optional — there are exactly two orthographies, so
+    omitting it means "the other one" — but when given it must be the other one, because
+    a caller who says ``from`` and ``to`` has stated an expectation, and silently
+    converting in a direction they did not ask for is how a caller ends up shipping
+    text they never checked.
+    """
+    if "to" not in options:
+        raise ValueError("convert() needs a 'to' orthography in its options")
+    try:
+        to = Orthography(options["to"])
+    except ValueError as exc:
+        raise ValueError(
+            f"unknown orthography {options['to']!r}; expected one of "
+            f"{[o.value for o in Orthography]}"
+        ) from exc
+    unknown = set(options) - {"from", "to"}
+    if unknown:
+        raise ValueError(f"unknown option(s) {sorted(unknown)}; expected 'from' and 'to'")
+    if "from" in options:
+        try:
+            source = Orthography(options["from"])
+        except ValueError as exc:
+            raise ValueError(
+                f"unknown orthography {options['from']!r}; expected one of "
+                f"{[o.value for o in Orthography]}"
+            ) from exc
+        if source is to:
+            raise ValueError(f"'from' and 'to' are both {to.value}; there is nothing to convert")
+    return to
+
+
+@overload
+def convert(text: str, options: Orthography, *, aggressive: bool = False) -> str: ...
+
+
+@overload
+def convert(
+    text: str, options: Mapping[str, str], *, aggressive: bool = False
+) -> ConversionResult: ...
+
+
+def convert(
+    text: str, options: Orthography | Mapping[str, str], *, aggressive: bool = False
+) -> str | ConversionResult:
+    """Convert ``text`` between the two orthographies.
+
+    The frozen public form takes an options mapping and returns the full result::
+
+        >>> convert("снег", {"from": "narkamauka", "to": "taraskievica"}).to_dict()
+        {'text': 'сьнег', 'changes': [{'from': 'снег', 'to': 'сьнег', 'offset': 0,
+         'rule': 'palat.assim', 'class': 'rule', 'citation': 'Збор 2005, §29'}]}
+
+    That shape — ``convert(text, {from, to}) → {text, changes}`` — is the contract, and
+    it is the same in every implementation of pravapis. ``changes`` is always present:
+    see :class:`~pravapis.types.ConversionResult`.
+
+    Passing an :class:`~pravapis.types.Orthography` instead returns just the converted
+    string. It is the older, narrower form, kept because it reads well at a REPL and in
+    a one-line script; new callers should prefer the options form, which can tell them
+    what it did.
+    """
+    if isinstance(options, Orthography):
+        return default_converter().convert(text, options, aggressive=aggressive).text
+    return default_converter().convert(text, parse_options(options), aggressive=aggressive)

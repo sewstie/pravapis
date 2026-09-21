@@ -299,6 +299,7 @@ class RuleEngine:
         self._repeat_rules: dict[Orthography, tuple[Rule, ...]] = {
             d: tuple(r for r in rs if r.repeat) for d, rs in self._by_direction.items()
         }
+        self._by_id: dict[str, Rule] = {r.id: r for r in self._rules}
 
     @classmethod
     def from_yaml(
@@ -342,7 +343,12 @@ class RuleEngine:
         return list(self._by_direction[direction])
 
     def get(self, rule_id: str) -> Rule | None:
-        return next((r for r in self._rules if r.id == rule_id), None)
+        return self._by_id.get(rule_id)
+
+    def citation_for(self, rule_id: str) -> str | None:
+        """The citation of one rule, by id."""
+        rule = self._by_id.get(rule_id)
+        return rule.citation or None if rule is not None else None
 
     def explain(self, word: str, direction: Orthography) -> list[RuleTrace]:
         """Apply every rule for ``direction`` and record the ones that changed the word.

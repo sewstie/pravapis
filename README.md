@@ -368,16 +368,116 @@ uv sync                  # core: rules + lexicon
 uv sync --extra ml       # + experimental classifier, opt-in only (pip install pravapis[ml])
 ```
 
+## The data is a specification
+
+Every data file is described by a JSON Schema in [`data/schemas/`](data/schemas/), and
+those schemas are **normative**. An implementation in another language reads them; it
+does not read `src/pravapis/rules/engine.py` and infer the format from whatever the
+parser happens to tolerate.
+
+| Schema | Describes |
+|---|---|
+| `rules.schema.json` | `data/rules/*.yaml` — both accepted layouts, the pattern/function alternative, the etymology gate |
+| `stems.schema.json` | `data/lexicon/stems/*.tsv` — the file dialect in `x-tsv`, the parsed row in `$defs/row` |
+| `translit.schema.json` | `data/translit/*.yaml` — the closed condition vocabulary, coverage |
+| `conformance.schema.json` | one line of `conformance/cases.jsonl` |
+
+`stems.tsv` is TSV, so it **declares its own header** — the schema it is written against
+and the order of its columns — in `#!schema` / `#!columns` directives. They are comments,
+so every existing reader skips them for free, and column order becomes a fact about the
+file rather than a fact about whichever parser reads it.
+
+Every rule carries a required `citation`: a § of Збор правілаў 2005, or
+`derived:<rule-id>` for an inverse, or `convention:<reason>`. A rule that cannot say why
+it fires does not belong in the inventory — and the citation is surfaced on every change
+the converter reports.
+
+```bash
+pravapis validate-data     # schemas + the semantics JSON Schema cannot state
+```
+
+That last part matters: cycle detection in rule dependencies, stem duplicates, alphabet
+coverage for a scheme and the inline rule tests all run in the same command, because a
+file can satisfy the schema and still be wrong, and a contributor should not have to know
+which gate catches what. CI runs it before the test suite.
+
+## Versioning: the data moves separately from the code
+
+[`data/VERSION`](data/VERSION) carries its own semver, and
+[`data/VERSIONING.md`](data/VERSIONING.md) says what a bump means — a stem added is a
+**minor**, a schema field renamed is a **major**. Each implementation declares the data
+version it implements (`pravapis.DATA_VERSION`); a major mismatch is fatal rather than
+silently wrong.
+
+They change for unrelated reasons at unrelated rates. A stem added to `stems.tsv`
+changes what the converter outputs without touching a line of Python; a profiling pass
+rewrites the hot loop without changing a single answer. One version number for both
+forces every such change to be either an overclaim or a silent one.
+
+## Conformance: the cross-language contract
+
+```bash
+pravapis export-conformance          # regenerate
+pravapis export-conformance --check  # CI: fail if the committed corpus is stale
+```
+
+[`conformance/cases.jsonl`](conformance/) flattens every inline rule test, every inline
+transliteration test, the trusted gold subset and the independent held-out sentences into
+one file of self-contained cases. **A port is correct iff it passes it.** 914 cases today;
+`manifest.json` records the data version and a sha256, because a port claims conformance
+*for a data version*, never in the abstract.
+
+Each case says at which level it applies — `rule` cases exercise one rule in isolation,
+`gold` and `heldout` cases go through the public API — since running a unit case through
+the whole pipeline would fail for the wrong reason (`palat.assim` turns `свіння` into
+`сьвіння`; the pipeline goes on to write `сьвіньня`).
+
+Two decisions worth stating:
+
+- **Only one direction is exported per gold file.** `gold.tsv` declares
+  `# origin: narkamauka`, so contracting T → N from it would freeze a self-consistency
+  figure as though it were accuracy. The T → N cases come from the genuine Taraškievica
+  set instead.
+- **The 11 cases the reference implementation does not pass go to
+  `known_failures.jsonl`**, not into the contract. Putting them in `cases.jsonl` would
+  make it unpassable; dropping them would hide known gaps behind a green check.
+
 ## Library
+
+The public signature is frozen, and it is the same in every implementation:
+
+```python
+from pravapis import convert
+
+convert("снег", {"from": "narkamauka", "to": "taraskievica"})
+# ConversionResult(text='сьнег', ...)
+#   .to_dict() == {
+#     "text": "сьнег",
+#     "changes": [{"from": "снег", "to": "сьнег", "offset": 0,
+#                  "rule": "palat.assim", "class": "rule",
+#                  "citation": "Збор 2005, §29"}],
+#   }
+```
+
+`changes` is **always** returned, never behind a flag: the cascade has to decide what
+happened to every word in order to convert it at all, so reporting those decisions costs
+an attribute read — and making it opt-in only guarantees that the explanation and the
+conversion drift apart. `explain()` is now a view over this result rather than a second
+pass over the text; all it adds is the per-rule trace.
+
+`offset` indexes the **sanitized** input (`sanitize` is idempotent and public, so a
+caller can reproduce the string these index into). `class` is the cascade stage that
+resolved the word; `citation` is where the evidence comes from, and is `null` for a
+lexicon hit, whose evidence is the entry itself.
 
 ```python
 from pravapis import Converter, Orthography, Script, convert
 
-convert("Не быў без мяне", Orthography.TARASKIEVICA)   # 'Ня быў безь мяне'
+convert("Не быў без мяне", Orthography.TARASKIEVICA)   # 'Ня быў безь мяне' (older form, returns str)
 
 conv = Converter.from_config()          # loads data/ once; reuse it
 result = conv.convert("сістэма", Orthography.TARASKIEVICA)
-result.text, result.stats, result.conversions
+result.text, result.stats, result.changes
 
 conv.render("снег", Script.LACINKA)                     # 'śnieh'  (converts first)
 conv.render("снег", Script.LACINKA, convert=False)      # 'snieh'
@@ -401,6 +501,9 @@ pravapis eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, comp
 pravapis eval data/eval/gold.tsv --trusted          # hand_written rows only
 pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
 pravapis audit data/eval/tarask/corpus.tsv --rule palat.unassim --sample 15
+pravapis validate-data                              # data vs data/schemas/
+pravapis export-conformance                         # regenerate the contract corpus
+pravapis export-conformance --check                 # fail if it is stale
 pravapis bench --size 10mb
 pravapis serve
 ```
@@ -409,7 +512,7 @@ pravapis serve
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/v1/convert` | `{"text", "direction", "explain"}` → converted text + stats |
+| `POST` | `/v1/convert` | `{"text", "direction", "explain"}` → converted text, stats, and `changes` (always) |
 | `POST` | `/v1/transliterate` | `{"text", "script", "from_script", "convert"}` → Latin or Cyrillic |
 | `POST` | `/v1/convert/batch` | Up to 100 strings |
 | `GET` | `/v1/lexicon/{word}` | Lexicon lookup + which rules would fire |
@@ -495,7 +598,11 @@ geminate's `ь` before the assimilative `ь` to its left broke the round trip
 ## Layout
 
 ```
-data/rules/      YAML rules (palatalization, loanwords, morphology)
+data/schemas/    JSON Schemas — the normative spec for every data format
+data/VERSION     the data package's own semver (see data/VERSIONING.md)
+conformance/     cases.jsonl, known_failures.jsonl, manifest.json — the cross-language
+                 contract, generated by `pravapis export-conformance`
+data/rules/      YAML rules (palatalization, loanwords, morphology), each rule cited
 data/translit/   Łacinka + official-2007 scheme tables, with inline tests
 data/lexicon/    TSV sources → data/lexicon.marisa
 data/lexicon/stems/  stem etymology inventory (loan / native) gating the loanword rules
@@ -506,6 +613,7 @@ data/eval/tarask/  genuine Taraškievica from be-tarask (CC BY-SA 4.0): corpus.t
                  REVIEW.md is the handoff: what is unreviewed and how to check it
 src/pravapis/    normalize, tokenize, rules/, lexicon/, translit/, stress, pipeline,
                  metrics, webapi, api/ (FastAPI), cli,
+                 dataspec (schema validation + data version), conformance (corpus export),
                  disambiguate/ (experimental, off by default)
 api/             Vercel function (convert.py)
 public/          the conversion form served at /

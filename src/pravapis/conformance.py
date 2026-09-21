@@ -194,9 +194,7 @@ def build_corpus(
     t2n = data_dir / "eval" / "tarask" / "gold_t2n.tsv"
     if t2n.is_file():
         produced += list(
-            _gold_cases(
-                t2n, conv, kind="heldout", direction=Orthography.NARKAMAUKA, trusted=None
-            )
+            _gold_cases(t2n, conv, kind="heldout", direction=Orthography.NARKAMAUKA, trusted=None)
         )
     cases = [case for case, actual in produced if actual == case.expected]
     failures = [case for case, actual in produced if actual != case.expected]
@@ -253,4 +251,5 @@ def export(data_dir: Path, out_dir: Path, converter: Converter | None = None) ->
         failures=failures,
         digest=digest,
     )
-    return json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest: dict[str, Any] = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    return manifest

@@ -10,6 +10,7 @@ from pravapis import __version__
 from pravapis.api.schemas import (
     BatchConvertRequest,
     BatchConvertResponse,
+    Change,
     ConvertRequest,
     ConvertResponse,
     HealthResponse,
@@ -52,7 +53,22 @@ def _to_response(
             )
             for c in result.conversions
         ]
-    return ConvertResponse(text=result.text, stats=result.stats, explanations=explanations)
+    return ConvertResponse(
+        text=result.text,
+        stats=result.stats,
+        changes=[
+            Change(
+                source=c.source,
+                target=c.target,
+                offset=c.offset,
+                rule=c.rule_id,
+                method=c.method,
+                citation=c.citation,
+            )
+            for c in result.changes
+        ],
+        explanations=explanations,
+    )
 
 
 @router.post("/v1/convert", response_model=ConvertResponse)

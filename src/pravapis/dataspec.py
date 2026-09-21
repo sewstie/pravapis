@@ -36,6 +36,12 @@ import regex
 import yaml
 
 from pravapis.config import find_data_dir
+from pravapis.dataversion import (
+    DATA_VERSION,
+    DataVersionError,
+    check_data_version,
+    read_data_version,
+)
 from pravapis.lexicon.stems import (
     DECLARED_COLUMNS,
     SCHEMA_ID,
@@ -48,20 +54,25 @@ from pravapis.lexicon.stems import (
 from pravapis.rules.engine import RuleError, load_rules, validate_rule_set
 from pravapis.translit.engine import SchemeError, load_scheme, validate_scheme
 
-#: The data version this code implements. Compared against ``data/VERSION`` at load
-#: time; see data/VERSIONING.md for what a major and a minor bump mean. Every
-#: implementation — this one, a port — declares its own, and the conformance corpus
-#: records the version it was generated from.
-DATA_VERSION: Final[str] = "1.0.0"
+#: Re-exported from :mod:`pravapis.dataversion`, which is kept dependency-free so the
+#: deployed function can report its data version without pulling in the validator.
+__all__ = [
+    "DATA_VERSION",
+    "DataVersionError",
+    "Problem",
+    "check_data_version",
+    "format_problems",
+    "load_schema",
+    "read_data_version",
+    "validate_corpus_file",
+    "validate_data",
+    "validate_rules_file",
+    "validate_scheme_file",
+    "validate_stems_file",
+]
 
 #: The Cyrillic alphabet a transliteration scheme must be able to consume in full.
 BELARUSIAN_ALPHABET: Final[str] = "абвгдеёжзійклмнопрстуўфхцчшыьэюя"
-
-_SEMVER: Final[regex.Pattern[str]] = regex.compile(r"^(\d+)\.(\d+)\.(\d+)$")
-
-
-class DataVersionError(RuntimeError):
-    """The data on disk is not a version this code can read."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,51 +85,6 @@ class Problem:
 
     def __str__(self) -> str:
         return f"{self.file}: {self.where}: {self.message}"
-
-
-# --- versioning -----------------------------------------------------------------------
-def read_data_version(root: Path | None = None) -> str:
-    """The content version of the data package, from ``data/VERSION``."""
-    path = (root or find_data_dir()) / "VERSION"
-    try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise DataVersionError(f"{path}: cannot read the data version: {exc}") from exc
-    version = next(
-        (ln.strip() for ln in raw.splitlines() if ln.strip() and not ln.startswith("#")), ""
-    )
-    if not _SEMVER.match(version):
-        raise DataVersionError(f"{path}: {version!r} is not a semver triple")
-    return version
-
-
-def check_data_version(root: Path | None = None, *, implemented: str = DATA_VERSION) -> str | None:
-    """Compare the data on disk against the version this code implements.
-
-    A **major** difference is fatal: the data uses a shape this code does not
-    understand, or vice versa, and converting anyway would produce answers that
-    look fine and are not. A **minor** difference is not — minor bumps are additive
-    (a stem added, an optional field), so older code reads newer data correctly, it
-    simply does not exercise all of it. That case returns a note rather than raising.
-    """
-    on_disk = read_data_version(root)
-    theirs, ours = _SEMVER.match(on_disk), _SEMVER.match(implemented)
-    assert theirs is not None
-    if ours is None:
-        raise DataVersionError(f"implemented version {implemented!r} is not a semver triple")
-    if theirs.group(1) != ours.group(1):
-        raise DataVersionError(
-            f"data/VERSION is {on_disk}, but this build implements data version "
-            f"{implemented}. Major versions differ, so the data's shape is not the shape "
-            f"this code reads. Upgrade one of them; see data/VERSIONING.md."
-        )
-    if int(theirs.group(2)) > int(ours.group(2)):
-        return (
-            f"data/VERSION is {on_disk}; this build implements {implemented}. "
-            "Minor bumps are additive, so this is safe — but the data contains entries "
-            "this build does not know about."
-        )
-    return None
 
 
 # --- schemas --------------------------------------------------------------------------
@@ -165,7 +131,9 @@ def _specific(error: Any) -> Any:
     return error
 
 
-def _schema_problems(file: Path, schema: dict[str, Any], instance: Any, where: str) -> list[Problem]:
+def _schema_problems(
+    file: Path, schema: dict[str, Any], instance: Any, where: str
+) -> list[Problem]:
     out: list[Problem] = []
     errors = [_specific(e) for e in _validator(schema).iter_errors(instance)]
     for error in sorted(errors, key=lambda e: [str(p) for p in e.absolute_path]):
@@ -211,8 +179,11 @@ def validate_rules_file(path: Path, root: Path | None = None) -> list[Problem]:
                 continue  # etymology-gated: only the pipeline can supply the stem match
             if test.positive and got != test.expected:
                 problems.append(
-                    Problem(path, rule.id, f"positive test {test.input!r} gave {got!r}, "
-                            f"expected {test.expected!r}")
+                    Problem(
+                        path,
+                        rule.id,
+                        f"positive test {test.input!r} gave {got!r}, expected {test.expected!r}",
+                    )
                 )
             elif not test.positive and got != test.expected:
                 problems.append(
@@ -263,15 +234,22 @@ def validate_stems_file(path: Path, root: Path | None = None) -> list[Problem]:
         )
     elif declaration.schema != SCHEMA_ID:
         problems.append(
-            Problem(path, "<declaration>", f"declares schema {declaration.schema!r}, "
-                    f"but this build implements {SCHEMA_ID!r}")
+            Problem(
+                path,
+                "<declaration>",
+                f"declares schema {declaration.schema!r}, but this build implements {SCHEMA_ID!r}",
+            )
         )
     if not declaration.columns:
         problems.append(Problem(path, "<declaration>", "no '#!columns' directive"))
     elif declaration.columns != DECLARED_COLUMNS[: len(declaration.columns)]:
         problems.append(
-            Problem(path, "<declaration>", f"declares columns {declaration.columns}, "
-                    f"but the schema orders them {DECLARED_COLUMNS}")
+            Problem(
+                path,
+                "<declaration>",
+                f"declares columns {declaration.columns}, "
+                f"but the schema orders them {DECLARED_COLUMNS}",
+            )
         )
 
     patterns = _cell_patterns(schema)
@@ -285,15 +263,21 @@ def validate_stems_file(path: Path, root: Path | None = None) -> list[Problem]:
             continue
         if len(cells) > len(patterns):
             problems.append(
-                Problem(path, f"line {line_no}", f"{len(cells)} columns, schema declares "
-                        f"{len(patterns)}")
+                Problem(
+                    path,
+                    f"line {line_no}",
+                    f"{len(cells)} columns, schema declares {len(patterns)}",
+                )
             )
             continue
         for cell, (name, pattern, _) in zip(cells, patterns, strict=False):
             if not pattern.match(cell):
                 problems.append(
-                    Problem(path, f"line {line_no}", f"column {name}: {cell!r} does not match "
-                            f"{pattern.pattern}")
+                    Problem(
+                        path,
+                        f"line {line_no}",
+                        f"column {name}: {cell!r} does not match {pattern.pattern}",
+                    )
                 )
 
     try:
@@ -328,8 +312,12 @@ def validate_scheme_file(path: Path, root: Path | None = None) -> list[Problem]:
         key = (mapping.source, mapping.when)
         if key in seen:
             problems.append(
-                Problem(path, mapping.source, f"a second mapping for {mapping.source!r} under "
-                        f"{'|'.join(mapping.when)} can never be reached")
+                Problem(
+                    path,
+                    mapping.source,
+                    f"a second mapping for {mapping.source!r} under "
+                    f"{'|'.join(mapping.when)} can never be reached",
+                )
             )
         seen.add(key)
 

@@ -94,6 +94,7 @@ rules:
 
   - id: morph.dsk_to_dzk
     description: "д + ск → дзк before the adjective suffix: мадрыдскі → мадрыдзкі"
+    citation: "Збор 2005, §46"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §46. Taraškievica writes the phonetic result of the merger where
     # Narkamaŭka keeps the root consonant intact (the morphological principle):
@@ -115,6 +116,7 @@ rules:
 
   - id: morph.dzk_to_dsk
     description: "Reverse of morph.dsk_to_dzk: мадрыдзкі → мадрыдскі"
+    citation: "derived:morph.dsk_to_dzk (Збор 2005, §46)"
     direction: taraskievica_to_narkamauka
     pattern: 'дзк'
     replacement: 'дск'
@@ -128,6 +130,7 @@ rules:
 
   - id: morph.ejsk_normalise
     description: "The adjective suffix is -ейск-, never -эйск-: эўрапэйскі → еўрапейскі"
+    citation: "Збор 2005, §11б заўвага"
     direction: taraskievica_to_narkamauka
     # Збор 2005 §11б, заўвага: the suffix -ейск- keeps its е after a hard consonant,
     # so эўрапэйскі is an error rather than a variant — be-tarask writes it by applying

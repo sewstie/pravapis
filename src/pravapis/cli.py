@@ -884,7 +884,7 @@ def export_conformance_cmd(
 
 @app.command()
 def version() -> None:
-    from pravapis.dataspec import DATA_VERSION, read_data_version
+    from pravapis.dataversion import DATA_VERSION, read_data_version
 
     console.print(f"pravapis {__version__}")
     try:

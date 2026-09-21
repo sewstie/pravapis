@@ -81,11 +81,34 @@ class RuleTraceOut(BaseModel):
     after: str
 
 
+class Change(BaseModel):
+    """One word the converter changed, in the frozen cross-language shape.
+
+    The field names are the wire names — ``from`` and ``class`` are Python keywords, so
+    they are declared with aliases and the contract, not the language, wins.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
+
+    source: str = Field(serialization_alias="from", validation_alias="from")
+    target: str = Field(serialization_alias="to", validation_alias="to")
+    #: index into the sanitized input; see pravapis.types.ConversionResult
+    offset: int
+    rule: str | None = None
+    #: the cascade stage that resolved the word
+    method: Method = Field(serialization_alias="class", validation_alias="class")
+    citation: str | None = None
+
+
 class ConvertResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     text: str
     stats: dict[Method, int]
+    #: always present — the cascade has to decide what happened to every word in order
+    #: to convert it, so reporting those decisions is not extra work and is not opt-in
+    changes: list[Change] = Field(default_factory=list)
+    #: the per-rule trace, which is the only part an explanation adds over `changes`
     explanations: list[TokenExplanation] | None = None
 
 
