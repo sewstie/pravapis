@@ -84,6 +84,31 @@ CLITICS: Final[frozenset[str]] = frozenset(
 
 #: Optional (aggressive mode only): conjunction/particle і → й after a vowel.
 CONJ_RULE_ID: Final[str] = "morph.conj_i_j"
+INITIAL_W_RULE_ID: Final[str] = "morph.initial_u_w"
+
+#: Words whose initial У carries the stress, so §18 does not reach them. The stress
+#: table is built from GrammarDB, which is a lexicon of Belarusian — it does not contain
+#: Умбрыя or Уйпэшт, and for a word it does not know `is_first_syllable_stressed` has to
+#: answer "no". These are §18's own examples of the exception, listed as stems so the
+#: inflected forms are covered too: пра У́мбрыю, да У́йпэшту, выбарчая у́рна.
+STRESSED_INITIAL_U: Final[tuple[str, ...]] = ("умбры", "уйпэшт", "урн")
+
+#: Names whose Ў renders English *W*, not §18's alternation of у. After a vowel the two
+#: are indistinguishable — *школу Ўайлд* could be either — and Narkamaŭka keeps the Ў in
+#: this one, so reversing it would corrupt a name. Seeded from the hand-written rows of
+#: `data/eval/tarask/gold_t2n.tsv`, which is where the question was first noticed.
+#:
+#: This list is open-ended by nature and that is a real limit of the rule, recorded in
+#: data/NORMS.md rather than hidden: an unlisted W-name that follows a vowel will come
+#: back from T → N with У. The forward direction is unaffected, because a name already
+#: written Ў never matches a rule that looks for У.
+W_NAMES: Final[tuple[str, ...]] = (
+    "ўіл",
+    "ўотэр",
+    "ўэлт",
+    "ўэйлз",
+    "ўайлд",
+)
 
 
 def conjunction_i_to_j(word: str, previous_output: str) -> str | None:
@@ -102,6 +127,100 @@ def conjunction_i_to_j(word: str, previous_output: str) -> str | None:
 
 def syllable_count(word: str) -> int:
     return sum(1 for c in word.lower() if c in VOWELS)
+
+
+def initial_u_to_w(
+    word: str, previous_output: str, stress: StressTable | None = None
+) -> str | None:
+    """Збор 2005, §18: after a vowel, an unstressed initial У becomes Ў.
+
+    The rule's own examples are the case this implements, capital letters and all:
+    *сталіца Ўкраіны*, *ва Ўфе*, *Марыя Ўласевіч*, *ЗША ўзьнялі пытаньне*.
+
+    **Only capitalised words.** Lowercase у after a vowel is already ў in Narkamaŭka
+    too (*ва ўніверсітэце*), so there is nothing to convert; the orthographies part
+    company on proper nouns, which Narkamaŭka leaves as У — *ва Украіне* against
+    Taraškievica *ва Ўкраіне*. Restricting to capitals is therefore not caution, it is
+    the actual boundary between the two systems.
+
+    §18 names three exceptions, and the first is why this needs the stress table:
+
+    * **stressed у stays у** — *але у́т*, *Са у́даўская Арабія*, *да У́йпэшту*,
+      *пра У́мбрыю*. Whether Умбрыя keeps its У is not decidable from spelling.
+    * **the initial "У." standing for a name** — *за У. Сыракомлю*, *пра У. Караткевіча*.
+    * **initial abbreviations** — БДЭУ, РУУС, САУ.
+
+    ``previous_output`` is the preceding word as it will be written in the output, so a
+    preceding word that itself changed is read in its converted form. Returns the new
+    word, or None when the rule does not apply.
+    """
+    if "-" in word:
+        return _hyphenated_u_to_w(word, previous_output, stress)
+    return _one_part_u_to_w(word, previous_output, stress)
+
+
+def _one_part_u_to_w(word: str, previous: str, stress: StressTable | None) -> str | None:
+    if not word.startswith("У") or not previous:
+        return None
+    if previous[-1].lower() not in VOWELS:
+        return None
+    if len(word) == 1:  # "У." — the abbreviated given name
+        return None
+    if word.isupper():  # an initial abbreviation, not a word beginning with у
+        return None
+    if word.lower().startswith(STRESSED_INITIAL_U):
+        return None
+    if is_first_syllable_stressed(word, stress):
+        return None
+    return "Ў" + word[1:]
+
+
+def _hyphenated_u_to_w(word: str, previous: str, stress: StressTable | None) -> str | None:
+    """§18 Заўвага: "Злучок і двукосьсе ня ёсьць знакамі прыпынку".
+
+    So the hyphen inside *Кука-Ўітсан* is as transparent as the space in *сталіца
+    Ўкраіны*, and each part is judged against the part before it — the first against the
+    previous word, as the book's own *рыба-ўюн* requires. The tokenizer keeps a
+    hyphenated compound as one token, so without this the rule would simply never see
+    the second half.
+    """
+    parts = word.split("-")
+    out = list(parts)
+    context = previous
+    changed = False
+    for i, part in enumerate(parts):
+        new = _one_part_u_to_w(part, context, stress)
+        if new is not None:
+            out[i] = new
+            changed = True
+        context = out[i] or context
+    return "-".join(out) if changed else None
+
+
+def initial_w_to_u(word: str, previous_output: str) -> str | None:
+    """The reverse of §18, and **only** of §18.
+
+    It undoes the alternation where the alternation could have happened: after a word
+    ending in a vowel. A capital Ў anywhere else was never produced by §18 and must be
+    left exactly as it is, because Belarusian also writes Ў at the start of a name to
+    render English *W* — *Разумнік Ўіл Гантынг*, *з Ўотэрзам* — and those keep their Ў
+    in Narkamaŭka too (`data/eval/tarask/gold_t2n.tsv`, hand-written rows).
+
+    The two are indistinguishable after a vowel, where either could have produced the Ў.
+    See ``W_NAMES`` for what is done about that.
+
+    Lowercase ў is left alone throughout: both orthographies write *ва ўніверсітэце*.
+    """
+    if not previous_output or previous_output[-1].lower() not in VOWELS:
+        return None
+    parts = word.split("-")
+    out = [
+        "У" + part[1:]
+        if part.startswith("Ў") and len(part) > 1 and not part.lower().startswith(W_NAMES)
+        else part
+        for part in parts
+    ]
+    return "-".join(out) if out != parts else None
 
 
 def is_first_syllable_stressed(word: str, stress: StressTable | None = None) -> bool:

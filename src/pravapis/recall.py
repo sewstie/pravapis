@@ -277,27 +277,39 @@ def form_similarity(source: str, expected: str) -> float:
     return fold_similarity(source, expected)
 
 
-def diff_pair(pair: ParallelPair) -> tuple[int, list[Change]]:
+def diff_pair(
+    pair: ParallelPair, direction: Orthography = Orthography.TARASKIEVICA
+) -> tuple[int, list[Change]]:
     """``(comparable tokens, changes)`` for one aligned sentence pair.
 
     Only sentences whose word tokens line up one for one are diffed. The aligner already
     required that, but a sentence can still tokenize differently after sanitising, and a
     silent off-by-one would invent changes wholesale.
+
+    ``direction`` swaps which side is the input and which is the answer, so the same
+    corpus measures T → N as well. **The scope and the alternation codes are always read
+    off the (Narkamaŭka, Taraškievica) pair regardless**, because "this difference is the
+    е → э alternation" is a fact about the pair, not about which way it is being read.
+    Inferring them from the reversed pair would file T → N under different class names
+    and quietly make the two directions' breakdowns incomparable.
     """
     n_tokens = [t for t in tokenize(pair.narkamauka) if t.kind is TokenKind.WORD]
     t_tokens = [t for t in tokenize(pair.taraskievica) if t.kind is TokenKind.WORD]
     if len(n_tokens) != len(t_tokens) or not n_tokens:
         return 0, []
+    forward = direction is Orthography.TARASKIEVICA
+    sentence = pair.narkamauka if forward else pair.taraskievica
     changes: list[Change] = []
     for index, (n, t) in enumerate(zip(n_tokens, t_tokens, strict=True)):
         if n.text.lower() == t.text.lower():
             continue
         scope, reason = classify_scope(n.text, t.text)
+        source, expected = (n.text, t.text) if forward else (t.text, n.text)
         changes.append(
             Change(
-                n.text,
-                t.text,
-                pair.narkamauka,
+                source,
+                expected,
+                sentence,
                 form_similarity(n.text, t.text),
                 infer_alternations(n.text, t.text),
                 scope,
@@ -309,15 +321,20 @@ def diff_pair(pair: ParallelPair) -> tuple[int, list[Change]]:
 
 
 # --- why an in-scope miss is missing --------------------------------------------------
-def classify(change: Change, got: str, converter: Converter) -> Miss:
+def classify(
+    change: Change,
+    got: str,
+    converter: Converter,
+    direction: Orthography = Orthography.TARASKIEVICA,
+) -> Miss:
     """Attribute an in-scope miss to the first cause that explains it."""
     if got.lower() != change.source.lower():
         return Miss(change, got, MissCause.RULE_WRONG, f"produced {got!r}")
 
     word = change.source.lower()
     needed = {a for a in change.alternations if a in {"l", "i", "e", "g", "eu"}}
-    match = converter.engine.stem_match(word, Orthography.TARASKIEVICA)
-    in_lexicon = converter.lexicon.lookup(word, Orthography.TARASKIEVICA) is not None
+    match = converter.engine.stem_match(word, direction)
+    in_lexicon = converter.lexicon.lookup(word, direction) is not None
 
     if needed and match is None:
         if in_lexicon:
@@ -347,9 +364,17 @@ def classify(change: Change, got: str, converter: Converter) -> Miss:
 
 
 def measure_recall(
-    pairs: list[ParallelPair], converter: Converter, split: str | None = None
+    pairs: list[ParallelPair],
+    converter: Converter,
+    split: str | None = None,
+    direction: Orthography = Orthography.TARASKIEVICA,
 ) -> RecallReport:
-    """Convert the Narkamaŭka side and compare its changes with the attested ones."""
+    """Convert one side and compare the changes it made with the attested ones.
+
+    ``direction`` picks which side is the input: the default converts Narkamaŭka and
+    scores against the Taraškievica side; ``NARKAMAUKA`` does the reverse. The package
+    ships both directions, so measuring one of them is measuring half the product.
+    """
     tokens = 0
     by_scope: Counter[Scope] = Counter()
     hits_by_scope: Counter[Scope] = Counter()
@@ -360,10 +385,13 @@ def measure_recall(
     articles: set[str] = set()
 
     for pair in pairs:
-        n_tokens, changes = diff_pair(pair)
+        n_tokens, changes = diff_pair(pair, direction)
         if not n_tokens:
             continue
-        result = converter.convert(pair.narkamauka, Orthography.TARASKIEVICA)
+        source_text = (
+            pair.narkamauka if direction is Orthography.TARASKIEVICA else pair.taraskievica
+        )
+        result = converter.convert(source_text, direction)
         if len(result.conversions) != n_tokens:
             # The converter saw a different number of word tokens than the diff did.
             # Scoring by position would then compare the wrong words, so the pair is
@@ -386,7 +414,7 @@ def measure_recall(
                 bucket[0] += correct
                 bucket[1] += 1
             if not correct:
-                misses.append(classify(change, got, converter))
+                misses.append(classify(change, got, converter, direction))
 
         # A word the two wikis spell identically needs no change, so a converter that
         # changes it anyway is wrong on this corpus. Same evidence, opposite direction.

@@ -425,12 +425,14 @@ def eval_cmd(
     if recall or coverage or round_trip:
         data = Config.default().lexicon.parent
         if recall:
-            _report_recall(
-                converter,
-                corpus or data / "corpora" / "parallel.tsv",
-                misses,
-                None if split == "all" else split,
-            )
+            for measured in _recall_directions(direction):
+                _report_recall(
+                    converter,
+                    corpus or data / "corpora" / "parallel.tsv",
+                    misses,
+                    None if split == "all" else split,
+                    measured,
+                )
         if coverage:
             _report_coverage(converter, frequency or data / "corpora" / "frequency_be.tsv", top)
         if round_trip:
@@ -863,8 +865,23 @@ def serve(
     uvicorn.run("pravapis.api.main:app", host=host, port=port)
 
 
+def _recall_directions(direction: str) -> list[Orthography]:
+    """Which directions ``--recall`` measures.
+
+    Defaults to both, because the package ships both and reporting one of them is
+    reporting half the product. ``-d taraskievica`` or ``-d narkamauka`` picks one.
+    """
+    if direction == "both":
+        return [Orthography.TARASKIEVICA, Orthography.NARKAMAUKA]
+    return [Orthography(direction)]
+
+
 def _report_recall(
-    converter: Converter, corpus: Path, misses_out: Path | None, split: str | None
+    converter: Converter,
+    corpus: Path,
+    misses_out: Path | None,
+    split: str | None,
+    direction: Orthography = Orthography.TARASKIEVICA,
 ) -> None:
     """In-scope recall with a confidence interval, and the exclusions stated, not hidden."""
     from pravapis.recall import common_shapes, measure_recall, read_parallel, write_misses
@@ -880,9 +897,10 @@ def _report_recall(
     if not pairs:
         errors.print(f"[red]no rows in {corpus.name} for split {split!r}[/red]")
         raise typer.Exit(code=2)
-    report = measure_recall(pairs, converter, split)
+    report = measure_recall(pairs, converter, split, direction)
 
-    console.rule(f"recall — split: {split or 'all'}")
+    arrow = "N → T" if direction is Orthography.TARASKIEVICA else "T → N"
+    console.rule(f"recall {arrow} — split: {split or 'all'}")
     console.print(
         f"corpus: {corpus.name} · [bold]{report.articles}[/bold] articles · "
         f"[bold]{report.pairs}[/bold] sentence pairs · [bold]{report.tokens}[/bold] tokens · "
@@ -890,7 +908,7 @@ def _report_recall(
     )
     low, high = report.interval
     console.print(
-        f"\n  [bold]in-scope N → T recall: {report.recall:.1%}[/bold] "
+        f"\n  [bold]in-scope {arrow} recall: {report.recall:.1%}[/bold] "
         f"[[{low:.1%}, {high:.1%}] Wilson 95%]  "
         f"({report.in_scope_hits}/{report.in_scope})"
     )

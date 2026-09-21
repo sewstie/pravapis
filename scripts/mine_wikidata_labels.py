@@ -38,6 +38,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
@@ -48,6 +49,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from pravapis.config import Config  # noqa: E402
+from pravapis.metrics import read_negative_set  # noqa: E402
 from pravapis.normalize import sanitize  # noqa: E402
 from pravapis.pipeline import Converter  # noqa: E402
 from pravapis.recall import infer_alternations  # noqa: E402
@@ -62,6 +64,7 @@ USER_AGENT: Final[str] = "pravapis-eval/0.1 (https://github.com/sewstie/pravapis
 #: six columns as a stems row, so writing the queue there silently loaded 1,584
 #: unreviewed stems into the converter and it began writing *Бэларусь*.
 OUT: Final[Path] = ROOT / "data" / "review" / "stem_candidates.tsv"
+NEGATIVE: Final[Path] = ROOT / "data" / "eval" / "negative.tsv"
 
 _WORD: Final[regex.Pattern[str]] = regex.compile(r"^[\p{Cyrillic}’ʼ'-]+$")
 _ENDINGS: Final[str] = "аяоеуыі"
@@ -85,6 +88,9 @@ class Candidate:
     #: filled in by screening against genuine Taraškievica
     verdict: str = "unknown"
     evidence: str = "-"
+
+    #: longer stems this one subsumes, filled in by collapsing
+    covers: list[str] = field(default_factory=list)
 
 
 def _get(api: str, params: dict[str, str]) -> dict[str, Any]:
@@ -284,6 +290,64 @@ def screen(candidates: list[Candidate], tarask: dict[str, int]) -> None:
 VERDICT_ORDER: Final[dict[str, int]] = {"supported": 0, "unknown": 1, "refuted": 2}
 
 
+def breaks_negative_set(stem: str, target: str, negative: Iterable[str]) -> str | None:
+    """The first word in the negative set this stem would change, or None.
+
+    The negative set is the list of forms both wikis wrote identically and that the
+    corpus never shows converted — so a stem that changes one of them is wrong before
+    anybody argues about it. Checking here rather than at the gate is the difference
+    between a reviewer reading a row and a reviewer reading a row and a build failure.
+    """
+    for form in negative:
+        if form.startswith(stem) and target + form[len(stem) :] != form:
+            return form
+    return None
+
+
+def collapse(candidates: list[Candidate], negative: Iterable[str]) -> list[Candidate]:
+    """Fold `амерык`, `амерыкан`, `амерыканск`, `амерыканскі` into one row.
+
+    They are three rows and one fact. Longest match means the shortest stem already
+    covers every longer one whose target is just its own target plus the same tail, so
+    the extra rows cost review time and buy nothing — and a reviewer who accepts all
+    four has written the same rule four times in a file where duplicates are a validation
+    error.
+
+    The shortest is not automatically the right one to keep, because a shorter stem
+    matches more: `бел` covers `беларускі`. So the row kept is the shortest that is both
+    **supported** by the be-tarask screen and **safe against the negative set**, and if
+    no member qualifies the group is left alone rather than guessed at. The rows that
+    were folded in are named in `covers`, so nothing disappears silently.
+    """
+    negative = frozenset(negative)
+    by_stem = {c.stem: c for c in candidates}
+    absorbed: set[str] = set()
+
+    for candidate in sorted(candidates, key=lambda c: len(c.stem)):
+        if candidate.stem in absorbed:
+            continue
+        if candidate.verdict != "supported":
+            continue
+        if breaks_negative_set(candidate.stem, candidate.target, negative) is not None:
+            continue
+        tail = candidate.stem, candidate.target
+        for other in candidates:
+            if other.stem == candidate.stem or other.stem in absorbed:
+                continue
+            if not other.stem.startswith(tail[0]):
+                continue
+            # Derivable: the longer stem's target is the shorter one's plus the same
+            # extra letters. `амерыканск` -> `амэрыканск` is `амерык` -> `амэрык` with
+            # `анск` on the end, so the shorter row already produces it.
+            if tail[1] + other.stem[len(tail[0]) :] != other.target:
+                continue
+            candidate.alternations |= other.alternations
+            candidate.covers.append(other.stem)
+            absorbed.add(other.stem)
+
+    return [c for c in candidates if c.stem not in absorbed and c.stem in by_stem]
+
+
 def native_risk(candidate: Candidate, converter: Converter) -> list[str]:
     """Frequent forms the stem would catch that the converter currently leaves alone.
 
@@ -302,7 +366,7 @@ def native_risk(candidate: Candidate, converter: Converter) -> list[str]:
 
 COLUMNS = (
     "# stem\tclass\talternations\tsource\tprovenance\ttarget\tverdict\timpact\tforms"
-    "\tblast_radius\tevidence\texamples"
+    "\tblast_radius\tevidence\tcovers\texamples"
 )
 
 HEADER = (
@@ -334,6 +398,13 @@ HEADER = (
 #               guard in the same pass. A ! marks forms the converter currently leaves
 #               alone — those are what would start changing.
 # evidence      the counts behind the verdict, so it can be checked rather than believed.
+# covers        longer stems this row makes redundant. They are gone from the file, not
+#               rejected: longest match means this row already produces exactly what
+#               each of them would. IF YOU DO NOT TRUST THE SHORT STEM, accept the
+#               listed longer ones instead — they are narrower and equally attested.
+#               `амерык` covers амерыкан, амерыканск, амерыканскі, амерыканска: one
+#               fact that was four rows, and four rows a reviewer could accept four
+#               times into a file where duplicate stems are a validation error.
 #
 # Sorted by verdict, then impact. NOT by impact alone: a short stem matching native
 # vocabulary has the largest blast radius by construction, so impact order puts the
@@ -413,6 +484,13 @@ def main(argv: list[str]) -> int:
         # is no evidence either way, and a queue that claims otherwise is worse than one
         # that admits it. Rebuild with scripts/build_frequency_list.py.
         print(f"no {tarask_list.name}: every candidate stays 'unknown' and must be read")
+    negative = [form for form, _ in read_negative_set(NEGATIVE)] if NEGATIVE.is_file() else []
+    before = len(ranked)
+    ranked = collapse(ranked, negative)
+    print(
+        f"collapsed {before - len(ranked)} overlapping row(s) into a shorter stem that "
+        f"already covers them; {len(ranked)} remain"
+    )
     ranked.sort(key=lambda c: (VERDICT_ORDER[c.verdict], -c.impact, c.stem))
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -429,7 +507,8 @@ def main(argv: list[str]) -> int:
             fh.write(
                 f"{candidate.stem}\tloan\t{','.join(sorted(candidate.alternations))}\t{source}\t"
                 f"derived\t{candidate.target}\t{candidate.verdict}\t{candidate.impact}\t"
-                f"{candidate.matched_forms}\t{blast or '-'}\t{candidate.evidence}\t{examples}\n"
+                f"{candidate.matched_forms}\t{blast or '-'}\t{candidate.evidence}\t"
+                f"{' '.join(candidate.covers) or '-'}\t{examples}\n"
             )
             written += 1
 

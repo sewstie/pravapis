@@ -653,34 +653,61 @@ them corrupts ordinary text. Six nouns where -аў is strongly preferred are whi
 built from every GrammarDB noun first and cost 10 false positives against 3 words gained.)*
 
 
-## Known gap: ў before a capitalised proper noun (UNVERIFIED, needs §15)
+## Ў after a vowel (Збор 2005, §18; §20)
 
-The parallel corpus attests this nine times and the converter makes none of them:
+`morph.initial_u_w`. Implemented, cited, and the citation is **§18** — an earlier note in
+this file guessed §15 and was wrong. §15 is і → ы after a prefix ending in a consonant
+(`безыдэйны`, `дэзынфэкцыя`). The guess was never shipped, because a rule that cannot be
+cited is not written here; the book settled it.
 
-| be.wikipedia | be-tarask | preceding word |
+§18 reads: "Пасьля галосных літараў на месцы у пішацца ў, калі на яго не прыпадае
+націск", and its own examples carry the case the recall harness kept reporting:
+
+> ва Ўфе , сталіца Ўкраіны , Марыя Ўласевіч , едзе ў Вільню , ЗША ўзьнялі пытаньне
+
+So a **capitalised** proper noun after a vowel does take Ў, and that is where the two
+orthographies part: Narkamaŭka writes *ва Украіне*, Taraškievica *ва Ўкраіне*. Only
+capitals are converted — lowercase у after a vowel is already ў in Narkamaŭka too
+(*ва ўніверсітэце*), so there is nothing there to change.
+
+§18 names three exceptions, all implemented:
+
+| Exception | §18's examples | How |
 |---|---|---|
-| Украіны | Ўкраіны | вобласці / Раду |
-| Усходняе / Усходняй | Ўсходняе / Ўсходняй | а / і |
-| Уілсан | Ўілсан | Бартлі |
-| Упсалай | Ўпсалай | і |
-| Урарту | Ўрарту | эпоху |
-| Уроцлаве | Ўроцлаве | ва |
+| stressed у | але у́т, Са у́даўская Арабія, да У́йпэшту, пра У́мбрыю | `StressTable`, plus `STRESSED_INITIAL_U` |
+| initial "У." for a name | за У. Сыракомлю, пра У. Караткевіча | single-letter token |
+| initial abbreviations | БДЭУ, РУУС, САУ | `word.isupper()` |
 
-Every one is a **capitalised** word after a word ending in a vowel. The shape is regular
-enough to be a rule rather than a lexicon: Narkamaŭka restricts ў at the start of a proper
-noun, Taraškievica appears not to.
+`STRESSED_INITIAL_U` exists because the stress table is GrammarDB, a lexicon of
+Belarusian: it does not contain *Умбрыя* or *Уйпэшт*, and for a word it does not know
+`is_first_syllable_stressed` has to answer "no". The three stems listed are §18's own
+examples of the exception.
 
-**Not implemented, because it cannot be cited.** The rule would be §15, and
-`data/reference/pravapis2005.txt` is git-ignored and absent from a fresh checkout, so the
-section text could not be read to confirm what it says about уласныя назвы. Shipping it on
-the corpus alone would be exactly the UNVERIFIED rule this file exists to prevent — and the
-corpus disagrees with itself in the other direction (thirteen `ў → у` differences, several
-after a vowel, where be-tarask writes у against its own rule).
+§18 Заўвага — "Злучок і двукосьсе ня ёсьць знакамі прыпынку й на правапіс ў не
+ўплываюць" — is the same note the §13 conjunction rule already relied on, so a hyphen or
+a quotation mark is transparent here too: *рыба-ўюн*, *Кука-Ўітсан*.
 
-This is the single largest rule-shaped gap the recall harness has found: the `other`
-alternation scores **0 of 35**, and thirty of those thirty-five are this у/ў question.
-Resolve §15 from the book and it becomes a rule with a citation. It is logged in
-`data/eval/tarask/REVIEW.md` as a question for a reviewer.
+### The reverse direction, and what it cannot do
+
+T → N undoes §18 **only where §18 could have applied**: after a word ending in a vowel.
+A capital Ў anywhere else was never produced by this rule and is left alone, because
+Belarusian also writes Ў at the start of a name to render English *W* — *Разумнік Ўіл
+Гантынг*, *з Ўотэрзам* — and those keep their Ў in Narkamaŭka as well
+(`data/eval/tarask/gold_t2n.tsv`, hand-written rows).
+
+**After a vowel the two are indistinguishable.** *школу Ўайлд* could be §18 applied to
+*Уайлд*, or a W-name that was always Ў. `W_NAMES` lists the ones the gold set attests,
+and the list is open-ended by nature: an unlisted W-name following a vowel will come
+back from T → N spelled with У. That is a real limit and it is recorded here rather than
+smoothed over. The forward direction is unaffected — a name already written Ў never
+matches a rule looking for У — so round-trip identity stays at 100%.
+
+### What it bought
+
+The `other` alternation class, which was **0 of 35** on dev, is now 42.9% (15/35); the
+rest of that class is the two wikis disagreeing about у/ў in the other direction, which
+is not the converter's to reconcile. Dev N → T recall 74.2% → 75.1%, test 73.5% → 74.5%,
+precision unchanged.
 
 ## Project decision: no ґ
 

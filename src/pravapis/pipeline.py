@@ -31,11 +31,14 @@ from pravapis.rules.engine import RuleEngine
 from pravapis.rules.loanwords import build_stem_indexes
 from pravapis.rules.morphology import (
     CONJ_RULE_ID,
+    INITIAL_W_RULE_ID,
     PARTICLES_N2T,
     PARTICLES_T2N,
     SOFTENING_PREPOSITIONS,
     conjunction_i_to_j,
     convert_particle,
+    initial_u_to_w,
+    initial_w_to_u,
 )
 from pravapis.stress import StressTable
 from pravapis.tokenize import (
@@ -77,6 +80,7 @@ PSEUDO_RULE_CITATIONS: Final[dict[str, str]] = {
     CASE_RULE_ID: "Збор 2005, §37; GrammarDB RELEASE-202601 paradigms",
     PARTICLE_RULE_ID: "Збор 2005, §3, §29, §29 Заўвага А",
     CONJ_RULE_ID: "Збор 2005, §13",
+    INITIAL_W_RULE_ID: "Збор 2005, §18; §20",
     MENT_RULE_ID: "Збор 2005, §11б",
 }
 
@@ -367,6 +371,17 @@ class Converter:
                 offset=tokens[ti].start,
                 citation=self.citation_for(CONJ_RULE_ID),
             )
+        for ti, new in self._initial_u(tokens, out, direction):
+            ci = next(c for t, c in words if t == ti)
+            out[ti] = new
+            conversions[ci] = Conversion(
+                tokens[ti].text,
+                new,
+                Method.RULE,
+                INITIAL_W_RULE_ID,
+                offset=tokens[ti].start,
+                citation=self.citation_for(INITIAL_W_RULE_ID),
+            )
         done = [c for c in conversions if c is not None]
         stats: dict[Method, int] = dict.fromkeys(Method, 0)
         for c in done:
@@ -453,6 +468,38 @@ class Converter:
             if tok.kind is TokenKind.WORD:
                 if prev is not None and all(bridges_words(tokens, j) for j in range(prev + 1, i)):
                     new = conjunction_i_to_j(tok.text, out[prev])
+                    if new is not None:
+                        changes.append((i, new))
+                        out = [*out[:i], new, *out[i + 1 :]]
+                prev = i
+            elif not bridges_words(tokens, i):
+                prev = None
+        return changes
+
+    def _initial_u(
+        self, tokens: Sequence[Token], out: Sequence[str], direction: Orthography
+    ) -> list[tuple[int, str]]:
+        """Збор 2005, §18: unstressed initial У becomes Ў after a vowel, and back.
+
+        A post-pass rather than a rule in the engine, because it needs the *previous*
+        word as it will finally be written — and the same shape as the §13 conjunction
+        rule next to it, including its §18 Заўвага: a hyphen or a quotation mark is not
+        a punctuation mark and does not break the run (`Кука-Ўітсан`).
+
+        Not gated behind ``aggressive``. §13 says the conjunction *may* become й; §18
+        says У *is* written Ў, and the reverse direction has no optionality either.
+        """
+        changes: list[tuple[int, str]] = []
+        prev: int | None = None
+        for i, tok in enumerate(tokens):
+            if tok.kind is TokenKind.WORD:
+                if direction is Orthography.NARKAMAUKA:
+                    new = initial_w_to_u(out[i], out[prev]) if prev is not None else None
+                    if new is not None:
+                        changes.append((i, new))
+                        out = [*out[:i], new, *out[i + 1 :]]
+                elif prev is not None and all(bridges_words(tokens, j) for j in range(prev + 1, i)):
+                    new = initial_u_to_w(out[i], out[prev], self.stress)
                     if new is not None:
                         changes.append((i, new))
                         out = [*out[:i], new, *out[i + 1 :]]

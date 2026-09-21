@@ -201,12 +201,20 @@ from a filter tuned until the number looked good.
 Every figure carries a Wilson 95% interval. A class of a hundred cases cannot support a
 claim narrower than its interval, however precise the point estimate looks.
 
-| split | in-scope N → T recall | precision |
-|---|---|---|
-| dev (1,006 pairs) | **74.2%** [72.0, 76.2] | 95.3% [94.0, 96.3] |
-| test (1,225 pairs, frozen) | **73.5%** [71.6, 75.4] | 96.2% [95.1, 97.0] |
+| split | direction | in-scope recall | precision |
+|---|---|---|---|
+| dev (1,006 pairs) | N → T | **75.1%** [72.9, 77.1] | 95.2% [93.9, 96.2] |
+| dev | T → N | **75.3%** [73.1, 77.3] | 97.1% [96.0, 97.9] |
+| test (1,225 pairs, frozen) | N → T | **74.5%** [72.6, 76.4] | 96.0% [94.9, 96.9] |
+| test | T → N | **74.8%** [72.9, 76.6] | 97.7% [96.8, 98.3] |
 
-dev and test agree to within a point, which is the main thing a frozen split is for.
+dev and test agree to within a point, which is the main thing a frozen split is for, and
+so do the two directions. **Both are measured**, because the package ships both: the only
+T → N figure this project used to quote was 98.4% word accuracy on 150 hand-built
+sentences, which is a different and much easier question than "of the changes a
+Taraškievica writer made, how many can be undone". T → N is the more accurate direction
+on precision (97.7% against 96.0%) and has the same stem-inventory gap on recall — it is
+mostly removing marks, and removing a mark is easier than knowing where one belongs.
 
 | alternation | dev recall | n | |
 |---|---|---|---|
@@ -214,8 +222,8 @@ dev and test agree to within a point, which is the main thing a frozen split is 
 | `eu` — еў → эў | 92.9% [69, 99] | 13/14 | small n |
 | `i` — і → ы | 69.8% [59, 78] | 60/86 | stem inventory |
 | `l` — soft л | 50.4% [42, 59] | 63/125 | stem inventory |
+| `other` — mostly у/ў | 42.9% [28, 59] | 15/35 | §18, implemented; see below |
 | `e` — е → э | **22.1%** [18, 26] | 94/425 | stem inventory — the gap |
-| `other` | 0.0% [0, 10] | 0/35 | see below |
 
 | miss cause | dev n | share |
 |---|---|---|
@@ -235,12 +243,20 @@ procedure, not a rule to think harder about.
 (`аспэктаў`) and `спартсменам → спартсьменам` (`спартсмэнам`). The two halves of the
 loanword adaptation are not independent, and applying half of it is worse than none.
 
-**`other` is one question, not a miscellany.** Thirty of its thirty-five dev cases are
-у/ў — `Украіны`/`Ўкраіны`, `Усходняй`/`Ўсходняй` — a capitalised proper noun after a word
-ending in a vowel. It is not implemented because it cannot be cited: the rule would be
-§15, and the 2005 book is not redistributable and is absent from a checkout, so the
-section could not be read. See `data/NORMS.md`, "Known gap: ў before a capitalised proper
-noun", and the question logged in `data/eval/tarask/review-packet.md`.
+**`other` was one question, not a miscellany — and it is now answered.** Thirty of its
+thirty-five dev cases are у/ў: `Украіны`/`Ўкраіны`, `Усходняй`/`Ўсходняй`, a capitalised
+proper noun after a word ending in a vowel. This went unimplemented for one reason — the
+2005 book is not redistributable, `data/reference/` is git-ignored, and a rule that
+cannot be checked against the text does not get written here. `python
+scripts/fetch_reference.py` restores it from the Wayback capture and verifies the
+SHA-256, and the text settles it in one line:
+
+> **§18.** Пасьля галосных літараў на месцы у пішацца ў, калі на яго не прыпадае націск:
+> … ва Ўфе, сталіца Ўкраіны, Марыя Ўласевіч …
+
+`сталіца Ўкраіны` is the corpus case verbatim. The class went from **0/35 to 15/35**.
+The earlier note in this repo guessed §15 — §15 is і → ы after a prefix — which is why
+it was marked UNVERIFIED and left unwritten rather than shipped on a guess.
 
 **Read this next to the precision figures, not instead of them.** Those are not wrong:
 the converter changes very little it should not. It simply changes less than a
@@ -276,11 +292,22 @@ the session, without writing anything to `data/`:
 ```
  stems added      in-scope recall [95% CI]               precision
            0              74.2% [72%, 76%]        95.3% [94%, 96%]
-          25              77.4% [75%, 79%]        95.6% [94%, 97%]
-          50              78.6% [77%, 80%]        95.8% [95%, 97%]
-         100              80.4% [78%, 82%]        95.7% [95%, 97%]
-         165              81.6% [80%, 83%]        95.7% [95%, 97%]
+          25              77.8% [76%, 80%]        95.6% [94%, 97%]
+          50              78.8% [77%, 81%]        95.8% [95%, 97%]
+          75              79.7% [78%, 82%]        95.8% [95%, 97%]
+         100              80.6% [79%, 82%]        95.7% [95%, 97%]
+         125              81.3% [79%, 83%]        95.7% [95%, 97%]
+         144              81.6% [80%, 83%]        95.7% [95%, 97%]
 ```
+
+The first 25 rows are worth as much as the next four batches together, which is the
+argument for reviewing one batch and stopping rather than promising six. The queue is
+built to be worked 25 at a time for that reason, and overlapping rows are folded
+automatically — `амерык` absorbs `амерыкан`, `амерыканск`, `амерыканскі`, `амерыканска`,
+which were four rows and one fact — into the shortest stem that is both supported by the
+be-tarask screen and safe against the negative set. 68 rows collapsed that way; the ones
+folded in are named in the row's `covers` column, so a reviewer who distrusts a short
+stem can accept the narrower ones instead.
 
 Recall rising while precision holds is the result to want: the stems are changing
 loanwords, not catching native vocabulary. **Accepting them is still a human step** — the
@@ -288,9 +315,21 @@ inventory is what keeps the false-positive rate at zero, and the queue still con
 things a person should catch, such as three overlapping rows for one fact (`амерык`,
 `амерыкан`, `амерыканск`).
 
-### The precision gate
+### The gates
 
-Two tests in `tests/test_negative_set.py` fail the build when a lexicon batch goes wrong.
+Three of them, because a stem batch can go wrong in three different ways.
+
+**The ratchet** (`data/eval/baseline.json`, `tests/test_ratchet.py`). Every measured
+figure is recorded at its best observed value and the build fails when a later run falls
+below it. `scripts/update_baseline.py` refuses to write a metric that dropped unless it
+is given a reason, and the reason is stored next to the number — so making a figure worse
+is a sentence somebody wrote, not a rerun. The corpus is fingerprinted, because a
+baseline from a different set of sentences is not a floor but a different measurement,
+and because otherwise the way to make a failing ratchet pass would be to grow the corpus
+until the number came back.
+
+**The negative set and the dev-precision floor** — two tests in
+`tests/test_negative_set.py` that fail the build when a lexicon batch goes wrong.
 
 `data/eval/negative.tsv` holds **3,213 word forms the converter must not change**: forms
 both wikis wrote identically at an aligned position, at least twice, in the **train** split
@@ -710,6 +749,7 @@ pravapis eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, comp
 pravapis eval data/eval/gold.tsv --trusted          # hand_written rows only
 pravapis eval --recall --misses misses.tsv          # recall + precision, dev split
 pravapis eval --recall --split test                 # the frozen split; milestones only
+pravapis eval --recall -d narkamauka                # T → N recall, not just N → T
 pravapis eval --coverage --top 20000                # stem/lexicon coverage by frequency
 pravapis eval --round-trip                          # N→T→N identity rate + dump
 pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
@@ -723,6 +763,11 @@ pravapis bench --size 10mb
 python scripts/mine_wikidata_labels.py --pages 60000   # → data/review/stem_candidates.tsv
 python scripts/recall_curve.py --steps 0,25,50,100,165 # what accepting them would buy
 python scripts/build_negative_set.py                   # refresh the precision gate
+python scripts/update_baseline.py                      # ratchet the new figures up
+python scripts/update_baseline.py --milestone          # ... and read the frozen split
+
+# the codification itself (git-ignored, copyrighted; fetched and hash-checked)
+python scripts/fetch_reference.py
 pravapis serve
 ```
 

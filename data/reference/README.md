@@ -37,4 +37,21 @@ Consequences for this project:
   licence and the content is the authors' copyright: private reference only, like these files,
   and not a data source for the lexicon.
 
+## Getting them back
+
+`data/reference/` is git-ignored, so a fresh checkout has none of this. One command
+restores it — it downloads from the Wayback URL above, checks the SHA-256 against the
+table, and extracts the searchable text:
+
+```
+python scripts/fetch_reference.py
+```
+
+Text extraction needs `pypdf`, which is deliberately not a project dependency: only this
+one script wants it, and nothing in the library, the CLI or CI reads the PDF.
+
+**The book numbers its rules plainly — `18.`, `20.` — not `§18`.** The § is this
+project's citation convention. Search the chapter headings (`Разьдзел 6. ПРАВАПІС У – Ў`)
+when a rule number is not enough.
+
 Cite rules in `data/NORMS.md` as `Збор правілаў 2005, §N` (e.g. §29 Заўвага А).
