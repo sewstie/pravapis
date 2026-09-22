@@ -830,6 +830,7 @@ function at `/api/convert`. No FastAPI, no build step.
 |---|---|
 | `api/convert.py` | Vercel Python function; thin `BaseHTTPRequestHandler` over `pravapis.webapi` |
 | `src/pravapis/webapi.py` | validation, CORS, JSON shapes (stdlib + the converter only) |
+| `data/pravapis-<hash>.bin` | the precompiled artifact `api/convert.py` loads at import — see below |
 | `requirements.txt` | runtime deps for the function: regex, marisa-trie, PyYAML, pydantic |
 | `vercel.json` | static output from `public/`; tests, benchmarks, scripts, `data/eval` excluded from the function bundle |
 | `public/index.html` | the page at `/`: a plain form, single file, no framework |
@@ -841,9 +842,67 @@ when `explain` is true. The page itself sends only `text` and `direction`. Cross
 `https://www.paznaj.by` and `http://localhost` / `http://127.0.0.1` on any port; `OPTIONS`
 preflight is answered with 204.
 
-Payload: code, rules, lexicon TSVs and the 626 KB stress table, under 1 MB; dependencies
-17.7 MB installed. The compiled `data/lexicon.marisa` is git-ignored, so a deployment builds
-the lexicon from `data/lexicon/*.tsv` at cold start (a few milliseconds at its current size).
+### Precompiled artifact
+
+`api/convert.py` no longer builds a `Converter` from YAML and TSV sources at cold
+start. It loads `data/pravapis-<data-hash>.bin` — one `pickle.load`, nothing else —
+built ahead of time by:
+
+```bash
+pravapis build-artifact          # validates data/MANIFEST's files against their
+                                  # JSON Schemas, then writes data/pravapis-<hash>.bin
+```
+
+`<data-hash>` is `pravapis.dataversion.compute_data_hash()`: the same sha256, computed
+the same way, that a future `GET /v1/version` reports as `data_hash` — the artifact
+deployed and the hash the API claims to be running can never quietly disagree, because
+they are the same number by construction (`pravapis.artifact`).
+
+**There is no build step in this deployment**, so the artifact is committed to git like
+the GrammarDB stress tables already were — regenerate and recommit it after any change
+to a `data/MANIFEST`-listed file:
+
+```bash
+rm data/pravapis-*.bin && pravapis build-artifact   # old hash gone, new one written
+git add data/pravapis-*.bin
+```
+
+`tests/test_artifact.py::test_committed_artifact_is_not_stale` catches a forgotten
+rebuild the same way `test_conformance.py::test_corpus_is_not_stale` catches a
+forgotten `export-conformance`. A file the manifest does not list changes nothing —
+`test_a_stray_file_outside_the_manifest_does_not_change_the_artifact` builds twice,
+once with an extra unlisted file in `data/lexicon/stems/`, and asserts the two
+artifacts are byte-for-byte identical.
+
+Two things needed fixing to make "byte-for-byte identical" true across separate
+process runs at all: `marisa_trie`'s own pickle support and `regex.Pattern`'s (for
+patterns built from a string alternation, e.g. `StemIndex`'s unanchored-stem regex)
+are each internally non-deterministic between processes even for identical content —
+confirmed empirically, not assumed. `Lexicon`, `StressTable`, `MentSuffix` and
+`StemIndex` now pickle their tries via `.tobytes()`/`.frombytes()` (marisa\_trie's own
+*native* serialization, which **is** stable) instead of directly; `Rule` pickles a
+compiled pattern as `(source, flags)` and recompiles on load. A third, real source of
+non-determinism — at least one hash-order-sensitive `frozenset` still reachable from
+the object graph — needed `PYTHONHASHSEED` pinned too, so `build_artifact()` re-execs
+itself once with it fixed rather than leaving that to chance.
+
+Not bundled: transliteration schemes and the (off-by-default) disambiguation
+classifier — both still parse YAML lazily on first use. See `pravapis/artifact.py`'s
+module docstring.
+
+**Measured** (local; `scripts/measure_artifact_perf.py`, not Vercel's own network and
+container overhead — this is the ceiling `pravapis build-artifact` controls, not a
+deployed-p95 promise):
+
+| | p50 | p95 | max | target | |
+|---|---|---|---|---|---|
+| cold start (fresh process, import → ready) | 0.236s | **0.239s** | 0.247s | p95 < 1.5s | met |
+| warm (1k-char input, through `pravapis.webapi.handle`) | 3.41ms | **3.99ms** | 5.20ms | p95 < 50ms | met |
+
+Payload: code plus the 700 KB artifact, well under 1 MB; dependencies 17.7 MB installed.
+The raw sources (`rules/*.yaml`, `lexicon/*.tsv`, the uncompiled stress/-мент tables)
+still ship in the bundle too — nothing in the hot path reads them, but nothing excludes
+them yet either; see `vercel.json`.
 
 ### Vercel dashboard steps
 

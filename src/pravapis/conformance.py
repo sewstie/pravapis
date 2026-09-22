@@ -567,6 +567,10 @@ def _audited_data_files(data_dir: Path) -> list[str]:
             # a build marker (pravapis.lexicon.builder.write_data_hash_marker): it
             # names an artifact, it is not data itself
             continue
+        if path.parent == data_dir and path.name.startswith("pravapis-") and rel.endswith(".bin"):
+            # pravapis.artifact's precompiled bundle: compiled *from* the sources
+            # already covered above, not a second source of truth
+            continue
         out.append(rel)
     return out
 

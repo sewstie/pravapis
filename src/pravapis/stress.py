@@ -28,6 +28,17 @@ class StressTable:
         self._common = common
         self._proper = proper
 
+    # See pravapis.lexicon.store.Lexicon.__getstate__: marisa_trie's own pickle
+    # support is not byte-stable across processes; tobytes()/frombytes() is.
+    def __getstate__(self) -> dict[str, bytes]:
+        return {"common": self._common.tobytes(), "proper": self._proper.tobytes()}
+
+    def __setstate__(self, state: dict[str, bytes]) -> None:
+        self._common = marisa_trie.Trie()
+        self._common.frombytes(state["common"])
+        self._proper = marisa_trie.Trie()
+        self._proper.frombytes(state["proper"])
+
     @classmethod
     def load(cls, directory: Path) -> StressTable:
         common = marisa_trie.Trie()

@@ -74,15 +74,23 @@ def check_data_version(root: Path | None = None, *, implemented: str = DATA_VERS
     return None
 
 
-def _manifest_paths(root: Path) -> list[Path]:
-    """Every path ``data/MANIFEST`` lists, in its declared order — comments and
-    blank lines stripped, each resolved relative to ``root``."""
-    manifest = root / "MANIFEST"
+def read_manifest(root: Path | None = None) -> list[str]:
+    """Every path ``data/MANIFEST`` lists, in its declared order, as the relative
+    strings written there — comments and blank lines stripped. Anything that reads
+    only the files the manifest names (``pravapis build-artifact``, ``compute_data_hash``)
+    starts here."""
+    base = root or find_data_dir()
+    manifest = base / "MANIFEST"
     try:
         lines = manifest.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
         raise DataVersionError(f"{manifest}: cannot read the data manifest: {exc}") from exc
-    return [root / line for raw in lines if (line := raw.strip()) and not line.startswith("#")]
+    return [line for raw in lines if (line := raw.strip()) and not line.startswith("#")]
+
+
+def _manifest_paths(root: Path) -> list[Path]:
+    """Every path ``data/MANIFEST`` lists, resolved relative to ``root``, in order."""
+    return [root / rel for rel in read_manifest(root)]
 
 
 def compute_data_hash(root: Path | None = None) -> str:

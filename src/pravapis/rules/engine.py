@@ -93,6 +93,29 @@ class Rule:
     #: ...and whose stem licenses this alternation (see data/lexicon/stems.tsv)
     alternation: str | None = None
 
+    # regex.Pattern's own pickle support round-trips correctly but is not byte-stable
+    # across processes for patterns with string alternations (confirmed empirically:
+    # the same source recompiled in two separate processes pickles to different
+    # bytes, even with PYTHONHASHSEED fixed — some internal compiled state, not a
+    # Python-level hash). A build tool that pickles this (pravapis.artifact) needs
+    # reproducible bytes, so trade the compiled pattern for its source across a
+    # pickle and recompile on the way back in.
+    def __getstate__(self) -> dict[str, object]:
+        state = dict(self.__dict__)
+        if self.pattern is not None:
+            state["pattern"] = (self.pattern.pattern, self.pattern.flags)
+        return state
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        pattern_state = state.get("pattern")
+        if pattern_state is not None:
+            assert isinstance(pattern_state, tuple)
+            source, flags = pattern_state
+            assert isinstance(source, str) and isinstance(flags, int)
+            state = {**state, "pattern": regex.compile(source, flags)}
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+
     @property
     def class_gated(self) -> bool:
         return self.requires_class is not None
