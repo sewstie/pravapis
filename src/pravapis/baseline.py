@@ -50,12 +50,18 @@ TOLERANCE: Final[float] = 0.002
 BASELINE_NAME: Final[str] = "baseline.json"
 
 
+#: Metrics named with this suffix are ratios where *lower* is the improvement — a
+#: ceiling, not a floor (``dev_n2t_unresolved_flag_rate`` and friends). Everything
+#: else that ends in ``_recall``/``_precision`` ratchets upward as usual.
+LOWER_IS_BETTER_SUFFIXES: Final[tuple[str, ...]] = ("_rate",)
+
+
 def format_value(name: str, value: float) -> str:
     """Ratios as percentages, counts as counts.
 
     ``negative_set_forms`` is 3,213 words, not 321,300%.
     """
-    if name.endswith(("_recall", "_precision")):
+    if name.endswith(("_recall", "_precision", *LOWER_IS_BETTER_SUFFIXES)):
         return f"{value:.2%}"
     return f"{value:,.0f}"
 
@@ -74,7 +80,13 @@ class Metric:
     def regressed(self) -> bool:
         """A count may not shrink either: the negative set losing rows is the laundering
         move `scripts/build_negative_set.py` already refuses, caught a second time here.
+
+        A ``_rate`` metric is the one ratio that ratchets the other way: it is a
+        ceiling (``dev_n2t_unresolved_flag_rate`` should stay low), so *rising* past
+        tolerance is the regression, not falling.
         """
+        if self.name.endswith(LOWER_IS_BETTER_SUFFIXES):
+            return self.delta > TOLERANCE
         if self.name.endswith(("_recall", "_precision")):
             return self.delta < -TOLERANCE
         return self.measured < self.recorded
@@ -82,7 +94,7 @@ class Metric:
     def __str__(self) -> str:
         measured = format_value(self.name, self.measured)
         recorded = format_value(self.name, self.recorded)
-        if self.name.endswith(("_recall", "_precision")):
+        if self.name.endswith(("_recall", "_precision", *LOWER_IS_BETTER_SUFFIXES)):
             return f"{self.name}: {measured} vs baseline {recorded} ({self.delta:+.2%})"
         return f"{self.name}: {measured} vs baseline {recorded} ({self.delta:+,.0f})"
 
@@ -123,14 +135,20 @@ def compare(recorded: dict[str, float], measured: dict[str, float]) -> list[Metr
 def raised(recorded: dict[str, float], measured: dict[str, float]) -> dict[str, float]:
     """The new record: each metric's better value. This is the ratchet.
 
-    A metric that fell keeps its recorded value, so the file never learns a worse number
-    by accident. Lowering one is possible — sometimes a rule is corrected and a figure
-    that was flattering it drops honestly — but it takes `--allow-regression` and a
-    reason, and the reason is written into the file next to the number.
+    A metric that got worse keeps its recorded value, so the file never learns a worse
+    number by accident. Making one worse deliberately is possible — sometimes a rule is
+    corrected and a figure that was flattering it moves honestly — but it takes
+    `--allow-regression` and a reason, and the reason is written into the file next to
+    the number.
+
+    "Better" means higher for everything except a ``_rate`` ceiling metric, where it
+    means lower — see :data:`LOWER_IS_BETTER_SUFFIXES`.
     """
     out = dict(recorded)
     for name, value in measured.items():
-        out[name] = max(float(value), float(recorded.get(name, value)))
+        previous = float(recorded.get(name, value))
+        better = min if name.endswith(LOWER_IS_BETTER_SUFFIXES) else max
+        out[name] = better(float(value), previous)
     return out
 
 

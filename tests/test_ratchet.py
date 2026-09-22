@@ -19,7 +19,7 @@ from pravapis.baseline import BASELINE_NAME, TOLERANCE, compare, fingerprint, re
 from pravapis.config import Config
 from pravapis.metrics import FP_DIRECTIONS, read_known_fps
 from pravapis.pipeline import Converter
-from pravapis.recall import measure_recall, read_parallel
+from pravapis.recall import measure_recall, measure_unresolved_flag, read_parallel
 from pravapis.types import Orthography
 from tests.conftest import DATA_DIR
 
@@ -70,6 +70,9 @@ def test_dev_metrics_have_not_regressed(converter: Converter, baseline: dict[str
         report = measure_recall(pairs, converter, "dev", direction)
         measured[f"dev_{tag}_recall"] = report.recall
         measured[f"dev_{tag}_precision"] = report.precision
+        flag = measure_unresolved_flag(pairs, converter, direction)
+        measured[f"dev_{tag}_unresolved_flag_precision"] = flag.flag_precision
+        measured[f"dev_{tag}_unresolved_flag_rate"] = flag.flag_rate
 
     fell = [m for m in compare({k: float(v) for k, v in recorded.items()}, measured) if m.regressed]
     assert fell == [], (

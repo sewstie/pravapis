@@ -40,7 +40,7 @@ from pravapis.baseline import (  # noqa: E402
 )
 from pravapis.metrics import read_negative_set  # noqa: E402
 from pravapis.pipeline import Converter  # noqa: E402
-from pravapis.recall import measure_recall, read_parallel  # noqa: E402
+from pravapis.recall import measure_recall, measure_unresolved_flag, read_parallel  # noqa: E402
 from pravapis.types import Orthography  # noqa: E402
 
 CORPUS: Final[Path] = ROOT / "data" / "corpora" / "parallel.tsv"
@@ -59,6 +59,9 @@ def measure(split: str, corpus: Path, converter: Converter) -> dict[str, float]:
         report = measure_recall(pairs, converter, split, direction)
         out[f"{split}_{tag}_recall"] = round(report.recall, 6)
         out[f"{split}_{tag}_precision"] = round(report.precision, 6)
+        flag = measure_unresolved_flag(pairs, converter, direction)
+        out[f"{split}_{tag}_unresolved_flag_precision"] = round(flag.flag_precision, 6)
+        out[f"{split}_{tag}_unresolved_flag_rate"] = round(flag.flag_rate, 6)
     return out
 
 

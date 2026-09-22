@@ -56,7 +56,7 @@ from pravapis.normalize import sanitize
 from pravapis.pipeline import Converter
 from pravapis.scope import Scope, classify_scope, fold_similarity, format_interval, wilson
 from pravapis.tokenize import tokenize
-from pravapis.types import Orthography, TokenKind
+from pravapis.types import Method, Orthography, TokenKind
 
 
 class MissCause(StrEnum):
@@ -435,6 +435,69 @@ def measure_recall(
         false_positives=false_positives,
         by_alternation={k: (v[0], v[1]) for k, v in sorted(by_alternation.items())},
     )
+
+
+@dataclass(frozen=True, slots=True)
+class UnresolvedFlagReport:
+    """How well "looks unresolved" (``Converter.is_ambiguous`` on a passthrough word)
+    predicts a real miss, against the same parallel-corpus ground truth
+    :func:`measure_recall` uses.
+    """
+
+    tokens: int
+    #: passthrough words the heuristic flagged as a possible miss
+    flagged: int
+    #: of those, how many the corpus attests really should have changed
+    flagged_correct: int
+
+    @property
+    def flag_rate(self) -> float:
+        """Share of *every* word token the heuristic flags — not just passthrough ones."""
+        return self.flagged / self.tokens if self.tokens else 0.0
+
+    @property
+    def flag_precision(self) -> float:
+        return self.flagged_correct / self.flagged if self.flagged else 1.0
+
+
+def measure_unresolved_flag(
+    pairs: list[ParallelPair],
+    converter: Converter,
+    direction: Orthography = Orthography.TARASKIEVICA,
+) -> UnresolvedFlagReport:
+    """Precision and rate of flagging a passthrough word as a possible miss.
+
+    A flagged token counts as a real miss when the corpus attests an in-scope
+    difference at that position — the same "should have changed but didn't" signal
+    :func:`measure_recall` reports as a :class:`Miss`, without needing the full
+    miss-cause classification: that only matters for routing a fix, not for scoring
+    the flag.
+    """
+    tokens = 0
+    flagged = 0
+    flagged_correct = 0
+    for pair in pairs:
+        n_tokens, changes = diff_pair(pair, direction)
+        if not n_tokens:
+            continue
+        source_text = (
+            pair.narkamauka if direction is Orthography.TARASKIEVICA else pair.taraskievica
+        )
+        result = converter.convert(source_text, direction)
+        if len(result.conversions) != n_tokens:
+            continue
+        tokens += n_tokens
+        attested = {c.index: c for c in changes}
+        for i, conv in enumerate(result.conversions):
+            if conv.method is not Method.UNKNOWN or conv.changed:
+                continue
+            if not converter.is_ambiguous(conv.source.lower()):
+                continue
+            flagged += 1
+            change = attested.get(i)
+            if change is not None and change.in_scope:
+                flagged_correct += 1
+    return UnresolvedFlagReport(tokens=tokens, flagged=flagged, flagged_correct=flagged_correct)
 
 
 def common_shapes(report: RecallReport, limit: int = 8) -> list[tuple[str, int]]:

@@ -41,7 +41,7 @@ are never `null`, and they are never omitted.
 | `engine_version` | string | The converter that produced this. |
 | `data_version` | string | The data package it read. |
 | `changes` | array | One entry per word the converter changed, in document order. |
-| `unresolved` | array of string | Words the converter declined to decide. |
+| `unresolved` | array of string | Words the converter declined to decide. Empty unless requested — see "Off by default" below. |
 
 ### `direction` names the journey, not the destination
 
@@ -213,6 +213,41 @@ narrower and more useful: it is the converter declining, on the record.
 Silence is the right answer there — a wrong conversion is worse than none — but a silent
 silence is indistinguishable from "nothing to do", so it is reported. A UI can grey
 these; an evaluation harness can count them.
+
+### Off by default: measured, not guessed
+
+`unresolved` is always present, but **empty unless requested**. Reporting it costs
+nothing to compute correctly, but the heuristic behind it (`Converter.is_ambiguous`,
+the same regex shape triggers built for the disambiguation classifier's candidate net)
+was never validated as something to show a caller directly, so it was measured before
+shipping it on:
+
+| Direction | flag precision | flag rate |
+|---|---|---|
+| N → T | 15.2% | 15.3% |
+| T → N | 1.9% | 12.9% |
+
+*Flag precision*: of passthrough words the heuristic flagged, the share that the dev
+parallel corpus (`data/corpora/parallel.tsv`, split `dev`) attests really should have
+changed — the same in-scope-miss ground truth `pravapis.recall.measure_recall` scores
+recall against (`pravapis.recall.measure_unresolved_flag`). *Flag rate*: flagged words
+as a share of every dev word token, not just the passthrough ones.
+
+The bar for shipping it unconditionally was **precision ≥ 0.5 and rate ≤ 2%**, in both
+directions. It misses both, by a wide margin, in both directions — the trigger shapes
+(`[дтнмсзпбвфр]е` matches any consonant followed by е anywhere in a word, not just in a
+loanword position) are far too broad for this. So `Converter.convert()` takes
+`unresolved: bool = False`: pass `unresolved=True` to compute it anyway. A future
+`?unresolved=true` request flag is the planned way to reach that from the HTTP API;
+until an endpoint wires it through, `unresolved` is always `[]` on the wire.
+
+Both figures are ratcheted in `data/eval/baseline.json` alongside recall and precision
+(`dev_{n2t,t2n}_unresolved_flag_precision`, `dev_{n2t,t2n}_unresolved_flag_rate`), so a
+future heuristic tweak that quietly makes either worse fails `tests/test_ratchet.py`
+rather than shipping unnoticed. Revisit shipping it on once the lexicon/stem review
+queue (`data/review/stem_candidates.tsv`) has shrunk the false-flag rate — most of the
+noise is native vocabulary that happens to contain one of the trigger shapes, exactly
+what a bigger stem inventory resolves outright instead of leaving ambiguous.
 
 ---
 
