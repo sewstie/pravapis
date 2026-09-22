@@ -30,3 +30,40 @@
 паліцэйскі	паліцэйскі	morph.ejsk_normalise would rewrite паліцэйскі (1,450+ in be.wiki)
 карэйскай	карэйскай	morph.ejsk_normalise would rewrite карэйскай (390+ in be.wiki)
 разынкамі	разынкамі	loan.stem_reverse invented разінкамі; both orthographies write ы
+
+# --- conformance corpus coverage, not mined bugs -----------------------------------
+# Everything below was never a bug: each row exercises a specific, cited piece of
+# behaviour that had no case in conformance/cases.jsonl at all. Added so a port
+# inherits the coverage instead of having to go looking for what to test.
+
+# §18 (Ў after a vowel) and its three exceptions and Заўвага (see data/NORMS.md)
+ва Уфе	ва Ўфе	§18: trigger, the book's own example
+сталіца Украіны	сталіца Ўкраіны	§18: trigger after a common noun
+Марыя Уласевіч	Марыя Ўласевіч	§18: trigger after a proper name
+пра Умбрыю	пра Умбрыю	§18 exception: stressed initial У (function_words.tsv stressed_initial_u)
+да Уйпэшту	да Уйпэшту	§18 exception: stressed initial У, second stem
+за У. Сыракомлю	за У. Сыракомлю	§18 exception: initial "У." abbreviating a given name
+пра БДЭУ	пра БДЭУ	§18 exception: initial all-caps abbreviation
+сталіца «Украіны»	сталіца «Ўкраіны»	§18 Заўвага: a quotation mark is transparent
+жыве Кука-Уітсан	жыве Кука-Ўітсан	§18 Заўвага: a hyphen is transparent
+
+# Правілы 2008 §15 п.4 (T -> N reversal, unconditional), cases drawn from the real
+# W-name evidence in data/names/w_names.tsv rather than invented
+ля Уіл	ля Ўіл	§15 п.4, forward+reverse; Уіл is w_names.tsv (hand, gold_t2n.tsv)
+ля Уэльс	ля Ўэльс	§15 п.4, forward+reverse; Уэльс is w_names.tsv (hand, gold_t2n.tsv)
+каля Уотэр	каля Ўотэр	§15 п.4, forward+reverse; Уотэр is w_names.tsv (hand, gold_t2n.tsv)
+
+# §13 Заўвага: bridges_words() makes a hyphen or quotation mark transparent to the
+# softening preposition, the same as it does to §18 above and to the і -> й conjunction
+з «Віцебскам»	зь «Віцебскам»	§13 Заўвага: a quotation mark is transparent to the clitic
+без «святла»	безь «сьвятла»	§13 Заўвага: same, with jakanne on the preposition too
+
+# Hyphenated compound: an adverb, not a loanword, so no rule touches it either way
+па-беларуску	па-беларуску	hyphenated compound, identity in both directions
+
+# Apostrophe variants and the mixed Latin/Cyrillic homoglyph case are NOT here: both
+# involve a one-way fold in sanitize() (normalize.py APOSTROPHES / HOMOGLYPH_MAP), so
+# the reverse direction can never reproduce the original non-canonical input — that
+# would make this row fail tests/test_roundtrip_regressions.py's strict two-way
+# assertion for a reason that is not a bug. They are pinned one-directionally in
+# data/eval/gold.tsv instead (kind: gold, N -> T only).

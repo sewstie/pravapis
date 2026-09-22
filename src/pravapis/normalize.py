@@ -18,6 +18,10 @@ from pravapis.types import Script
 # Latin letters that are visually identical to Cyrillic ones and routinely get
 # typed inside Cyrillic words. Only folded inside runs that already contain
 # Cyrillic, so genuine Latin words are untouched.
+#
+# Kept in sync with data/chars/homoglyphs.tsv by scripts/check_charclass_sync.py —
+# that file is NORMATIVE (every implementation's fold table); this is a hand-written
+# copy so normalize() stays a pure function with zero I/O.
 HOMOGLYPH_MAP: Final[dict[str, str]] = {
     "a": "а",
     "e": "е",
@@ -44,6 +48,7 @@ HOMOGLYPH_MAP: Final[dict[str, str]] = {
 
 CANONICAL_APOSTROPHE: Final[str] = "’"
 
+#: Kept in sync with data/chars/apostrophes.tsv by scripts/check_charclass_sync.py.
 APOSTROPHES: Final[frozenset[str]] = frozenset(
     {
         "’",  # RIGHT SINGLE QUOTATION MARK (canonical)
@@ -68,6 +73,7 @@ ZERO_WIDTH: Final[frozenset[str]] = frozenset(
 #: The same folding for Latin-script input. A Łacinka text typed on a Belarusian
 #: layout picks up Cyrillic look-alikes exactly as Cyrillic text picks up Latin ones.
 #: Only the unambiguous pairs are listed: Cyrillic с → Latin c, never Latin s.
+#: data/chars/homoglyphs.tsv read backwards; see HOMOGLYPH_MAP above.
 REVERSE_HOMOGLYPH_MAP: Final[dict[str, str]] = {
     "а": "a",
     "е": "e",

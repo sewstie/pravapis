@@ -41,7 +41,7 @@ Described normatively by [`data/schemas/conformance.schema.json`](../data/schema
 JSON Lines: one object per line, UTF-8, LF endings, written byte-identically on every
 platform so the `--check` diff means content and not line endings.
 
-## The four kinds, and why the distinction matters
+## The kinds, and why the distinction matters
 
 | `kind` | How to run it |
 |---|---|
@@ -49,10 +49,19 @@ platform so the `--check` diff means content and not line endings.
 | `translit` | Apply the scheme named in `script` directly, with no orthography conversion (the `--no-convert` path). |
 | `gold` | Convert the whole string through the public API in `direction`. |
 | `heldout` | The same, on genuine Taraškievica nobody derived from a Narkamaŭka source. |
+| `regression` | The same, from a pinned round-trip bug fix — exported in **both** directions, because the bug was that one direction invented something the other could not undo. |
+| `offsets` | The same, and also check that `spans` — the code-point offsets of each change — match. Catches a port indexing strings in UTF-16 code units instead of code points. |
+| `unresolved` | The same, and also check that `unresolved` — the words `?unresolved=true` reports as declined — matches. Catches a port computing a different ambiguity heuristic, or none. |
 
 A `rule` case is a **unit** contract and is not the converter's output for that word.
 `palat.assim` turns `свіння` into `сьвіння`; the pipeline goes on to write `сьвіньня`.
 Running a `rule` case through the full pipeline will fail, for the wrong reason.
+
+`offsets` and `unresolved` cases can never land in `known_failures.jsonl`: `out` is
+always exactly what the reference produces for `in`, because the point of both kinds is
+the extra field (`spans`, `unresolved`), not the text. A port matches `out` and *then*
+has to separately reproduce the extra field — this file does not, and cannot, check
+that for the reference implementation, only record what it produced.
 
 ## One direction per gold file
 

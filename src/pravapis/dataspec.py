@@ -66,9 +66,12 @@ __all__ = [
     "format_problems",
     "load_schema",
     "read_data_version",
+    "validate_alphabet_file",
+    "validate_apostrophes_file",
     "validate_corpus_file",
     "validate_data",
     "validate_function_words_file",
+    "validate_homoglyphs_file",
     "validate_rules_file",
     "validate_scheme_file",
     "validate_stems_file",
@@ -193,6 +196,140 @@ def validate_rules_file(path: Path, root: Path | None = None) -> list[Problem]:
                 problems.append(
                     Problem(path, rule.id, f"negative test {test.input!r} was changed to {got!r}")
                 )
+    return problems
+
+
+# --- character-class tables ------------------------------------------------------------
+# data/chars/*.tsv: the alphabet, the apostrophe class, and the homoglyph map. Shared
+# by every implementation's tokenizer and sanitizer — see the schemas' own
+# descriptions — and cross-checked against the Python literals that actually run
+# (src/pravapis/tokenize.py, src/pravapis/normalize.py) by scripts/check_charclass_sync.py,
+# which is a sync check, not a shape check, and so lives outside this module.
+ALPHABET_FILE: Final[str] = "chars/alphabet.tsv"
+APOSTROPHES_FILE: Final[str] = "chars/apostrophes.tsv"
+HOMOGLYPHS_FILE: Final[str] = "chars/homoglyphs.tsv"
+
+
+def _read_char_rows(path: Path, columns: tuple[str, str]) -> Iterator[tuple[int, str, str]]:
+    """``(line_no, cell_a, cell_b)`` for every data line of a two-column chars/*.tsv."""
+    for line_no, line in _data_lines(path):
+        cells = [c.strip() for c in line.split("\t")]
+        if len(cells) != len(columns):
+            raise ValueError(f"{path}:{line_no}: expected {len(columns)} columns, got {len(cells)}")
+        yield line_no, cells[0], cells[1]
+
+
+def _validate_char_table(
+    path: Path, schema_name: str, schema_id: str, root: Path | None
+) -> list[Problem]:
+    """Declaration + per-cell pattern check, shared by all three chars/*.tsv files."""
+    schema = load_schema(schema_name, root)
+    problems: list[Problem] = []
+
+    declaration = read_declaration(path)
+    if declaration.schema != schema_id:
+        problems.append(
+            Problem(
+                path,
+                "<declaration>",
+                f"declares schema {declaration.schema!r}, but this build implements {schema_id!r}",
+            )
+        )
+    columns = [c["name"] for c in sorted(schema["x-tsv"]["columns"], key=lambda c: int(c["index"]))]
+    if declaration.columns and list(declaration.columns) != columns:
+        problems.append(
+            Problem(
+                path,
+                "<declaration>",
+                f"declares columns {declaration.columns}, but the schema orders them {columns}",
+            )
+        )
+
+    patterns = _cell_patterns(schema)
+    try:
+        rows = list(_read_char_rows(path, (columns[0], columns[1])))
+    except ValueError as exc:
+        problems.append(Problem(path, "<file>", str(exc)))
+        return problems
+    for line_no, a, b in rows:
+        for cell, (name, pattern, _) in zip((a, b), patterns, strict=True):
+            if not pattern.match(cell):
+                problems.append(
+                    Problem(
+                        path,
+                        f"line {line_no}",
+                        f"column {name}: {cell!r} does not match {pattern.pattern}",
+                    )
+                )
+    return problems
+
+
+def validate_alphabet_file(path: Path, root: Path | None = None) -> list[Problem]:
+    """The alphabet table: declaration, cells, and its two uniqueness constraints."""
+    problems = _validate_char_table(path, "alphabet", "tag:pravapis,2026:schema:alphabet:1", root)
+    seen_lower: dict[str, int] = {}
+    seen_upper: dict[str, int] = {}
+    for line_no, lower, upper in _read_char_rows(path, ("lower", "upper")):
+        if lower in seen_lower:
+            problems.append(
+                Problem(path, f"line {line_no}", f"{lower!r} already on line {seen_lower[lower]}")
+            )
+        seen_lower[lower] = line_no
+        if upper in seen_upper:
+            problems.append(
+                Problem(path, f"line {line_no}", f"{upper!r} already on line {seen_upper[upper]}")
+            )
+        seen_upper[upper] = line_no
+    return problems
+
+
+def validate_apostrophes_file(path: Path, root: Path | None = None) -> list[Problem]:
+    """The apostrophe table: declaration, cells, and that there is exactly one canonical."""
+    problems = _validate_char_table(
+        path, "apostrophes", "tag:pravapis,2026:schema:apostrophes:1", root
+    )
+    seen_char: dict[str, int] = {}
+    canonicals: set[str] = set()
+    chars: set[str] = set()
+    for line_no, char, canonical in _read_char_rows(path, ("char", "canonical")):
+        if char in seen_char:
+            problems.append(
+                Problem(path, f"line {line_no}", f"{char!r} already on line {seen_char[char]}")
+            )
+        seen_char[char] = line_no
+        canonicals.add(canonical)
+        chars.add(char)
+    if len(canonicals) > 1:
+        problems.append(
+            Problem(path, "<file>", f"more than one canonical value: {sorted(canonicals)}")
+        )
+    elif canonicals and next(iter(canonicals)) not in chars:
+        problems.append(Problem(path, "<file>", "the canonical value is not itself a listed char"))
+    return problems
+
+
+def validate_homoglyphs_file(path: Path, root: Path | None = None) -> list[Problem]:
+    """The homoglyph table: declaration, cells, and that both columns are one-to-one."""
+    problems = _validate_char_table(
+        path, "homoglyphs", "tag:pravapis,2026:schema:homoglyphs:1", root
+    )
+    seen_latin: dict[str, int] = {}
+    seen_cyrillic: dict[str, int] = {}
+    for line_no, latin, cyrillic in _read_char_rows(path, ("latin", "cyrillic")):
+        if latin in seen_latin:
+            problems.append(
+                Problem(path, f"line {line_no}", f"{latin!r} already on line {seen_latin[latin]}")
+            )
+        seen_latin[latin] = line_no
+        if cyrillic in seen_cyrillic:
+            problems.append(
+                Problem(
+                    path,
+                    f"line {line_no}",
+                    f"{cyrillic!r} already on line {seen_cyrillic[cyrillic]}",
+                )
+            )
+        seen_cyrillic[cyrillic] = line_no
     return problems
 
 
@@ -374,6 +511,15 @@ def validate_data(root: Path | None = None) -> list[Problem]:
         if note:
             problems.append(Problem(base / "VERSION", "<version>", note))
 
+    alphabet = base / ALPHABET_FILE
+    if alphabet.is_file():
+        problems += validate_alphabet_file(alphabet, base)
+    apostrophes = base / APOSTROPHES_FILE
+    if apostrophes.is_file():
+        problems += validate_apostrophes_file(apostrophes, base)
+    homoglyphs = base / HOMOGLYPHS_FILE
+    if homoglyphs.is_file():
+        problems += validate_homoglyphs_file(homoglyphs, base)
     for path in sorted((base / "rules").glob("*.yaml")):
         problems += validate_rules_file(path, base)
     for path in sorted((base / "lexicon" / "stems").glob("*.tsv")):

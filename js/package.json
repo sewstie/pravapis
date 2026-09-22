@@ -1,0 +1,48 @@
+{
+  "name": "pravapis",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Bidirectional Belarusian orthography conversion (Narkamaŭka <-> Taraškievica).",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+    },
+    "./translit": {
+      "import": { "types": "./dist/translit.d.ts", "default": "./dist/translit.js" },
+      "require": { "types": "./dist/translit.d.cts", "default": "./dist/translit.cjs" }
+    },
+    "./names": {
+      "import": { "types": "./dist/names.d.ts", "default": "./dist/names.js" },
+      "require": { "types": "./dist/names.d.cts", "default": "./dist/names.cjs" }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build-data": "tsx scripts/build-data.ts",
+    "build": "npm run build-data && tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/test-conformance.ts",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.2",
+    "ajv": "^8.17.1",
+    "js-yaml": "^4.1.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

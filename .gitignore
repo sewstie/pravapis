@@ -20,3 +20,8 @@ eval.json
 data/reference/*
 !data/reference/README.md
 a human reviewer.md
+
+# TypeScript port (js/scripts/build-data.ts): generated from data/, rebuilt every run
+js/node_modules/
+js/src/generated/
+js/dist/

@@ -1,0 +1,20 @@
+#!schema tag:pravapis,2026:schema:unresolved_cases:1
+#!columns text	direction	note
+# text<TAB>direction<TAB>note
+#
+# Inputs whose `unresolved` list is part of the conformance corpus (kind: unresolved).
+#
+# `unresolved=True` (the `?unresolved=true` API flag, off by default — see README,
+# "Unresolved: measured, not guessed") names the words the ambiguity heuristic flagged
+# and no stage resolved. Every other kind of case asserts converted TEXT; these assert
+# the extra field a port's own heuristic — or lack of one — is free to compute
+# differently while still producing byte-identical output, which is exactly the gap
+# nothing else in the corpus would catch.
+#
+# direction  n2t = Narkamaŭka -> Taraškievica, t2n = the reverse
+#
+# Keep this file small, one case per direction at minimum: it exists to pin the
+# `unresolved` contract, not to re-test conversion or measure precision — that is
+# `pravapis eval --recall`'s job, on the full parallel corpus.
+без мяне	n2t	мяне: genitive pronoun matches the loan е/э trigger ([дтнмсзпбвфр]е) and is left unresolved
+сітуацыя	t2n	matches the loan і/ы trigger ([сз]і) and is left unresolved; also demonstrates an empty conversion (identity output) with a non-empty unresolved list

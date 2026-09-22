@@ -1,0 +1,34 @@
+#!schema tag:pravapis,2026:schema:homoglyphs:1
+#!columns latin	cyrillic
+# latin<TAB>cyrillic
+#
+# Latin letters visually identical to a Cyrillic one, routinely typed inside a
+# Cyrillic word on the wrong keyboard layout (see data/schemas/homoglyphs.schema.json).
+# src/pravapis/normalize.py's HOMOGLYPH_MAP is exactly this table, forward; its
+# REVERSE_HOMOGLYPH_MAP is the same table read backwards (Cyrillic -> Latin, for
+# Łacinka input typed on a Belarusian layout). scripts/check_charclass_sync.py fails
+# CI if either drifts from this file.
+#
+# Not exhaustive and not case-complete on purpose: lowercase t/h/k/m/b are not close
+# enough to т/н/к/м/в to fold safely, even though their capitals are (T/H/K/M/B).
+a	а
+e	е
+o	о
+p	р
+c	с
+y	у
+x	х
+i	і
+A	А
+E	Е
+O	О
+P	Р
+C	С
+Y	У
+X	Х
+I	І
+T	Т
+H	Н
+K	К
+M	М
+B	В

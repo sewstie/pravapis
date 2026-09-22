@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "tag:pravapis,2026:schema:conformance:2",
+  "$id": "tag:pravapis,2026:schema:conformance:3",
   "title": "pravapis conformance case",
-  "description": "One line of conformance/cases.jsonl. The file is JSON Lines: one object per line, UTF-8, LF endings, no trailing comma, no wrapping array. NORMATIVE: an implementation is conformant for a given data version iff it reproduces every case in the corpus generated from that version. Cases are generated from the data by `pravapis export-conformance` and are never written by hand. Version 2 adds the `offsets` kind and its `spans` field: the response contract (docs/API.md) includes code-point offsets into the output, and a port can produce the right text with the wrong offsets, so the corpus pins them directly.",
+  "description": "One line of conformance/cases.jsonl. The file is JSON Lines: one object per line, UTF-8, LF endings, no trailing comma, no wrapping array. NORMATIVE: an implementation is conformant for a given data version iff it reproduces every case in the corpus generated from that version. Cases are generated from the data by `pravapis export-conformance` and are never written by hand. Version 2 added the `offsets` kind and its `spans` field: the response contract (docs/API.md) includes code-point offsets into the output, and a port can produce the right text with the wrong offsets, so the corpus pins them directly. Version 3 adds the `unresolved` kind and its `unresolved` field the same way, for the `?unresolved=true` response field.",
   "type": "object",
   "properties": {
     "id": {
@@ -36,6 +36,10 @@
         {
           "const": "offsets",
           "title": "Convert `in` through the public API in `direction`, expect `out`, AND expect `spans` to be the (start, end, from, to) of each change. `start`/`end` are Unicode CODE POINT indices into `out`. This is the kind that catches a port indexing strings in UTF-16 code units: it produces `out` correctly and `spans` wrong, and every other kind of case passes."
+        },
+        {
+          "const": "unresolved",
+          "title": "Convert `in` through the public API in `direction` with `unresolved=true` (the `?unresolved=true` query flag), expect `out`, AND expect `unresolved` to be the words the reference declined to convert. This is the kind that catches a port computing a different ambiguity heuristic, or none: it produces `out` correctly and `unresolved` wrong (typically empty), and every other kind of case passes."
         }
       ]
     },
@@ -96,6 +100,14 @@
         "minItems": 4,
         "maxItems": 4
       }
+    },
+    "unresolved": {
+      "description": "Present only on `unresolved` cases: the words, in document order, that `?unresolved=true` reports as declined for `in` in `direction`. Empty is a valid value — it says the reference resolved (or passed through with confidence) every word.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "required": [
@@ -155,7 +167,9 @@
               "rule",
               "gold",
               "heldout",
-              "regression"
+              "regression",
+              "offsets",
+              "unresolved"
             ]
           }
         },
@@ -169,6 +183,24 @@
             "type": "string"
           }
         }
+      }
+    },
+    {
+      "title": "An unresolved case must carry the field it exists to pin",
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "unresolved"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "unresolved"
+        ]
       }
     }
   ]

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:apostrophes:1",
+  "title": "pravapis apostrophe table",
+  "description": "Every apostrophe-like character this project recognises (data/chars/apostrophes.tsv), and the one it normalises to. NORMATIVE for two things that must stay the same set: the tokenizer's word class treats any of these as joining two Cyrillic runs into one word token (з'ява is one token, not two), and the sanitizer folds any of them to `canonical` before a rule ever sees the word. One table instead of two lists is deliberate — a character that joins words but is not folded (or the reverse) would be a word that tokenizes as one piece and is spelled two different ways depending on which stage looked at it.",
+
+  "x-tsv": {
+    "delimiter": "\t",
+    "comment": "#",
+    "encoding": "utf-8",
+    "blankLinesIgnored": true,
+    "cellsAreTrimmed": true,
+    "nullTokens": [],
+    "declaration": {
+      "required": true,
+      "directives": {
+        "schema": {
+          "syntax": "#!schema <schema $id>",
+          "example": "#!schema tag:pravapis,2026:schema:apostrophes:1"
+        },
+        "columns": {
+          "syntax": "#!columns <name>\\t<name>",
+          "example": "#!columns char\tcanonical"
+        }
+      }
+    },
+    "columns": [
+      {
+        "name": "char",
+        "index": 0,
+        "required": true,
+        "description": "One apostrophe-like character. Includes the canonical one, mapped to itself, so the full word class is exactly this column.",
+        "pattern": "^.$"
+      },
+      {
+        "name": "canonical",
+        "index": 1,
+        "required": true,
+        "description": "What `char` folds to. The same value on every row: there is exactly one canonical apostrophe.",
+        "pattern": "^.$"
+      }
+    ]
+  },
+
+  "$defs": {
+    "row": {
+      "type": "object",
+      "properties": {
+        "char": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "canonical": { "type": "string", "minLength": 1, "maxLength": 1 }
+      },
+      "required": ["char", "canonical"],
+      "additionalProperties": false
+    }
+  },
+
+  "type": "array",
+  "description": "The apostrophe table, parsed: the ordered list of its rows.",
+  "items": { "$ref": "#/$defs/row" },
+  "minItems": 1,
+
+  "x-constraints": [
+    "`char` is unique across rows.",
+    "`canonical` is the same character on every row, and it is also one of the `char` values (mapped to itself)."
+  ]
+}

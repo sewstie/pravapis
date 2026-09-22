@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:homoglyphs:1",
+  "title": "pravapis homoglyph table",
+  "description": "Latin letters visually identical to a Cyrillic one, and routinely typed inside a Cyrillic word on the wrong keyboard layout (data/chars/homoglyphs.tsv). NORMATIVE for src/pravapis/normalize.py's fold_homoglyphs(): each row is one (latin, cyrillic) pair, folded only inside a letter run that already contains a genuine Cyrillic letter, so a real Latin word is never touched. The reverse direction (Cyrillic -> Latin, for Łacinka input typed on a Belarusian layout) is the same table read backwards, not a second file. The mapping is intentionally not exhaustive and not case-complete: lowercase Latin t/h/k/m/b, for instance, are not close enough to the Cyrillic т/н/к/м/в to fold safely, even though their capitals are.",
+
+  "x-tsv": {
+    "delimiter": "\t",
+    "comment": "#",
+    "encoding": "utf-8",
+    "blankLinesIgnored": true,
+    "cellsAreTrimmed": true,
+    "nullTokens": [],
+    "declaration": {
+      "required": true,
+      "directives": {
+        "schema": {
+          "syntax": "#!schema <schema $id>",
+          "example": "#!schema tag:pravapis,2026:schema:homoglyphs:1"
+        },
+        "columns": {
+          "syntax": "#!columns <name>\\t<name>",
+          "example": "#!columns latin\tcyrillic"
+        }
+      }
+    },
+    "columns": [
+      {
+        "name": "latin",
+        "index": 0,
+        "required": true,
+        "description": "The Latin letter someone typed by mistake (or on the wrong layout).",
+        "pattern": "^[A-Za-z]$"
+      },
+      {
+        "name": "cyrillic",
+        "index": 1,
+        "required": true,
+        "description": "The Cyrillic letter it is visually identical to, and folds to.",
+        "pattern": "^[\\u0400-\\u04FF]$"
+      }
+    ]
+  },
+
+  "$defs": {
+    "row": {
+      "type": "object",
+      "properties": {
+        "latin": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "cyrillic": { "type": "string", "minLength": 1, "maxLength": 1 }
+      },
+      "required": ["latin", "cyrillic"],
+      "additionalProperties": false
+    }
+  },
+
+  "type": "array",
+  "description": "The homoglyph table, parsed: the ordered list of its rows.",
+  "items": { "$ref": "#/$defs/row" },
+  "minItems": 1,
+
+  "x-constraints": [
+    "`latin` is unique across rows, and so is `cyrillic`: the mapping is one-to-one in both directions, which is what lets the same table be read backwards for the reverse fold."
+  ]
+}

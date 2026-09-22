@@ -33,6 +33,11 @@ jobs:
       # inline flags, conditional groups — that compile fine but silently never fire on
       # Cyrillic in a JS port. Runs before anything that would build on top of the rules.
       - run: uv run python scripts/lint_patterns.py
+      # data/chars/*.tsv (the alphabet, apostrophe class, and homoglyph map — shared
+      # primitives every implementation's tokenizer/sanitizer needs) is normative;
+      # tokenize.py/normalize.py keep hand-written literals for zero-I/O startup, and
+      # this is what stops the two from silently drifting apart.
+      - run: uv run python scripts/check_charclass_sync.py
       # Request text must never reach a log line, in src/pravapis/api/ or anywhere a
       # future endpoint lands. See docs/API.md, "Privacy".
       - run: uv run python scripts/check_no_request_text_logging.py
@@ -42,6 +47,50 @@ jobs:
       # The data is a specification, so check it against that specification before
       # anything else runs: a schema nobody enforces is a comment.
       - run: uv run pravapis validate-data
+      # The TypeScript port's data build: reads data/MANIFEST (same file and hash
+      # function as pravapis.dataversion, never a glob), validates every file that has
+      # a JSON Schema, translates the regex dialect, and emits js/src/generated/*.json.
+      - run: npm ci
+        working-directory: js
+      - run: npm run typecheck
+        working-directory: js
+      - run: npm run build-data
+        working-directory: js
+      # It computed its own data hash the same way compute_data_hash() does; if the two
+      # disagree, the two builds are reading two different ideas of "the data" and every
+      # other check above is validating one of them while the other ships unverified.
+      - name: Cross-check the JS data hash against the Python one
+        shell: bash
+        run: |
+          py_hash=$(uv run python -c "from pravapis.dataversion import compute_data_hash; print(compute_data_hash())")
+          js_hash=$(node -p "require('./js/src/generated/core.json').dataHash")
+          echo "python: $py_hash"
+          echo "js:     $js_hash"
+          if [ "$py_hash" != "$js_hash" ]; then
+            echo "::error::data hash mismatch: Python computed $py_hash, the JS data build computed $js_hash"
+            exit 1
+          fi
+      # Replays conformance/cases.jsonl against the JS port itself (not just its data
+      # build) — js/scripts/test-conformance.ts. Failures outside
+      # js/scripts/known-gaps.json (documented: no stress table) fail the build, and so
+      # does a listed gap that starts passing without the file being updated.
+      - run: npm test
+        working-directory: js
+      # Bundles the package (tsup: ESM + CJS + .d.ts) and checks its published file
+      # list stays limited to dist/ + package.json — no src/, scripts/, or generated/
+      # leaking into what `npm publish` would ship.
+      - run: npm run build
+        working-directory: js
+      - name: Check the published npm file list is clean
+        shell: bash
+        working-directory: js
+        run: |
+          files=$(npm pack --dry-run --json --ignore-scripts 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d)[0].files.map(f=>f.path).join('\n')))")
+          echo "$files"
+          if echo "$files" | grep -vE '^dist/|^package\.json$'; then
+            echo "::error::unexpected file(s) in the npm package — see above"
+            exit 1
+          fi
       # The conformance corpus is the cross-language contract. It is generated from the
       # data, so a data change that did not regenerate it leaves the contract describing
       # the old behaviour — which is worse than having no contract. This fails on that.

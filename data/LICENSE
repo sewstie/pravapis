@@ -1,0 +1,123 @@
+# Data licensing
+
+The code in `src/`, `scripts/`, `js/`, and everywhere else outside `data/` is MIT —
+see the root `LICENSE`. `data/` is not uniformly licensed the way code is: Belarusian
+orthography data draws on several sources with different terms, tracked per file (and,
+in two files, per row) by the `source`/`provenance` columns those files already carry.
+This file is the index; several subdirectories carry their own fuller statement, which
+this file summarises rather than replaces — where the two ever disagree, the
+subdirectory's own README is the one to fix, and this file to update from it.
+
+## 1. Wikidata-derived — CC0 1.0
+
+Wikidata is public domain, https://creativecommons.org/publicdomain/zero/1.0/. No
+attribution is legally required; each row carries one anyway, for traceability.
+
+- `data/review/stem_candidates.tsv` — loan-stem candidates mined from paired Wikidata
+  `be`/`be-tarask` item labels (`scripts/mine_wikidata_labels.py`). **Candidates only:**
+  nothing here is applied by the converter until a human promotes a row into
+  `data/lexicon/stems/`, at which point §4 below governs what it becomes.
+- `data/names/w_names.tsv`, rows where `provenance` = `wikidata` (27 of the file's 32
+  rows; the `evidence` column carries the Wikidata QID) — mined by
+  `scripts/mine_w_names.py`.
+
+## 2. be-tarask.wikipedia.org text, and text mined from it — CC BY-SA 4.0
+
+https://creativecommons.org/licenses/by-sa/4.0/. © the cited contributors; each row or
+file names the article and revision id it came from, which is the attribution the
+licence requires. A derivative built from this text — a Narkamaŭka rendering added
+alongside a Taraškievica sentence, say — is distributed under the same licence, per
+CC BY-SA's share-alike term.
+
+- `data/eval/tarask/corpus.tsv`, `data/eval/tarask/gold_t2n.tsv` — see
+  `data/eval/tarask/README.md`, the fuller statement this summarises.
+- `data/corpora/parallel.tsv` — aligned be.wikipedia.org / be-tarask.wikipedia.org
+  sentence pairs; see `data/corpora/parallel.README.md`. (The file's Narkamaŭka side is
+  be.wikipedia.org text, also CC BY-SA 4.0 but from that wiki, not be-tarask — recorded
+  here because the pairs are one artifact, not because that side is be-tarask-sourced.)
+- `data/corpora/frequency_tarask.tsv` (be-tarask.wikipedia.org) and, for the same
+  reason, `data/corpora/frequency_be.tsv` (be.wikipedia.org) — plain word-frequency
+  counts, no running text.
+- `data/names/w_names.tsv`, rows where `provenance` = `hand` (the remaining 5 rows) —
+  read off attested sentences in `gold_t2n.tsv` above, so they carry that file's
+  licence, not §1's.
+- `data/eval/recall_misses.tsv`, `data/eval/roundtrip_failures.tsv` — generated
+  reports (`pravapis eval --recall`, the round-trip property test), reporting on
+  `data/corpora/parallel.tsv` and `data/eval/roundtrip_corpus.txt` respectively. Their
+  `sentence` column quotes those corpora directly, so the quoted material carries
+  whichever licence its source carries (CC BY-SA 4.0 here; MIT for
+  `roundtrip_failures.tsv`, whose source is §4's `roundtrip_corpus.txt`) — the
+  surrounding analysis columns (`cause`, `detail`, …) are the project's own, MIT.
+
+### 2a. GrammarDB — also CC BY-SA 4.0, a different attribution
+
+Not be-tarask text, but the same licence family, grouped here rather than invented as
+a third top-level section. © Aleś Bułojčyk and Uładzimir Koščanka,
+https://github.com/Belarus/GrammarDB.
+
+- `data/stress/first_stressed.marisa`, `data/stress/proper_first_stressed.marisa` —
+  see `data/stress/README.md`.
+- `data/morphology/ment_lemmas.marisa` — see `data/morphology/README.md`.
+
+## 3. Screened against be-tarask, but not derived from it
+
+`data/review/stem_candidates.tsv`'s `verdict`, `evidence`, `blast_radius` and
+`examples` columns report facts obtained by checking a Wikidata-derived candidate
+against `data/corpora/frequency_tarask.tsv` (word *counts* — does the stem's converted
+form or its original form appear, and how often — not running text) and against a
+handful of illustrative sentences from `data/eval/tarask/corpus.tsv`. Reading a corpus
+to test a hypothesis about it does not create a derivative work of that corpus: no
+protected expression is copied into the row, only a fact about it. A candidate's
+licence is therefore whatever §1 already made it (Wikidata, CC0) — screening it
+against be-tarask does not pull it under §2.
+
+The same reasoning covers `pravapis eval --recall` and `pravapis audit`, which read
+`data/corpora/parallel.tsv` / `data/eval/tarask/corpus.tsv` to score the converter: a
+score is a fact about the corpus, not a copy of it, and confers no licence obligation
+on the code or on `data/lexicon/`. (`recall_misses.tsv` is the one report that *also*
+quotes the corpus it scores — see the row for it under §2.)
+
+## 4. Everything else — the project's own, MIT
+
+Knowing that Збор 2005 §29 softens з/с before a soft consonant does not tell you which
+words are loans, and citing a class rule by section number is not copying protected
+expression from the codification. This is original classification and analysis work
+by the project (Vladislav Hushcha), released under the same licence as the code — MIT,
+per the root `LICENSE` — including:
+
+- `data/lexicon/stems/stems.tsv` — **currently 100% `cited`/`reviewed` provenance**:
+  every applied row cites a Збор 2005 section by hand, and none are `derived` today
+  (see `pravapis.lexicon.stems.Provenance` — `derived` rows come from
+  `scripts/mine_loan_stems.py`, GrammarDB paradigm mining, §2a's licence, not this
+  one). The day a `derived` or Wikidata-promoted row is added, it is added *with* the
+  licence its `source`/`provenance` implies, and this file's "When a stem's
+  provenance changes" note below is what to update.
+- `data/lexicon/{loanwords,exceptions,proper_nouns}.tsv`, `data/lexicon/case/*.tsv`
+- `data/rules/*.yaml`, `data/translit/*.yaml`
+- `data/morphology/function_words.tsv`
+- `data/chars/*.tsv`
+- `data/eval/gold.tsv` (Narkamaŭka side: Paznaj site content, author-owned;
+  Taraškievica side: hand-written from it applying Збор 2005),
+  `data/eval/roundtrip_corpus.txt` (also Paznaj content),
+  `data/eval/roundtrip_regressions.tsv`, `data/eval/offset_cases.tsv`,
+  `data/eval/unresolved_cases.tsv`, `data/eval/ambiguous.tsv`,
+  `data/eval/negative.tsv`, `data/eval/known_fps.tsv`, `data/eval/baseline.json`
+- `data/schemas/*.json`
+
+## Not distributed, so not licensed by this file
+
+`data/reference/` is git-ignored: copyrighted normative sources (the codification
+texts themselves), kept locally for citation-checking, never redistributed — see
+`data/reference/README.md`. `data/corpora/titles.checkpoint.jsonl` is a mining
+checkpoint committed by accident (see `pravapis.conformance.EXEMPT_DATA`); nothing
+reads it and it carries no claim either way.
+
+## When a stem's provenance changes
+
+`data/lexicon/stems/*.tsv`'s `source` and `provenance` columns are the record a
+promotion has to update honestly: a `derived` row from `scripts/mine_loan_stems.py`
+carries GrammarDB's CC BY-SA 4.0 (§2a), a row promoted from
+`data/review/stem_candidates.tsv` carries Wikidata's CC0 (§1), and a `cited` row
+citing Збор 2005 directly stays §4, MIT. This file is not regenerated automatically;
+whoever promotes a candidate is responsible for updating this section — and the
+promoted row's own `source` cell — to say which licence it brought with it.

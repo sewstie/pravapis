@@ -237,9 +237,10 @@ The bar for shipping it unconditionally was **precision ≥ 0.5 and rate ≤ 2%*
 directions. It misses both, by a wide margin, in both directions — the trigger shapes
 (`[дтнмсзпбвфр]е` matches any consonant followed by е anywhere in a word, not just in a
 loanword position) are far too broad for this. So `Converter.convert()` takes
-`unresolved: bool = False`: pass `unresolved=True` to compute it anyway. A future
-`?unresolved=true` request flag is the planned way to reach that from the HTTP API;
-until an endpoint wires it through, `unresolved` is always `[]` on the wire.
+`unresolved: bool = False`: pass `unresolved=True` to compute it anyway. `/v1/convert`
+and `/v1/convert/batch` take the same thing as the `?unresolved=true` query parameter
+(not a body field — see "Requests" below); without it, `unresolved` is always `[]` on
+the wire, same as the library default.
 
 Both figures are ratcheted in `data/eval/baseline.json` alongside recall and precision
 (`dev_{n2t,t2n}_unresolved_flag_precision`, `dev_{n2t,t2n}_unresolved_flag_rate`), so a
@@ -248,6 +249,12 @@ rather than shipping unnoticed. Revisit shipping it on once the lexicon/stem rev
 queue (`data/review/stem_candidates.tsv`) has shrunk the false-flag rate — most of the
 noise is native vocabulary that happens to contain one of the trigger shapes, exactly
 what a bigger stem inventory resolves outright instead of leaving ambiguous.
+
+**The conformance corpus pins this too**, the same way it pins `spans`. Cases of kind
+`unresolved` call the reference implementation with `unresolved=true` and record the
+list it comes back with alongside `in`/`out`; a port computing a different heuristic —
+or none — produces the right `out` and a different `unresolved`, which no other kind of
+case would catch. See `data/eval/unresolved_cases.tsv`.
 
 ---
 

@@ -1,0 +1,18 @@
+#!schema tag:pravapis,2026:schema:apostrophes:1
+#!columns char	canonical
+# char<TAB>canonical
+#
+# Every apostrophe-like character this project recognises, and the one it normalises
+# to (U+2019, RIGHT SINGLE QUOTATION MARK — see data/schemas/apostrophes.schema.json).
+# One table, two uses:
+#   - src/pravapis/tokenize.py's APOSTROPHE_CLASS (the `char` column) lets these join
+#     two Cyrillic runs into one word token: "з'ява" tokenizes as one word, not two.
+#   - src/pravapis/normalize.py's APOSTROPHES/CANONICAL_APOSTROPHE fold any of them to
+#     `canonical` before a rule ever sees the word (palat.apostrophe matches only the
+#     canonical form).
+# scripts/check_charclass_sync.py fails CI if either drifts from this file.
+’	’
+'	’
+ʼ	’
+`	’
+‘	’

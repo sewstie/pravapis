@@ -21,6 +21,14 @@ not all of one kind:
               (``hand_written``) rows of ``data/eval/gold.tsv``.
 ``heldout``   The same, on genuine Taraškievica nobody derived from Narkamaŭka:
               the reviewed rows of ``data/eval/tarask/gold_t2n.tsv``.
+``regression``A bug that was fixed and must stay fixed, in both directions — from
+              ``data/eval/roundtrip_regressions.tsv``.
+``offsets``   Pins ``spans`` (the code-point offsets of each change), which a port
+              indexing strings in UTF-16 code units can get wrong while producing the
+              right text — from ``data/eval/offset_cases.tsv``.
+``unresolved``Pins the ``unresolved`` list ``?unresolved=true`` reports, which a port
+              computing a different ambiguity heuristic can get wrong while producing
+              the right text — from ``data/eval/unresolved_cases.tsv``.
 
 **Only one direction is exported per gold file, and it is the one the file can
 honestly support.** ``gold.tsv`` declares ``# origin: narkamauka``, so its
@@ -56,7 +64,7 @@ from pravapis.types import Method, Orthography, Script
 
 #: Bumped when the *shape* of a case record changes. Distinct from the data version,
 #: which says which data produced the cases.
-CORPUS_SCHEMA_ID: Final[str] = "tag:pravapis,2026:schema:conformance:2"
+CORPUS_SCHEMA_ID: Final[str] = "tag:pravapis,2026:schema:conformance:3"
 
 #: Rules that run in the pipeline rather than the YAML engine. They change the output,
 #: so the contract has to reach them too.
@@ -79,7 +87,7 @@ class Case:
     """One conformance case. The field order here is the field order on disk."""
 
     id: str
-    kind: str  # rule | translit | gold | heldout
+    kind: str  # rule | translit | gold | heldout | regression | offsets | unresolved
     direction: str | None
     script: str
     rule: str | None
@@ -88,6 +96,10 @@ class Case:
     #: for `offsets` cases only: the (start, end, from, to) of each change, with the
     #: span given in Unicode code points into `expected`. See docs/API.md.
     spans: tuple[tuple[int, int, str, str], ...] | None = None
+    #: for `unresolved` cases only: the words `unresolved=True` flags on `expected`.
+    #: Like `spans`, `expected` always equals what the reference produces — this kind
+    #: pins the extra field, not the text, which cannot fail on its own.
+    unresolved: tuple[str, ...] | None = None
 
     def to_json(self) -> dict[str, Any]:
         record: dict[str, Any] = {
@@ -102,6 +114,8 @@ class Case:
         record["out"] = self.expected
         if self.spans is not None:
             record["spans"] = [list(span) for span in self.spans]
+        if self.unresolved is not None:
+            record["unresolved"] = list(self.unresolved)
         return record
 
 
@@ -261,6 +275,48 @@ def _offset_cases(data_dir: Path, converter: Converter) -> Iterator[tuple[Case, 
         index += 1
 
 
+#: Inputs whose `unresolved` list is pinned, read from data/eval/unresolved_cases.tsv.
+UNRESOLVED_CASES_FILE: Final[str] = "eval/unresolved_cases.tsv"
+
+
+def _unresolved_cases(data_dir: Path, converter: Converter) -> Iterator[tuple[Case, str]]:
+    """Cases that pin `unresolved`, which no other kind of case can catch.
+
+    Every other case asserts the converted *text*, and `unresolved` is off by default
+    (``Converter.convert(..., unresolved=True)`` — the ``?unresolved=true`` API flag) so
+    it never shows up there. A port that computes a different ambiguity heuristic, or
+    none at all, produces exactly the right text and an empty or different `unresolved`
+    list, and nothing else in the corpus notices.
+    """
+    path = data_dir / UNRESOLVED_CASES_FILE
+    if not path.is_file():
+        return
+    index = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        text, code = parts[0], parts[1].strip()
+        direction = Orthography.from_code(code)
+        result = converter.convert(text, direction, unresolved=True)
+        yield (
+            Case(
+                id=f"unresolved/{index:03d}",
+                kind="unresolved",
+                direction=_DIRECTION_NAMES[direction],
+                script=Script.CYRILLIC.value,
+                rule=None,
+                input=text,
+                expected=result.text,
+                unresolved=result.unresolved,
+            ),
+            result.text,
+        )
+        index += 1
+
+
 def build_corpus(
     data_dir: Path, converter: Converter | None = None
 ) -> tuple[list[Case], list[Case]]:
@@ -272,6 +328,7 @@ def build_corpus(
     produced += list(_translit_cases(data_dir / "translit"))
     produced += list(_regression_cases(data_dir, conv))
     produced += list(_offset_cases(data_dir, conv))
+    produced += list(_unresolved_cases(data_dir, conv))
     produced += list(
         _gold_cases(
             data_dir / "eval" / "gold.tsv",
@@ -441,6 +498,24 @@ EXEMPT_DATA: Final[dict[str, str]] = {
         "Правілы 2008 §15 п.4 makes the T -> N reversal unconditional, so the exception "
         "list it was mined for no longer exists. See data/NORMS.md. Its natural use is "
         "the forward direction, which is an open question and not implemented."
+    ),
+    "chars/alphabet.tsv": (
+        "NORMATIVE for every implementation's word-character class and case-fold table, "
+        "but src/pravapis/tokenize.py keeps a hand-written frozenset literal instead of "
+        "reading this at import time — it is the hottest of hot paths, and this project "
+        "treats a filesystem read there as a real cost. scripts/check_charclass_sync.py, "
+        "not a conformance case, is what keeps the literal from drifting off this file."
+    ),
+    "chars/apostrophes.tsv": (
+        "Same as chars/alphabet.tsv: NORMATIVE for the tokenizer's word-joining class "
+        "and the sanitizer's fold target, but src/pravapis/tokenize.py and normalize.py "
+        "keep hand-written literals for zero-I/O startup. Sync-checked, not case-tested."
+    ),
+    "chars/homoglyphs.tsv": (
+        "Same reasoning again: NORMATIVE for src/pravapis/normalize.py's homoglyph fold "
+        "in both directions, kept as hand-written dict literals there for the same "
+        "startup-cost reason, and sync-checked by scripts/check_charclass_sync.py "
+        "rather than pinned by a conformance case."
     ),
 }
 
@@ -630,6 +705,8 @@ def coverage(
             data_files[rel] = sum(1 for c in cases if c.kind == "translit" and c.script == stem)
         elif rel == OFFSET_CASES_FILE:
             data_files[rel] = sum(1 for c in cases if c.kind == "offsets")
+        elif rel == UNRESOLVED_CASES_FILE:
+            data_files[rel] = sum(1 for c in cases if c.kind == "unresolved")
         else:
             prefix = max((p for p in _BACKED_BY if rel.startswith(p)), key=len, default=None)
             if prefix is not None:

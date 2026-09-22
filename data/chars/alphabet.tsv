@@ -1,0 +1,49 @@
+#!schema tag:pravapis,2026:schema:alphabet:1
+#!columns lower	upper
+# lower<TAB>upper
+#
+# The Belarusian alphabet, one letter per row. This is the ONE place this project's
+# word-character class and case-fold table are written down. Do not derive either from
+# Unicode's general \p{Cyrillic} property or from str.lower()/str.upper(): both are
+# broader and language-runtime-dependent (see data/schemas/alphabet.schema.json).
+#
+# src/pravapis/tokenize.py's BELARUSIAN_LETTERS is the `lower` column; its uppercase
+# counterpart set (used to build the tokenizer's word-character regex) is `upper`.
+# scripts/check_charclass_sync.py fails CI if either drifts from this file.
+#
+# ґ is Taraškievica-only (Narkamaŭka never produces it — see data/NORMS.md, "Project
+# decision: no ґ") but must still be recognised as a word character when it appears in
+# input, so it is listed here rather than only in a rules table.
+а	А
+б	Б
+в	В
+г	Г
+ґ	Ґ
+д	Д
+е	Е
+ё	Ё
+ж	Ж
+з	З
+і	І
+й	Й
+к	К
+л	Л
+м	М
+н	Н
+о	О
+п	П
+р	Р
+с	С
+т	Т
+у	У
+ў	Ў
+ф	Ф
+х	Х
+ц	Ц
+ч	Ч
+ш	Ш
+ы	Ы
+ь	Ь
+э	Э
+ю	Ю
+я	Я

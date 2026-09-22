@@ -22,7 +22,7 @@ from pravapis.translit import Transliterator
 from pravapis.translit.engine import load_scheme
 from pravapis.types import Orthography
 
-CASE_FIELDS = {"id", "kind", "direction", "script", "rule", "in", "out", "spans"}
+CASE_FIELDS = {"id", "kind", "direction", "script", "rule", "in", "out", "spans", "unresolved"}
 DIRECTIONS = {
     "narkamauka_to_taraskievica": Orthography.TARASKIEVICA,
     "taraskievica_to_narkamauka": Orthography.NARKAMAUKA,
@@ -107,6 +107,16 @@ def test_every_case_passes_when_replayed(
             got, _ = engine.apply(source, rule.direction)
         elif kind == "translit":
             got = Transliterator(schemes[str(case["script"])]).transliterate(source).text
+        elif kind == "unresolved":
+            direction = DIRECTIONS[str(case["direction"])]
+            result = converter.convert(source, direction, unresolved=True)
+            got = result.text
+            want_unresolved = tuple(case["unresolved"])  # type: ignore[arg-type]
+            if result.unresolved != want_unresolved:
+                failures.append(
+                    f"{case['id']}: {source!r} gave unresolved={result.unresolved!r}, "
+                    f"contract says {want_unresolved!r}"
+                )
         else:
             got = converter.convert(source, DIRECTIONS[str(case["direction"])]).text
         if got != expected:

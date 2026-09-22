@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:alphabet:1",
+  "title": "pravapis alphabet table",
+  "description": "The Belarusian alphabet (data/chars/alphabet.tsv): one row per letter, lowercase and its single capital form. NORMATIVE for any implementation's word-character class and case handling. The tokenizer's word class (a run this project treats as one Cyrillic word) is exactly the `lower` column, plus the apostrophe class (apostrophes.schema.json) and a hyphen for joining; deliberately narrower than Unicode's general Cyrillic script property, which also matches Russian/Ukrainian letters this project's alphabet excludes (see src/pravapis/tokenize.py, is_belarusian_word). `lower`+`upper` together are also this project's case-fold table: an implementation should map a letter to its row's other column rather than trust its language runtime's own case conversion, because `str.casefold()` (Python) and `String.toLowerCase()` (JavaScript) are not guaranteed to agree on every Unicode range.",
+
+  "x-tsv": {
+    "delimiter": "\t",
+    "comment": "#",
+    "encoding": "utf-8",
+    "blankLinesIgnored": true,
+    "cellsAreTrimmed": true,
+    "nullTokens": [],
+    "declaration": {
+      "required": true,
+      "directives": {
+        "schema": {
+          "syntax": "#!schema <schema $id>",
+          "example": "#!schema tag:pravapis,2026:schema:alphabet:1"
+        },
+        "columns": {
+          "syntax": "#!columns <name>\\t<name>",
+          "example": "#!columns lower\tupper"
+        }
+      }
+    },
+    "columns": [
+      {
+        "name": "lower",
+        "index": 0,
+        "required": true,
+        "description": "The letter's lowercase form, and the form every rule pattern and lexicon entry is written in.",
+        "pattern": "^[\\u0400-\\u04FF]$"
+      },
+      {
+        "name": "upper",
+        "index": 1,
+        "required": true,
+        "description": "The letter's single capital form.",
+        "pattern": "^[\\u0400-\\u04FF]$"
+      }
+    ]
+  },
+
+  "$defs": {
+    "row": {
+      "type": "object",
+      "properties": {
+        "lower": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "upper": { "type": "string", "minLength": 1, "maxLength": 1 }
+      },
+      "required": ["lower", "upper"],
+      "additionalProperties": false
+    }
+  },
+
+  "type": "array",
+  "description": "The alphabet, parsed: the ordered list of its rows.",
+  "items": { "$ref": "#/$defs/row" },
+  "minItems": 1,
+
+  "x-constraints": [
+    "`lower` is unique across rows, and so is `upper`: a letter appears exactly once, and no two letters share a capital form.",
+    "Order is the conventional Cyrillic alphabetic order; it has no effect on behaviour but keeps the file reviewable against a published alphabet chart."
+  ]
+}

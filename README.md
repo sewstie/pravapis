@@ -999,4 +999,8 @@ benchmarks/      pytest-benchmark
 
 ## License
 
-MIT
+MIT for the code. The data under `data/` is not all MIT: it draws on Wikidata (CC0),
+be-tarask.wikipedia.org text and GrammarDB (both CC BY-SA 4.0, attributed per file or
+row), and the project's own hand-cited classification work (MIT, like the code) —
+tracked per file, and in two files per row, by `data/LICENSE`, which is the normative
+statement.

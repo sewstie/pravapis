@@ -28,3 +28,15 @@
 Снег 🎉 план	n2t	an astral character BETWEEN two changes shifts only the second
 Снег і план	n2t	the same text with no astral characters, as the control
 🎉🎉 без мяне	n2t	two astral characters, and an unresolved word after them
+
+# Raw-input hygiene: `text` below is fed to the pipeline UNSANITIZED (unlike
+# roundtrip_regressions.tsv / gold.tsv, whose readers call sanitize() before a case is
+# even built, which would erase exactly the thing being pinned here). `in` in the
+# exported case is this literal non-canonical string; `out` and `spans` are what
+# sanitize() + the rules actually do with it, so a port's own sanitize-equivalent is
+# checked end to end, not just unit-tested in isolation.
+з'ява	n2t	apostrophe variant U+0027 APOSTROPHE, folded to U+2019 before palat.apostrophe fires
+зʼява	n2t	apostrophe variant U+02BC MODIFIER LETTER APOSTROPHE
+з`ява	n2t	apostrophe variant U+0060 GRAVE ACCENT
+з‘ява	n2t	apostrophe variant U+2018 LEFT SINGLE QUOTATION MARK
+снeг	n2t	mixed Latin/Cyrillic token: LATIN SMALL LETTER E (U+0065) in place of Cyrillic е (U+0435), folded by the homoglyph map before tokenizing

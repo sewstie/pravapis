@@ -22,6 +22,16 @@
 # to the hash, so reordering this file changes data_hash even if no byte in any
 # listed file changed. Keep new entries in the group they belong to.
 
+# character classes (word chars, case-fold, homoglyph-fold — shared by every
+# implementation's tokenizer and sanitizer; see data/chars/*.tsv and their schemas.
+# Not read from disk by src/pravapis/tokenize.py or normalize.py at runtime — those
+# keep hand-written literals for zero-I/O startup — but scripts/check_charclass_sync.py
+# fails CI the moment those literals drift from these files, so this is still the one
+# place the alphabet, apostrophe class, and homoglyph map are decided.)
+chars/alphabet.tsv
+chars/apostrophes.tsv
+chars/homoglyphs.tsv
+
 # rules (data/rules/*.yaml)
 rules/palatalization.yaml
 rules/loanwords.yaml

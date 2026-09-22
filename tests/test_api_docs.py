@@ -106,9 +106,16 @@ def test_the_document_shows_a_js_port_how_to_convert_offsets(doc: str) -> None:
 def test_the_document_names_the_conformance_kind_that_pins_offsets(doc: str) -> None:
     assert "offsets" in doc
     assert "offset_cases.tsv" in doc
-    assert CORPUS_SCHEMA_ID.endswith(":2"), (
-        "the corpus schema gained `spans` for this; a version that does not say so "
-        "lets a port read v1 rules and miss the field"
+
+
+def test_the_document_names_the_conformance_kind_that_pins_unresolved(doc: str) -> None:
+    assert "unresolved_cases.tsv" in doc
+
+
+def test_the_corpus_schema_says_it_has_both_extra_fields(doc: str) -> None:
+    assert CORPUS_SCHEMA_ID.endswith(":3"), (
+        "the corpus schema gained `spans` (v2) and `unresolved` (v3); a version that "
+        "does not say so lets a port read old rules and miss a field"
     )
 
 

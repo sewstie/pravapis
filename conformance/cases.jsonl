@@ -239,11 +239,48 @@
 {"id": "regression/015/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "карэйскай","out": "карэйскай"}
 {"id": "regression/016/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "разынкамі","out": "разынкамі"}
 {"id": "regression/016/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "разынкамі","out": "разынкамі"}
+{"id": "regression/017/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "ва Уфе","out": "ва Ўфе"}
+{"id": "regression/017/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "ва Ўфе","out": "ва Уфе"}
+{"id": "regression/018/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "сталіца Украіны","out": "сталіца Ўкраіны"}
+{"id": "regression/018/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "сталіца Ўкраіны","out": "сталіца Украіны"}
+{"id": "regression/019/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Марыя Уласевіч","out": "Марыя Ўласевіч"}
+{"id": "regression/019/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "Марыя Ўласевіч","out": "Марыя Уласевіч"}
+{"id": "regression/020/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "пра Умбрыю","out": "пра Умбрыю"}
+{"id": "regression/020/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "пра Умбрыю","out": "пра Умбрыю"}
+{"id": "regression/021/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "да Уйпэшту","out": "да Уйпэшту"}
+{"id": "regression/021/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "да Уйпэшту","out": "да Уйпэшту"}
+{"id": "regression/022/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "за У. Сыракомлю","out": "за У. Сыракомлю"}
+{"id": "regression/022/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "за У. Сыракомлю","out": "за У. Сыракомлю"}
+{"id": "regression/023/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "пра БДЭУ","out": "пра БДЭУ"}
+{"id": "regression/023/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "пра БДЭУ","out": "пра БДЭУ"}
+{"id": "regression/024/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "сталіца «Украіны»","out": "сталіца «Ўкраіны»"}
+{"id": "regression/024/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "сталіца «Ўкраіны»","out": "сталіца «Украіны»"}
+{"id": "regression/025/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "жыве Кука-Уітсан","out": "жыве Кука-Ўітсан"}
+{"id": "regression/025/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "жыве Кука-Ўітсан","out": "жыве Кука-Уітсан"}
+{"id": "regression/026/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "ля Уіл","out": "ля Ўіл"}
+{"id": "regression/026/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "ля Ўіл","out": "ля Уіл"}
+{"id": "regression/027/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "ля Уэльс","out": "ля Ўэльс"}
+{"id": "regression/027/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "ля Ўэльс","out": "ля Уэльс"}
+{"id": "regression/028/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "каля Уотэр","out": "каля Ўотэр"}
+{"id": "regression/028/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "каля Ўотэр","out": "каля Уотэр"}
+{"id": "regression/029/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "з «Віцебскам»","out": "зь «Віцебскам»"}
+{"id": "regression/029/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "зь «Віцебскам»","out": "з «Віцебскам»"}
+{"id": "regression/030/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "без «святла»","out": "безь «сьвятла»"}
+{"id": "regression/030/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "безь «сьвятла»","out": "без «святла»"}
+{"id": "regression/031/n2t","kind": "regression","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "па-беларуску","out": "па-беларуску"}
+{"id": "regression/031/t2n","kind": "regression","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "па-беларуску","out": "па-беларуску"}
 {"id": "offsets/000","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "🎉 Снег і план","out": "🎉 Сьнег і плян","spans": [[2,7,"Снег","Сьнег"],[10,14,"план","плян"]]}
 {"id": "offsets/001","kind": "offsets","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "🎼𝄞 сьнег","out": "🎼𝄞 снег","spans": [[3,7,"сьнег","снег"]]}
 {"id": "offsets/002","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Снег 🎉 план","out": "Сьнег 🎉 плян","spans": [[0,5,"Снег","Сьнег"],[8,12,"план","плян"]]}
 {"id": "offsets/003","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Снег і план","out": "Сьнег і плян","spans": [[0,5,"Снег","Сьнег"],[8,12,"план","плян"]]}
 {"id": "offsets/004","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "🎉🎉 без мяне","out": "🎉🎉 безь мяне","spans": [[3,7,"без","безь"]]}
+{"id": "offsets/005","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "з'ява","out": "зьява","spans": [[0,5,"з’ява","зьява"]]}
+{"id": "offsets/006","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "зʼява","out": "зьява","spans": [[0,5,"з’ява","зьява"]]}
+{"id": "offsets/007","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "з`ява","out": "зьява","spans": [[0,5,"з’ява","зьява"]]}
+{"id": "offsets/008","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "з‘ява","out": "зьява","spans": [[0,5,"з’ява","зьява"]]}
+{"id": "offsets/009","kind": "offsets","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "снeг","out": "сьнег","spans": [[0,5,"снег","сьнег"]]}
+{"id": "unresolved/000","kind": "unresolved","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "без мяне","out": "безь мяне","unresolved": ["мяне"]}
+{"id": "unresolved/001","kind": "unresolved","direction": "taraskievica_to_narkamauka","script": "cyrillic","in": "сітуацыя","out": "сітуацыя","unresolved": ["сітуацыя"]}
 {"id": "gold/0000","kind": "gold","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Учора ішоў снег.","out": "Учора ішоў сьнег."}
 {"id": "gold/0001","kind": "gold","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Свет вялікі.","out": "Сьвет вялікі."}
 {"id": "gold/0002","kind": "gold","direction": "narkamauka_to_taraskievica","script": "cyrillic","in": "Мы жывём у Мінску.","out": "Мы жывём у Менску."}

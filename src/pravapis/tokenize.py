@@ -15,6 +15,9 @@ import regex
 
 from pravapis.types import Token, TokenKind
 
+#: Kept in sync with data/chars/apostrophes.tsv (the `char` column) by
+#: scripts/check_charclass_sync.py — see that file for why this is a literal here
+#: rather than something read off disk.
 APOSTROPHE_CLASS: Final[str] = "’'ʼ`‘"
 
 # A Belarusian word: Cyrillic runs joined by apostrophes or hyphens
@@ -45,6 +48,9 @@ _KIND_BY_GROUP: Final[dict[str | None, TokenKind]] = {
 }
 
 # Letters of the Belarusian alphabet, both orthographies (ґ is Taraškievica-only).
+# Kept in sync with data/chars/alphabet.tsv (the `lower` column) by
+# scripts/check_charclass_sync.py — that file is NORMATIVE; this is a hand-written
+# copy for zero-I/O startup on the hottest path in the pipeline.
 BELARUSIAN_LETTERS: Final[frozenset[str]] = frozenset("абвгґдеёжзійклмнопрстуўфхцчшыьэюя")
 _WORD_CHARS: Final[frozenset[str]] = BELARUSIAN_LETTERS | frozenset(APOSTROPHE_CLASS + "-")
 #: The same set as a negated character class, both cases, so membership is one regex
