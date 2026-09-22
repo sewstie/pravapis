@@ -333,3 +333,104 @@ reads the Python next.
 Anything output-affecting that is not in the data and not in this document is, by
 definition, a place where two implementations can disagree. `pravapis conformance
 --coverage` audits the first half of that; this file is the second.
+
+---
+
+## Python library
+
+The public signature is frozen, and it is the same in every implementation:
+
+```python
+from pravapis import convert
+
+convert("снег", {"from": "narkamauka", "to": "taraskievica"})
+# ConversionResult(text='сьнег', ...)
+#   .to_dict() == {
+#     "text": "сьнег",
+#     "changes": [{"from": "снег", "to": "сьнег", "offset": 0,
+#                  "rule": "palat.assim", "class": "rule",
+#                  "citation": "Збор 2005, §29"}],
+#   }
+```
+
+`changes` is **always** returned, never behind a flag: the cascade has to decide what
+happened to every word in order to convert it at all, so reporting those decisions costs
+an attribute read — and making it opt-in only guarantees that the explanation and the
+conversion drift apart. `explain()` is a view over this result rather than a second
+pass over the text; all it adds is the per-rule trace.
+
+`offset` indexes the **sanitized** input (`sanitize` is idempotent and public, so a
+caller can reproduce the string these index into). `class` is the cascade stage that
+resolved the word; `citation` is where the evidence comes from, and is `null` for a
+lexicon hit, whose evidence is the entry itself.
+
+```python
+from pravapis import Converter, Orthography, Script, convert
+
+convert("Не быў без мяне", Orthography.TARASKIEVICA)   # 'Ня быў безь мяне' (older form, returns str)
+
+conv = Converter.from_config()          # loads data/ once; reuse it
+result = conv.convert("сістэма", Orthography.TARASKIEVICA)
+result.text, result.stats, result.changes
+
+conv.render("снег", Script.LACINKA)                     # 'śnieh'  (converts first)
+conv.render("снег", Script.LACINKA, convert=False)      # 'snieh'
+conv.render("снег", Script.OFFICIAL)                    # 'snieh'
+conv.read_script("śnieh", Script.LACINKA)               # 'сьнег'
+```
+
+## CLI
+
+```bash
+pravapis convert "снег" --to taraskievica
+pravapis convert --file in.txt --out out.txt --to narkamauka
+cat in.txt | pravapis convert --to taraskievica
+pravapis translit "снег" --to lacinka                # śnieh (converts first)
+pravapis translit "снег" --to lacinka --no-convert   # snieh
+pravapis translit "снег" --to official               # snieh
+pravapis translit "śnieh" --from lacinka             # сьнег
+pravapis explain "сімвал" --to taraskievica
+pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
+pravapis eval data/eval/gold.tsv --json eval.json   # skips uncertain rows, compares subsets
+pravapis eval data/eval/gold.tsv --trusted          # hand_written rows only
+pravapis eval --recall --misses misses.tsv          # recall + precision, dev split
+pravapis eval --recall --split test                 # the frozen split; milestones only
+pravapis eval --recall -d narkamauka                # T → N recall, not just N → T
+pravapis eval --coverage --top 20000                # stem/lexicon coverage by frequency
+pravapis eval --round-trip                          # N→T→N identity rate + dump
+pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
+pravapis audit data/eval/tarask/corpus.tsv --rule palat.unassim --sample 15
+pravapis validate-data                              # data vs data/schemas/
+pravapis export-conformance                         # regenerate the contract corpus
+pravapis export-conformance --check                 # fail if it is stale
+pravapis bench --size 10mb
+pravapis serve
+```
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the data-growing commands (mining,
+screening, ratcheting) and fetching the codification reference — those change the
+project's own data rather than converting text, so they live with the other
+contributor workflows.
+
+## Running the HTTP API
+
+```bash
+docker build -t pravapis .
+docker run -p 8000:8000 pravapis
+curl -X POST localhost:8000/v1/convert -H 'content-type: application/json' \
+     -d '{"text": "план", "direction": "taraskievica"}'
+curl localhost:8000/v1/version
+```
+
+The lexicon and rules are loaded once in the FastAPI lifespan handler. CORS is
+`allow_origins=["*"]`, `allow_credentials=False` — a public, unauthenticated, read-only
+API with nothing credentials would protect, and CORS forbids combining the wildcard
+with credentials regardless.
+
+Set `PRAVAPIS_DATA_DIR` to point at a different `data/` directory.
+
+`openapi.json` at the repo root is the committed schema; `scripts/export_openapi.py
+--check` (wired into CI right after mypy) fails the build if it drifts from what the
+current routes and Pydantic models actually produce — regenerate with
+`python scripts/export_openapi.py` and commit the result alongside any route/schema
+change.
