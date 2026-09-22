@@ -17,12 +17,14 @@ import pytest
 
 from pravapis.baseline import BASELINE_NAME, TOLERANCE, compare, fingerprint, read_baseline
 from pravapis.config import Config
+from pravapis.metrics import FP_DIRECTIONS, read_known_fps
 from pravapis.pipeline import Converter
 from pravapis.recall import measure_recall, read_parallel
 from pravapis.types import Orthography
 from tests.conftest import DATA_DIR
 
 BASELINE = DATA_DIR / "eval" / BASELINE_NAME
+KNOWN_FPS = DATA_DIR / "eval" / "known_fps.tsv"
 
 
 @pytest.fixture(scope="module")
@@ -90,3 +92,39 @@ def test_the_frozen_split_is_not_read_on_every_run(baseline: dict[str, object]) 
     metrics = baseline["metrics"]
     assert isinstance(metrics, dict)
     assert "dev_n2t_recall" in metrics
+
+
+def test_every_dev_false_positive_is_listed(converter: Converter) -> None:
+    """Each dev false positive is named in `data/eval/known_fps.tsv`, or the build fails.
+
+    This is the half of the ratchet an aggregate cannot do. `precision` is a ratio, so a
+    batch that fixes four false positives and introduces four others leaves it exactly
+    where it was, and `test_dev_metrics_have_not_regressed` passes on a change that broke
+    four words. Naming every one of them makes that batch fail on the four it broke,
+    whatever the percentage does.
+
+    Listing a form is not the same as accepting a defect. The cause column says which it
+    is, and two of the rows here are real defects with a place to fix them — they are
+    listed so the gate keeps working in the meantime, not to bless them.
+    """
+    pairs = read_parallel(_corpus(), "dev")
+    known = {row.key for row in read_known_fps(KNOWN_FPS)}
+    unlisted: list[str] = []
+    for tag, direction in FP_DIRECTIONS.items():
+        report = measure_recall(pairs, converter, "dev", direction)
+        for source, target, rule in report.false_positives:
+            if (tag, source.lower()) in known:
+                continue
+            entry = f"{tag}\t{source.lower()}\t{target.lower()}\t{rule or 'lexicon'}"
+            if entry not in unlisted:
+                unlisted.append(entry)
+
+    assert unlisted == [], (
+        f"{len(unlisted)} dev false positive(s) are not in data/eval/known_fps.tsv:\n  "
+        + "\n  ".join(unlisted)
+        + "\n\nThe converter changed a word both wikis spelled the same way. Read the "
+        "sentence before listing it: if Збор 2005 licenses the change the corpus is "
+        "simply not normalised (`reference_deviates`), but if it does not, the rule or "
+        "the lexicon entry is what needs fixing. Then:\n"
+        "  python scripts/build_known_fps.py   # adds the rows; you assign the cause"
+    )

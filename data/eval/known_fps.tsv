@@ -1,0 +1,70 @@
+# direction<TAB>source<TAB>target<TAB>rule<TAB>cause<TAB>note
+#
+# Every false positive the converter produces on the **dev** split of
+# data/corpora/parallel.tsv: a word the two wikis spelled identically, that the
+# converter changed anyway. One row per word form per direction.
+#
+# This file is a gate, not a report. tests/test_ratchet.py fails on any dev false
+# positive whose word form is not listed here, independent of what aggregate precision
+# does — a batch that fixes four and introduces four others moves no percentage and
+# must still fail. Adding a row is a deliberate act: it says someone read the sentence
+# and decided the converter is not what needs fixing.
+#
+# Regenerate with `python scripts/build_known_fps.py`, then review the new rows. The
+# script measures the forms; it cannot assign a cause.
+#
+# direction  n2t = Narkamaŭka -> Taraškievica, t2n = the reverse
+# source     the word form as the corpus writes it, lowercased
+# target     what the converter produced, lowercased
+# rule       the rule id that fired, or `lexicon` when the change came from a table
+# cause      one of: reference_deviates, proper_noun, rule_unsourced, lexicon_overreach
+#            (defined in pravapis.metrics.FP_CAUSES)
+#
+# Measured on the dev split only. The test split is read at releases, never in CI.
+
+n2t	без	безь	morph.particle	reference_deviates	§29 extends assimilation to без before a soft consonant (бязь сьлёз); be-tarask kept без
+n2t	верасня	верасьня	palat.assim	reference_deviates	§29 с before soft н; be-tarask kept верасня
+n2t	вобласці	вобласьці	palat.assim	reference_deviates	§29 с before soft ц; be-tarask kept вобласці
+n2t	вольнасць	вольнасьць	palat.assim	reference_deviates	§29 радасьць; inside a quoted proclamation the writer left unnormalised
+n2t	вырашэння	вырашэньня	palat.geminate	reference_deviates	§29 geminate н before я; be-tarask kept вырашэння
+n2t	дэсерты	дэсэрты	loan.e_to_eh	reference_deviates	§11б е → э in a loan stem; be-tarask kept дэсерты
+n2t	з	зь	morph.particle	reference_deviates	§29 зь вераю; be-tarask kept з Янам
+n2t	каледж	калэдж	lexicon	reference_deviates	lexicon gives калэдж; be-tarask kept каледж
+n2t	кнерэдскага	кнерэдзкага	morph.dsk_to_dzk	rule_unsourced	morph.dsk_to_dzk has no cited §; see data/review/ — мадрыдзкі question
+n2t	крытэрыю	крытэру	lexicon	lexicon_overreach	крытэрый → крытэр substitutes the nominative stem and drops the case ending
+n2t	не	ня	morph.particle	reference_deviates	§3 jakanne before a stressed first syllable; be-tarask kept не хоча
+n2t	палаваспелая	палавасьпелая	palat.assim	reference_deviates	§29 сьпевы — с before soft п, within one word; be-tarask used another word
+n2t	паходжання	паходжаньня	palat.geminate	reference_deviates	§29 geminate н; be-tarask kept паходжання
+n2t	ператварэннем	ператварэньнем	palat.geminate	reference_deviates	§29 geminate н; be-tarask kept ператварэннем
+n2t	правядзення	правядзеньня	palat.geminate	reference_deviates	§29 geminate н; be-tarask kept правядзення
+n2t	праз	празь	morph.particle	reference_deviates	§29 празь лес; be-tarask kept праз
+n2t	расійскай	расейскай	loan.stem_target	proper_noun	inside the party name «Расійская камуністычная партыя»; both wikis preserved it
+n2t	рысбермы	рысьбермы	palat.assim	reference_deviates	§29 разьбіць — с before soft б; be-tarask kept рысбермы
+n2t	салідарнасць	салідарнасьць	palat.assim	proper_noun	the organisation name ОДД «Салідарнасць»; both wikis preserved it
+n2t	усходнюю	ўсходнюю	morph.initial_u_w	reference_deviates	§18 У → Ў after a vowel (усю Усходнюю); be-tarask kept Усходнюю
+n2t	уфы	ўфы	morph.initial_u_w	reference_deviates	§18's own example is ва Ўфе; be-tarask kept да Уфы
+n2t	цэнтр	цэнтар	lexicon	reference_deviates	morph.final_tr гives цэнтар; be-tarask kept цэнтр
+t2n	адпрацаваньня	адпрацавання	palat.ungeminate	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	адраджэньне	адраджэнне	palat.ungeminate	proper_noun	the masthead «Адраджэньне»; both wikis preserved it
+t2n	васьмісьценныя	васмісценныя	palat.unassim	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	вобласьці	вобласці	palat.unassim	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	вільня	вільнюс	lexicon	proper_noun	toponym; the Narkamaŭka article itself writes Вільня here
+t2n	губэрнатара	губернатара	loan.stem_reverse	reference_deviates	be.wikipedia side kept губэрнатара
+t2n	жыцьцё	жыццё	palat.ungeminate	proper_noun	the journal title «Новае Жыцьцё»; both wikis preserved it
+t2n	забясьпечваў	забяспечваў	palat.unassim	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	зьявілася	з’явілася	palat.unapostrophe	reference_deviates	be.wikipedia side kept зьявілася
+t2n	й	і	morph.conj_j_i	rule_overreach	fires on the ordinal suffix in `2-й пал.` and yields `2-і`, wrong in both orthographies — morph.conj_j_i needs to see that a hyphen binds й to a number
+t2n	клюб	клуб	lexicon	proper_noun	the society name «Беларускі Сацыяльны Клюб»; both wikis preserved it
+t2n	ледзьве	ледзве	palat.unassim.ts_dz	reference_deviates	be.wikipedia side kept ледзьве
+t2n	магістар	магістр	lexicon	reference_deviates	be.wikipedia side kept магістар in a list of titles
+t2n	менск	мінск	lexicon	proper_noun	toponym; the Narkamaŭka article itself writes Менск in the address
+t2n	ня	не	morph.particle	reference_deviates	the fixed phrase «тым ня меней»; be.wikipedia kept it
+t2n	перайменаваньня	перайменавання	palat.ungeminate	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	песьнямі	песнямі	palat.unassim	reference_deviates	be.wikipedia side kept песьнямі
+t2n	прызначэньня	прызначэння	palat.ungeminate	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	распараджэньні	распараджэнні	palat.ungeminate	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	тацьцяны	таццяны	palat.ungeminate	proper_noun	the personal name Тацьцяна; both wikis preserved it
+t2n	узьбярэжжы	узбярэжжы	palat.unassim	reference_deviates	be.wikipedia side kept узьбярэжжы
+t2n	указаньнем	указаннем	palat.ungeminate	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	харчаваньня	харчавання	palat.ungeminate	reference_deviates	be.wikipedia side kept the Taraškievica spelling
+t2n	ільлінцы	іллінцы	palat.ungeminate	proper_noun	toponym Ільлінцы; both wikis preserved it

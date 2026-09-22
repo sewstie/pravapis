@@ -1,0 +1,87 @@
+#!schema tag:pravapis,2026:schema:function_words:1
+#!columns form	role	target	citation
+# form<TAB>role<TAB>target<TAB>citation
+#
+# The function words the converter treats specially, and what it does with each.
+#
+# These were constants in pravapis/rules/morphology.py and pravapis/lexicon/case_forms.py.
+# They are inventories, not patterns: closed lists of particular words that decide what
+# the converter outputs. A port that guesses them is wrong in ways no rule file shows,
+# so they are published here, under the data version, like every other table.
+#
+# role                         meaning
+# ---------------------------  ------------------------------------------------------
+# particle_n2t                 N -> T: this proclitic takes jakanne before a stressed
+#                              first syllable (не -> ня). `target` is the soft form.
+# particle_t2n                 T -> N: the soft form and what it reverts to.
+# softening_preposition        Збор 2005 §29: assimilative softness extends to these
+#                              prepositions (зь вераю, бязь сьлёз). `target` is unused.
+# clitic                       Unstressed in connected speech, so it never counts as a
+#                              stressed first syllable. `target` is unused.
+# stressed_initial_u           §18 exception: the initial У carries the stress, so the
+#                              rule does not reach it. Stems, so inflections are covered.
+# dative_locative_preposition  Picks the dative/locative column of
+#                              data/lexicon/case/ambiguous.tsv (у Нямеччыне, not Нямеччыны).
+#
+# `target` is `-` where the role needs no target. `citation` names the § a role rests on.
+без	particle_n2t	бяз	Збор 2005, §3
+не	particle_n2t	ня	Збор 2005, §3
+безь	particle_t2n	без	Збор 2005, §3; §29
+бяз	particle_t2n	без	Збор 2005, §3; §29
+бязь	particle_t2n	без	Збор 2005, §3; §29
+зь	particle_t2n	з	Збор 2005, §3; §29
+ня	particle_t2n	не	Збор 2005, §3; §29
+без	softening_preposition	-	Збор 2005, §29
+бяз	softening_preposition	-	Збор 2005, §29
+з	softening_preposition	-	Збор 2005, §29
+праз	softening_preposition	-	Збор 2005, §29
+цераз	softening_preposition	-	Збор 2005, §29
+а	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+аб	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+ад	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+аж	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+б	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+без	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+бо	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+бы	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+бяз	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+да	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+для	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+ды	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+ж	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+жа	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+з	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+за	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+зь	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+й	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+к	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+на	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+над	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+не	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+ня	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+ні	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+па	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+пад	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+пра	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+праз	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+то	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+у	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+цераз	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+ці	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+і	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+ў	clitic	-	Збор 2005, §3 (ненаціскныя часьціцы)
+уйпэшт	stressed_initial_u	-	Збор 2005, §18
+умбры	stressed_initial_u	-	Збор 2005, §18
+урн	stressed_initial_u	-	Збор 2005, §18
+аб	dative_locative_preposition	-	Збор 2005, §37
+ва	dative_locative_preposition	-	Збор 2005, §37
+дзякуючы	dative_locative_preposition	-	Збор 2005, §37
+к	dative_locative_preposition	-	Збор 2005, §37
+ка	dative_locative_preposition	-	Збор 2005, §37
+на	dative_locative_preposition	-	Збор 2005, §37
+насуперак	dative_locative_preposition	-	Збор 2005, §37
+насустрач	dative_locative_preposition	-	Збор 2005, §37
+па	dative_locative_preposition	-	Збор 2005, §37
+пры	dative_locative_preposition	-	Збор 2005, §37
+у	dative_locative_preposition	-	Збор 2005, §37
+ў	dative_locative_preposition	-	Збор 2005, §37

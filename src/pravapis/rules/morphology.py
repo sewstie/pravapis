@@ -22,93 +22,35 @@ from __future__ import annotations
 
 from typing import Final
 
+from pravapis.rules.function_words import FunctionWords, default_function_words
 from pravapis.rules.palatalization import SOFT_TRIGGERS, SOFT_VOWELS, SOFTENERS
 from pravapis.stress import StressTable
 from pravapis.types import Orthography
 
 VOWELS: Final[frozenset[str]] = frozenset("аеёіоуыэюя")
 
-#: не/без → ня/бяз (N→T) and back (T→N).
-PARTICLES_N2T: Final[dict[str, str]] = {"не": "ня", "без": "бяз"}
-PARTICLES_T2N: Final[dict[str, str]] = {
-    "ня": "не",
-    "бяз": "без",
-    "бязь": "без",
-    "безь": "без",
-    "зь": "з",
-}
-
-#: Prepositions that soften before a soft onset (§29): з, без/бяз, праз, цераз.
-SOFTENING_PREPOSITIONS: Final[frozenset[str]] = frozenset({"з", "без", "бяз", "праз", "цераз"})
-
-#: Unstressed function words: a monosyllable here does not attract "ня"/"бяз".
-CLITICS: Final[frozenset[str]] = frozenset(
-    [
-        "у",
-        "ў",
-        "з",
-        "зь",
-        "на",
-        "да",
-        "па",
-        "за",
-        "аб",
-        "ад",
-        "пра",
-        "і",
-        "й",
-        "ды",
-        "а",
-        "ці",
-        "б",
-        "бы",
-        "ж",
-        "жа",
-        "не",
-        "ня",
-        "без",
-        "бяз",
-        "для",
-        "пад",
-        "над",
-        "праз",
-        "цераз",
-        "к",
-        "аж",
-        "бо",
-        "то",
-        "ні",
-    ]
-)
-
+#: The particle, clitic and preposition inventories now live in
+#: ``data/morphology/function_words.tsv`` and are read by
+#: :mod:`pravapis.rules.function_words`. They are closed lists of particular words that
+#: decide what the converter outputs, so a port has to have them; a constant here would
+#: be invisible to every implementation but this one.
+#:
+#: Each function below takes them as an argument, the way it already takes the stress
+#: table, and **defaults to the shipped inventory**. Defaulting to an empty one would
+#: make every caller that forgets the argument silently stop converting — the failure
+#: shape this module is least able to detect. Pass ``FunctionWords.empty()`` explicitly
+#: to get a converter that knows no function words.
 
 #: Optional (aggressive mode only): conjunction/particle і → й after a vowel.
 CONJ_RULE_ID: Final[str] = "morph.conj_i_j"
 INITIAL_W_RULE_ID: Final[str] = "morph.initial_u_w"
 
-#: Words whose initial У carries the stress, so §18 does not reach them. The stress
+#: Words whose initial У carries the stress, so §18 does not reach them, are the
+#: ``stressed_initial_u`` rows of ``data/morphology/function_words.tsv``. The stress
 #: table is built from GrammarDB, which is a lexicon of Belarusian — it does not contain
 #: Умбрыя or Уйпэшт, and for a word it does not know `is_first_syllable_stressed` has to
-#: answer "no". These are §18's own examples of the exception, listed as stems so the
+#: answer "no". They are §18's own examples of the exception, listed as stems so the
 #: inflected forms are covered too: пра У́мбрыю, да У́йпэшту, выбарчая у́рна.
-STRESSED_INITIAL_U: Final[tuple[str, ...]] = ("умбры", "уйпэшт", "урн")
-
-#: Names whose Ў renders English *W*, not §18's alternation of у. After a vowel the two
-#: are indistinguishable — *школу Ўайлд* could be either — and Narkamaŭka keeps the Ў in
-#: this one, so reversing it would corrupt a name. Seeded from the hand-written rows of
-#: `data/eval/tarask/gold_t2n.tsv`, which is where the question was first noticed.
-#:
-#: This list is open-ended by nature and that is a real limit of the rule, recorded in
-#: data/NORMS.md rather than hidden: an unlisted W-name that follows a vowel will come
-#: back from T → N with У. The forward direction is unaffected, because a name already
-#: written Ў never matches a rule that looks for У.
-W_NAMES: Final[tuple[str, ...]] = (
-    "ўіл",
-    "ўотэр",
-    "ўэлт",
-    "ўэйлз",
-    "ўайлд",
-)
 
 
 def conjunction_i_to_j(word: str, previous_output: str) -> str | None:
@@ -130,7 +72,10 @@ def syllable_count(word: str) -> int:
 
 
 def initial_u_to_w(
-    word: str, previous_output: str, stress: StressTable | None = None
+    word: str,
+    previous_output: str,
+    stress: StressTable | None = None,
+    words: FunctionWords | None = None,
 ) -> str | None:
     """Збор 2005, §18: after a vowel, an unstressed initial У becomes Ў.
 
@@ -154,12 +99,15 @@ def initial_u_to_w(
     preceding word that itself changed is read in its converted form. Returns the new
     word, or None when the rule does not apply.
     """
+    inventory = words if words is not None else default_function_words()
     if "-" in word:
-        return _hyphenated_u_to_w(word, previous_output, stress)
-    return _one_part_u_to_w(word, previous_output, stress)
+        return _hyphenated_u_to_w(word, previous_output, stress, inventory)
+    return _one_part_u_to_w(word, previous_output, stress, inventory)
 
 
-def _one_part_u_to_w(word: str, previous: str, stress: StressTable | None) -> str | None:
+def _one_part_u_to_w(
+    word: str, previous: str, stress: StressTable | None, words: FunctionWords
+) -> str | None:
     if not word.startswith("У") or not previous:
         return None
     if previous[-1].lower() not in VOWELS:
@@ -168,14 +116,16 @@ def _one_part_u_to_w(word: str, previous: str, stress: StressTable | None) -> st
         return None
     if word.isupper():  # an initial abbreviation, not a word beginning with у
         return None
-    if word.lower().startswith(STRESSED_INITIAL_U):
+    if words.stressed_initial_u and word.lower().startswith(words.stressed_initial_u):
         return None
-    if is_first_syllable_stressed(word, stress):
+    if is_first_syllable_stressed(word, stress, words):
         return None
     return "Ў" + word[1:]
 
 
-def _hyphenated_u_to_w(word: str, previous: str, stress: StressTable | None) -> str | None:
+def _hyphenated_u_to_w(
+    word: str, previous: str, stress: StressTable | None, words: FunctionWords
+) -> str | None:
     """§18 Заўвага: "Злучок і двукосьсе ня ёсьць знакамі прыпынку".
 
     So the hyphen inside *Кука-Ўітсан* is as transparent as the space in *сталіца
@@ -189,7 +139,7 @@ def _hyphenated_u_to_w(word: str, previous: str, stress: StressTable | None) -> 
     context = previous
     changed = False
     for i, part in enumerate(parts):
-        new = _one_part_u_to_w(part, context, stress)
+        new = _one_part_u_to_w(part, context, stress, words)
         if new is not None:
             out[i] = new
             changed = True
@@ -197,39 +147,46 @@ def _hyphenated_u_to_w(word: str, previous: str, stress: StressTable | None) -> 
     return "-".join(out) if changed else None
 
 
-def initial_w_to_u(word: str, previous_output: str) -> str | None:
-    """The reverse of §18, and **only** of §18.
+def initial_w_to_u(word: str) -> str | None:
+    """Правілы 2008, §15 п.4: a proper name never starts with Ў in Narkamaŭka.
 
-    It undoes the alternation where the alternation could have happened: after a word
-    ending in a vowel. A capital Ў anywhere else was never produced by §18 and must be
-    left exactly as it is, because Belarusian also writes Ў at the start of a name to
-    render English *W* — *Разумнік Ўіл Гантынг*, *з Ўотэрзам* — and those keep their Ў
-    in Narkamaŭka too (`data/eval/tarask/gold_t2n.tsv`, hand-written rows).
+    "Гук [у] на пачатку ўласных імён і назваў **заўсёды** перадаецца вялікай літарай У
+    складовае **без надрадковага значка**: ва Узбекістан, на Украіне, за Уладзіміра."
 
-    The two are indistinguishable after a vowel, where either could have produced the Ў.
-    See ``W_NAMES`` for what is done about that.
+    This is the Narkamaŭka side's own authority, and it is categorical, so the reversal
+    needs no context: a capital word-initial Ў is written У whatever precedes it. The
+    2008 rules contain no word-initial Ў anywhere, and §14 lists *Уэльс* among the
+    proper names — the English *W* names included.
+
+    That is why this does **not** consult a list of W-names. The list existed to keep
+    *Ўіл*, *Ўотэрз*, *Ўэйлз* spelled with Ў in Narkamaŭka, on the strength of six
+    hand-written gold rows; §15 п.4 says the opposite, and be.wikipedia agrees by a
+    wide margin (Уільям 115 : Ўіл 1, Уэльс 756 : Ўэльс 2). The inventory is still
+    shipped as `data/names/w_names.tsv` because it is real evidence about which names
+    these are, but nothing in T → N reads it. See data/NORMS.md.
 
     Lowercase ў is left alone throughout: both orthographies write *ва ўніверсітэце*.
+    An all-caps token is an abbreviation, not a word beginning with у, and is left as
+    it is — the same exception the forward direction makes.
     """
-    if not previous_output or previous_output[-1].lower() not in VOWELS:
-        return None
     parts = word.split("-")
     out = [
-        "У" + part[1:]
-        if part.startswith("Ў") and len(part) > 1 and not part.lower().startswith(W_NAMES)
-        else part
+        "У" + part[1:] if part.startswith("Ў") and len(part) > 1 and not part.isupper() else part
         for part in parts
     ]
     return "-".join(out) if out != parts else None
 
 
-def is_first_syllable_stressed(word: str, stress: StressTable | None = None) -> bool:
+def is_first_syllable_stressed(
+    word: str, stress: StressTable | None = None, words: FunctionWords | None = None
+) -> bool:
     """Is ``word`` stressed on its first syllable?
 
     GrammarDB stress marks when a table is given; otherwise (and for words the
     table does not know) only monosyllables and a leading ё count.
     """
-    if word.lower() in CLITICS:
+    inventory = words if words is not None else default_function_words()
+    if word.lower() in inventory.clitics:
         return False
     if stress is not None and stress.is_first_stressed(word):
         return True
@@ -258,6 +215,7 @@ def convert_particle(
     direction: Orthography,
     stress: StressTable | None = None,
     next_target: str | None = None,
+    words: FunctionWords | None = None,
 ) -> str | None:
     """Rewrite a clitic given the word that follows it; None when no rule applies.
 
@@ -274,20 +232,21 @@ def convert_particle(
       the Narkamaŭka form is the без слёз → *бяз сьлёз bug. Without
       ``next_target`` the Narkamaŭka form is the fallback.
     """
+    inventory = words if words is not None else default_function_words()
     if direction is Orthography.NARKAMAUKA:
-        return PARTICLES_T2N.get(word)
+        return inventory.particles_t2n.get(word)
 
     result: str | None = None
     if (
-        word in PARTICLES_N2T
+        word in inventory.particles_n2t
         and next_word is not None
-        and is_first_syllable_stressed(next_word, stress)
+        and is_first_syllable_stressed(next_word, stress, inventory)
     ):
-        result = PARTICLES_N2T[word]
+        result = inventory.particles_n2t[word]
     base = result or word
     onset_form = next_target if next_target is not None else next_word
     if (
-        base in SOFTENING_PREPOSITIONS
+        base in inventory.softening_prepositions
         and next_word is not None
         and onset_form is not None
         and _soft_onset(onset_form.lower())

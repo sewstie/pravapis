@@ -19,6 +19,32 @@ www.svaboda.org і www.pravapis.org"; the authors ask readers to buy the paper e
 pravapis.org itself (download page `download_by.asp`) was not reachable from the build
 machine; the Wayback Machine copies above are the files that page linked to.
 
+## Правілы беларускай арфаграфіі і пунктуацыі (2008)
+
+The **Narkamaŭka** side's authority: the rules attached to Закон Рэспублікі Беларусь
+№ 420-З «Аб Правілах беларускай арфаграфіі і пунктуацыі», adopted 23 July 2008, in force
+from 1 September 2010. The converter has two sides and each is answerable to its own
+codification — 2005 for Taraškievica, 2008 for Narkamaŭka. Cite as `Правілы 2008, §N`.
+
+| File | Obtained from | Pinned by |
+|---|---|---|
+| `pravily2008.txt` (the Law, with the Правілы attached, §1–§60) | be.wikisource.org, page `Закон Рэспублікі Беларусь «Аб Правілах беларускай арфаграфіі і пунктуацыі»` (pageid 12416), **revid 283776** | sha256 `286c03e0c4d92bc6f440ee55c308f8c2ca7d13ed89b6e83b97e0261ca5cc79a0` over the wikitext |
+
+**This is a transcription, not the official act.** pravo.by and etalonline.by — which
+publish the authoritative text — were not resolvable from the build machine, and neither
+serves a stable hashed artefact to pin against. Wikisource is editable, so the *revision
+id is part of the citation*: a § number read off a later revision is a different claim,
+and the hash check refuses anything but revid 283776. The page names its own source as
+a school's copy of the act. A citation taken from here should be spot-checked against
+pravo.by wherever that is reachable, and this table replaced with the official artefact
+the moment one can be pinned.
+
+Restored by the same command as the 2005 file:
+
+```
+python scripts/fetch_reference.py
+```
+
 ## What the electronic edition covers — and what it does not
 
 - **Covered:** the rules, §1–91 (артаграмы 1–91), with their notes and the endnotes (i–xliv).
@@ -54,4 +80,7 @@ one script wants it, and nothing in the library, the CLI or CI reads the PDF.
 project's citation convention. Search the chapter headings (`Разьдзел 6. ПРАВАПІС У – Ў`)
 when a rule number is not enough.
 
-Cite rules in `data/NORMS.md` as `Збор правілаў 2005, §N` (e.g. §29 Заўвага А).
+Cite rules in `data/NORMS.md` as `Збор правілаў 2005, §N` (e.g. §29 Заўвага А) for the
+Taraškievica side, and as `Правілы 2008, §N` for the Narkamaŭka side. The 2008 rules
+*do* number themselves `§ 15.`, so there the § is the book's own convention, not this
+project's.

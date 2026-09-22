@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from pravapis.types import Method, Orthography, Script
 
@@ -81,34 +81,91 @@ class RuleTraceOut(BaseModel):
     after: str
 
 
+class ChangeContext(BaseModel):
+    """Why a cross-word rule fired: what it looked at outside the word itself.
+
+    Present only on changes made by a rule that reads a neighbouring word. A ``null``
+    context is therefore a positive statement — this change is reproducible from the
+    word alone — not an absence of information.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    #: ``prev_word_vowel`` | ``prev_word`` | ``next_word``
+    trigger: str
+    #: the non-space characters the rule reached across (§18 Заўвага makes a hyphen or
+    #: a quotation mark transparent); ``null`` when the words were merely adjacent
+    across: str | None = None
+    #: the § the trigger rests on, when the codification numbers it separately
+    rule: str | None = None
+
+
 class Change(BaseModel):
     """One word the converter changed, in the frozen cross-language shape.
 
-    The field names are the wire names — ``from`` and ``class`` are Python keywords, so
-    they are declared with aliases and the contract, not the language, wins.
+    ``from`` is a Python keyword, so it is declared with an alias: the contract is the
+    same in every language, so the language bends, not the contract.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
 
+    #: where ``to`` starts in the **output** text, in Unicode code points
+    start: int
+    #: one past the last code point of ``to`` in the output text
+    end: int
     source: str = Field(serialization_alias="from", validation_alias="from")
     target: str = Field(serialization_alias="to", validation_alias="to")
-    #: index into the sanitized input; see pravapis.types.ConversionResult
-    offset: int
-    rule: str | None = None
     #: the cascade stage that resolved the word
-    method: Method = Field(serialization_alias="class", validation_alias="class")
+    stage: Method
+    #: the rule that fired; ``null`` for a plain lexicon hit, whose evidence is the entry
+    rule: str | None = None
     citation: str | None = None
+    context: ChangeContext | None = None
+
+    @field_serializer("context")
+    def _context_without_nulls(self, context: ChangeContext | None) -> dict[str, str] | None:
+        """Omit the optional context keys rather than emitting them as null.
+
+        `across` and `rule` are absent when they do not apply, which is how
+        `docs/API.md` shows them and how `ConversionResult.to_dict()` writes them. A
+        model that emitted `"across": null` here would make the FastAPI service and the
+        serverless function disagree byte for byte on the same input — the exact class
+        of parity bug this contract was frozen to prevent, and one that no test of
+        either implementation alone would catch.
+        """
+        if context is None:
+            return None
+        out = {"trigger": context.trigger}
+        if context.across is not None:
+            out["across"] = context.across
+        if context.rule is not None:
+            out["rule"] = context.rule
+        return out
 
 
 class ConvertResponse(BaseModel):
+    """The frozen conversion contract. See ``docs/API.md``.
+
+    Every conversion endpoint returns exactly these six fields, and a port returns them
+    too. ``explanations`` is the one documented exception: it appears only when the
+    caller asks for it and is explicitly **outside** the frozen contract.
+    """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     text: str
-    stats: dict[Method, int]
+    #: the direction of travel, not the target orthography: ``n2t`` | ``t2n``
+    direction: str
+    #: the converter; moves in lockstep across implementations
+    engine_version: str
+    #: the data package; its own semver, independent of the engine
+    data_version: str
     #: always present — the cascade has to decide what happened to every word in order
     #: to convert it, so reporting those decisions is not extra work and is not opt-in
     changes: list[Change] = Field(default_factory=list)
-    #: the per-rule trace, which is the only part an explanation adds over `changes`
+    #: words that matched an ambiguity trigger and that no stage resolved
+    unresolved: list[str] = Field(default_factory=list)
+    #: NOT part of the frozen contract: the per-rule trace, only when ``explain`` is set
     explanations: list[TokenExplanation] | None = None
 
 

@@ -24,17 +24,22 @@ from pravapis.normalize import sanitize
 
 CASE_RULE_ID: Final[str] = "lex.case_context"
 
-DATIVE_LOCATIVE_PREPOSITIONS: Final[frozenset[str]] = frozenset(
-    {"у", "ў", "ва", "на", "аб", "пры", "па", "к", "ка", "дзякуючы", "насустрач", "насуперак"}
-)
+#: Which prepositions select the dative/locative column is an inventory, not a rule,
+#: so it lives in ``data/morphology/function_words.tsv`` with the other function words.
+#: Passed in rather than imported, so a CaseForms built for a test can carry its own.
 
 
 class CaseForms:
-    def __init__(self, table: dict[str, tuple[str, str]]):
+    def __init__(
+        self,
+        table: dict[str, tuple[str, str]],
+        dative_locative: frozenset[str] = frozenset(),
+    ):
         self._table = table
+        self._dative_locative = dative_locative
 
     @classmethod
-    def load(cls, path: Path) -> CaseForms:
+    def load(cls, path: Path, dative_locative: frozenset[str] = frozenset()) -> CaseForms:
         files = sorted(path.glob("*.tsv")) if path.is_dir() else [path]
         table: dict[str, tuple[str, str]] = {}
         for f in files:
@@ -45,7 +50,7 @@ class CaseForms:
                 if len(cols) != 3:
                     raise ValueError(f"{f}:{line_no}: expected 3 tab-separated columns")
                 table.setdefault(cols[0], (cols[1], cols[2]))
-        return cls(table)
+        return cls(table, dative_locative)
 
     @classmethod
     def empty(cls) -> CaseForms:
@@ -64,6 +69,6 @@ class CaseForms:
             return None
         genitive, dative_locative = entry
         prev = (previous or "").lower()
-        if prev in DATIVE_LOCATIVE_PREPOSITIONS:
+        if prev in self._dative_locative:
             return dative_locative, f"after «{prev}»: dative/locative"
         return genitive, "genitive (default: no dative/locative preposition before it)"

@@ -731,3 +731,100 @@ def audit_precision(rows: Iterable[AuditRow]) -> AuditReport:
         unsure_rows=row_buckets[UNSURE],
         unreviewed_rows=row_buckets[""],
     )
+
+
+#: Why a change the corpus calls a false positive is there. The vocabulary is small on
+#: purpose: each value names **where a fix would go**, the same way
+#: :class:`pravapis.recall.MissCause` does for the other side of the ledger.
+#:
+#: ``reference_deviates``  the corpus side that should carry the target form does not.
+#:                         Збор 2005 licenses the change; the wiki text is simply not
+#:                         normalised. Nothing to fix in the converter.
+#: ``proper_noun``         a name both wikis preserved as written — «Адраджэньне»,
+#:                         Тацьцяна, Менск. A fix needs proper-noun detection, which
+#:                         this converter does not have and does not pretend to.
+#: ``rule_unsourced``      the rule that fired has no cited §. Whether the change is
+#:                         right is an open question, logged in data/review/.
+#: ``lexicon_overreach``   a lexicon entry substituted where the context does not
+#:                         license it. A real defect with a row to edit.
+#: ``rule_overreach``      the rule fires outside what its § licenses, and the output
+#:                         is wrong in both orthographies. A real defect with a rule to
+#:                         narrow — listed here so the gate stays honest until it is
+#:                         fixed, never as a way of blessing it.
+FP_CAUSES: Final[frozenset[str]] = frozenset(
+    {
+        "reference_deviates",
+        "proper_noun",
+        "rule_unsourced",
+        "lexicon_overreach",
+        "rule_overreach",
+    }
+)
+
+#: ``n2t`` / ``t2n`` as written in ``data/eval/known_fps.tsv``.
+FP_DIRECTIONS: Final[dict[str, Orthography]] = {
+    "n2t": Orthography.TARASKIEVICA,
+    "t2n": Orthography.NARKAMAUKA,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class KnownFalsePositive:
+    """One word form the dev split says the converter should not have changed."""
+
+    direction: str  # n2t | t2n
+    source: str  # lowercased, as the corpus writes it
+    target: str  # lowercased, what the converter produced
+    rule: str  # rule id, or "lexicon" when no rule fired
+    cause: str
+    note: str = ""
+
+    @property
+    def key(self) -> tuple[str, str]:
+        """What the gate matches on: the word form, per direction."""
+        return (self.direction, self.source)
+
+
+def read_known_fps(path: Path | None = None) -> list[KnownFalsePositive]:
+    """The accepted dev false positives from ``data/eval/known_fps.tsv``.
+
+    A file of word forms, not a rate. An aggregate precision floor cannot tell a batch
+    that fixed four false positives and introduced four others from one that changed
+    nothing, and that is the regression this list is here to catch: every dev false
+    positive is named, so a *new* one fails the build whatever the percentage does.
+
+    Rows are keyed on ``(direction, source)`` — the word form, as the spec for this
+    gate says. ``target``, ``rule`` and ``cause`` are carried for the reader, not
+    matched on: a rule change that alters what the converter produces for an
+    already-accepted form is a different event from a form that was never accepted.
+    """
+    from pravapis.config import find_data_dir
+
+    target = path or find_data_dir() / "eval" / "known_fps.tsv"
+    rows: list[KnownFalsePositive] = []
+    for number, line in enumerate(target.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 5:
+            raise ValueError(f"{target}:{number}: expected 5 or 6 columns, got {len(parts)}")
+        direction, source, produced, rule, cause = (p.strip() for p in parts[:5])
+        if direction not in FP_DIRECTIONS:
+            raise ValueError(
+                f"{target}:{number}: direction {direction!r} is not one of {sorted(FP_DIRECTIONS)}"
+            )
+        if cause not in FP_CAUSES:
+            raise ValueError(
+                f"{target}:{number}: cause {cause!r} is not one of {sorted(FP_CAUSES)}"
+            )
+        rows.append(
+            KnownFalsePositive(
+                direction=direction,
+                source=sanitize(source).lower(),
+                target=sanitize(produced).lower(),
+                rule=rule,
+                cause=cause,
+                note=parts[5].strip() if len(parts) > 5 else "",
+            )
+        )
+    return rows

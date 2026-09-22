@@ -11,6 +11,7 @@ from pravapis.api.schemas import (
     BatchConvertRequest,
     BatchConvertResponse,
     Change,
+    ChangeContext,
     ConvertRequest,
     ConvertResponse,
     HealthResponse,
@@ -40,7 +41,14 @@ ConverterDep = Annotated[Converter, Depends(get_converter)]
 def _to_response(
     converter: Converter, text: str, direction: Orthography, explain: bool
 ) -> ConvertResponse:
+    """Build the frozen response. The shape lives in `pravapis.types.ConversionResult`.
+
+    Built from `result.to_dict()` rather than field by field, so the FastAPI service and
+    the library's own public shape cannot drift: there is one place that decides what a
+    conversion looks like on the wire.
+    """
     result: ConversionResult = converter.convert(text, direction)
+    payload = result.to_dict()
     explanations = None
     if explain:
         explanations = [
@@ -54,19 +62,23 @@ def _to_response(
             for c in result.conversions
         ]
     return ConvertResponse(
-        text=result.text,
-        stats=result.stats,
+        text=payload["text"],
+        direction=payload["direction"],
+        engine_version=payload["engine_version"],
+        data_version=payload["data_version"],
         changes=[
             Change(
-                source=c.source,
-                target=c.target,
-                offset=c.offset,
-                rule=c.rule_id,
-                method=c.method,
-                citation=c.citation,
+                start=change["start"],
+                end=change["end"],
+                **{"from": change["from"], "to": change["to"]},
+                stage=change["stage"],
+                rule=change["rule"],
+                citation=change["citation"],
+                context=(None if change["context"] is None else ChangeContext(**change["context"])),
             )
-            for c in result.changes
+            for change in payload["changes"]
         ],
+        unresolved=payload["unresolved"],
         explanations=explanations,
     )
 

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "tag:pravapis,2026:schema:conformance:1",
+  "$id": "tag:pravapis,2026:schema:conformance:2",
   "title": "pravapis conformance case",
-  "description": "One line of conformance/cases.jsonl. The file is JSON Lines: one object per line, UTF-8, LF endings, no trailing comma, no wrapping array. NORMATIVE: an implementation is conformant for a given data version iff it reproduces every case in the corpus generated from that version. Cases are generated from the data by `pravapis export-conformance` and are never written by hand.",
+  "description": "One line of conformance/cases.jsonl. The file is JSON Lines: one object per line, UTF-8, LF endings, no trailing comma, no wrapping array. NORMATIVE: an implementation is conformant for a given data version iff it reproduces every case in the corpus generated from that version. Cases are generated from the data by `pravapis export-conformance` and are never written by hand. Version 2 adds the `offsets` kind and its `spans` field: the response contract (docs/API.md) includes code-point offsets into the output, and a port can produce the right text with the wrong offsets, so the corpus pins them directly.",
   "type": "object",
   "properties": {
     "id": {
@@ -32,14 +32,25 @@
         {
           "const": "heldout",
           "title": "The same as `gold`, on genuine Taraškievica that nobody derived from a Narkamaŭka source."
+        },
+        {
+          "const": "offsets",
+          "title": "Convert `in` through the public API in `direction`, expect `out`, AND expect `spans` to be the (start, end, from, to) of each change. `start`/`end` are Unicode CODE POINT indices into `out`. This is the kind that catches a port indexing strings in UTF-16 code units: it produces `out` correctly and `spans` wrong, and every other kind of case passes."
         }
       ]
     },
     "direction": {
       "description": "The orthography conversion to perform. Null for `translit` cases, which change script and not spelling.",
       "oneOf": [
-        { "enum": ["narkamauka_to_taraskievica", "taraskievica_to_narkamauka"] },
-        { "type": "null" }
+        {
+          "enum": [
+            "narkamauka_to_taraskievica",
+            "taraskievica_to_narkamauka"
+          ]
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "script": {
@@ -52,29 +63,113 @@
       "description": "Present on `rule` cases only: which rule to apply in isolation.",
       "minLength": 1
     },
-    "in": { "type": "string", "description": "The input, exactly as given.", "minLength": 1 },
-    "out": { "type": "string", "description": "The expected output, exactly." }
+    "in": {
+      "type": "string",
+      "description": "The input, exactly as given.",
+      "minLength": 1
+    },
+    "out": {
+      "type": "string",
+      "description": "The expected output, exactly."
+    },
+    "spans": {
+      "description": "Present only on `offsets` cases. One entry per change, in document order: [start, end, from, to]. `start` and `end` are Unicode code point indices into `out` — NOT UTF-16 code units, NOT byte offsets, NOT indices into `in`.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "integer",
+            "minimum": 0
+          },
+          {
+            "type": "integer",
+            "minimum": 0
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "minItems": 4,
+        "maxItems": 4
+      }
+    }
   },
-  "required": ["id", "kind", "direction", "script", "in", "out"],
+  "required": [
+    "id",
+    "kind",
+    "direction",
+    "script",
+    "in",
+    "out"
+  ],
   "additionalProperties": false,
   "allOf": [
     {
       "title": "A rule case must name its rule",
-      "if": { "properties": { "kind": { "const": "rule" } }, "required": ["kind"] },
-      "then": { "required": ["rule"] }
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "rule"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "rule"
+        ]
+      }
     },
     {
       "title": "A translit case has no orthography direction",
-      "if": { "properties": { "kind": { "const": "translit" } }, "required": ["kind"] },
-      "then": { "properties": { "direction": { "type": "null" } } }
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "translit"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "direction": {
+            "type": "null"
+          }
+        }
+      }
     },
     {
       "title": "An orthography case has one",
       "if": {
-        "properties": { "kind": { "enum": ["rule", "gold", "heldout", "regression"] } },
-        "required": ["kind"]
+        "properties": {
+          "kind": {
+            "enum": [
+              "rule",
+              "gold",
+              "heldout",
+              "regression"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ]
       },
-      "then": { "properties": { "direction": { "type": "string" } } }
+      "then": {
+        "properties": {
+          "direction": {
+            "type": "string"
+          }
+        }
+      }
     }
   ]
 }

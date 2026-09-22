@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:function_words:1",
+  "title": "pravapis function-word inventory row",
+  "description": "The function words the converter treats specially (data/morphology/function_words.tsv): which proclitics take jakanne, which prepositions take assimilative softness, which words never count as a stressed first syllable, which stems §18's stress exception covers, and which prepositions select the dative/locative column of the case table. NORMATIVE. These are inventories, not patterns: a rule file can show a port how softness works, but nothing in it can show that цераз belongs on the softening list and каля does not. The file is TSV, so this schema describes the file dialect in `x-tsv` and the object each data line parses into in `$defs/row`.",
+
+  "x-tsv": {
+    "delimiter": "\t",
+    "comment": "#",
+    "encoding": "utf-8",
+    "blankLinesIgnored": true,
+    "cellsAreTrimmed": true,
+    "nullTokens": ["-"],
+    "declaration": {
+      "required": true,
+      "directives": {
+        "schema": {
+          "syntax": "#!schema <schema $id>",
+          "example": "#!schema tag:pravapis,2026:schema:function_words:1"
+        },
+        "columns": {
+          "syntax": "#!columns <name>\\t<name>…",
+          "example": "#!columns form\trole\ttarget\tcitation"
+        }
+      }
+    },
+    "columns": [
+      {
+        "name": "form",
+        "index": 0,
+        "required": true,
+        "description": "The word, lowercase. For role `stressed_initial_u` this is a STEM, matched by prefix, so the inflected forms are covered too (умбры covers Умбрыя, Умбрыю)."
+      },
+      {
+        "name": "role",
+        "index": 1,
+        "required": true,
+        "description": "What the converter does with this word. One form may appear under several roles: `з` is both a softening preposition and a clitic."
+      },
+      {
+        "name": "target",
+        "index": 2,
+        "required": true,
+        "description": "What the form becomes, for the two particle roles. `-` for every other role, which needs no target."
+      },
+      {
+        "name": "citation",
+        "index": 3,
+        "required": true,
+        "description": "The § the role rests on, in the same form as data/NORMS.md uses."
+      }
+    ]
+  },
+
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["form", "role", "citation"],
+      "properties": {
+        "form": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[\\u0400-\\u04FF\\u2019'\\u02BC-]+$"
+        },
+        "role": {
+          "enum": [
+            "particle_n2t",
+            "particle_t2n",
+            "softening_preposition",
+            "clitic",
+            "stressed_initial_u",
+            "dative_locative_preposition"
+          ]
+        },
+        "target": {
+          "type": ["string", "null"],
+          "description": "Required (non-null) when role is particle_n2t or particle_t2n; null otherwise."
+        },
+        "citation": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"role": {"enum": ["particle_n2t", "particle_t2n"]}},
+            "required": ["role"]
+          },
+          "then": {
+            "properties": {"target": {"type": "string", "minLength": 1}},
+            "required": ["target"]
+          }
+        }
+      ]
+    }
+  }
+}

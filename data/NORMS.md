@@ -687,20 +687,44 @@ examples of the exception.
 ўплываюць" — is the same note the §13 conjunction rule already relied on, so a hyphen or
 a quotation mark is transparent here too: *рыба-ўюн*, *Кука-Ўітсан*.
 
-### The reverse direction, and what it cannot do
+### The reverse direction: a different code, and a different shape
 
-T → N undoes §18 **only where §18 could have applied**: after a word ending in a vowel.
-A capital Ў anywhere else was never produced by this rule and is left alone, because
-Belarusian also writes Ў at the start of a name to render English *W* — *Разумнік Ўіл
-Гантынг*, *з Ўотэрзам* — and those keep their Ў in Narkamaŭka as well
-(`data/eval/tarask/gold_t2n.tsv`, hand-written rows).
+T → N here answers to **Правілы беларускай арфаграфіі і пунктуацыі (2008)**, the rules
+attached to Закон № 420-З — the Narkamaŭka side's own codification, the counterpart of
+Збор правілаў 2005 on the Taraškievica side. Cited as `Правілы 2008, §N`; obtained and
+hash-pinned by `scripts/fetch_reference.py` (see data/reference/README.md).
 
-**After a vowel the two are indistinguishable.** *школу Ўайлд* could be §18 applied to
-*Уайлд*, or a W-name that was always Ў. `W_NAMES` lists the ones the gold set attests,
-and the list is open-ended by nature: an unlisted W-name following a vowel will come
-back from T → N spelled with У. That is a real limit and it is recorded here rather than
-smoothed over. The forward direction is unaffected — a name already written Ў never
-matches a rule looking for У — so round-trip identity stays at 100%.
+> **Правілы 2008, §15 п.4** — «Гук [у] на пачатку ўласных імён і назваў **заўсёды**
+> перадаецца вялікай літарай У складовае **без надрадковага значка**: ва Узбекістан
+> (для ўзбекаў), на Уральскіх гарах, на Украіне (за ўкраінцаў), за Уладзіміра, каля
+> Уладзіслава, да Усяслава.»
+
+**The two directions are not mirror images.** §18 makes У → Ў conditional: after a
+vowel, unstressed, capitalised. §15 п.4 makes the reverse unconditional — a proper name
+never begins with Ў in Narkamaŭka, whatever precedes it. So the forward rule needs the
+previous word and the stress table; the reverse rule needs neither.
+
+#### What this corrected
+
+This project previously kept Ў in Narkamaŭka for names that render English *W* —
+*Разумнік Ўіл Гантынг*, *з Ўотэрзам* — on the strength of six hand-written rows in
+`data/eval/tarask/gold_t2n.tsv`, and carried a `W_NAMES` exception list so T → N would
+leave them alone. Checked against the N-side authority, that was wrong:
+
+* §15 п.4 is categorical, and says the opposite.
+* The 2008 rules contain **no word-initial Ў anywhere** — the only capital Ў in the
+  whole text is inside ЗНАКАЎ and ПАСЛЯДОЎНАСЦЬ.
+* §14 lists *Уэльс* among proper names taking no prosthetic в — a W-name, written У.
+* Usage agrees by a wide margin: on be.wikipedia, Уіл 115 hits to Ўіл 1, Уэльс 756 to
+  Ўэльс 2, Уотэр 10 to Ўотэр 0.
+
+The six gold rows were corrected to У складовае and the exception was removed. The
+inventory itself survives as `data/names/w_names.tsv` — it is real evidence about which
+names these are, mined from Wikidata (see `scripts/mine_w_names.py`) — but **nothing in
+the converter reads it**, and `pravapis conformance --coverage` lists it as a deliberate
+exemption rather than letting it look live. Its natural use is the *forward* direction,
+where N → T might write Уіл as Ўіл in positions §18 alone does not reach; that is an
+open question, not implemented.
 
 ### What it bought
 

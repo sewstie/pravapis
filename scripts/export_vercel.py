@@ -54,6 +54,7 @@ RUNTIME_MODULES = (
     "rules/__init__.py",
     "rules/engine.py",
     "rules/loanwords.py",
+    "rules/function_words.py",
     "rules/morphology.py",
     "rules/palatalization.py",
     "lexicon/__init__.py",

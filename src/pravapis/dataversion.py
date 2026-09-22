@@ -20,7 +20,7 @@ from pravapis.config import find_data_dir
 
 #: The data version this code implements. Every implementation — this one, a port —
 #: declares its own; the conformance corpus records the version it was generated from.
-DATA_VERSION: Final[str] = "1.1.0"
+DATA_VERSION: Final[str] = "1.3.0"
 
 _SEMVER: Final[regex.Pattern[str]] = regex.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 

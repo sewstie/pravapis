@@ -22,7 +22,7 @@ from pravapis.translit import Transliterator
 from pravapis.translit.engine import load_scheme
 from pravapis.types import Orthography
 
-CASE_FIELDS = {"id", "kind", "direction", "script", "rule", "in", "out"}
+CASE_FIELDS = {"id", "kind", "direction", "script", "rule", "in", "out", "spans"}
 DIRECTIONS = {
     "narkamauka_to_taraskievica": Orthography.TARASKIEVICA,
     "taraskievica_to_narkamauka": Orthography.NARKAMAUKA,

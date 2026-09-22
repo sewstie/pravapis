@@ -1,9 +1,13 @@
-"""The frozen public signature: convert(text, {from, to}) → {text, changes}.
+"""The frozen response contract, as `docs/API.md` states it.
 
 This shape is the same in every implementation of pravapis, so these tests are less
-about Python than about the contract: the field names, the fact that `changes` is never
-absent, and the fact that `explain` is a view over the same decisions rather than a
-second opinion.
+about Python than about the contract: the field names and their order, the fact that
+`changes` is never absent, that offsets index the OUTPUT in code points, that the
+sanitizer's own edits are never reported as changes, and that `context` appears exactly
+when a rule read a neighbouring word.
+
+If one of these fails, read `docs/API.md` first. That document is normative; the code is
+what has to move.
 """
 
 from __future__ import annotations
@@ -11,12 +15,20 @@ from __future__ import annotations
 import pytest
 
 from pravapis import convert
-from pravapis.normalize import sanitize
 from pravapis.pipeline import Converter, parse_options
 from pravapis.types import Method, Orthography
 
-CHANGE_FIELDS = ["from", "to", "offset", "rule", "class", "citation"]
+RESPONSE_FIELDS = [
+    "text",
+    "direction",
+    "engine_version",
+    "data_version",
+    "changes",
+    "unresolved",
+]
+CHANGE_FIELDS = ["start", "end", "from", "to", "stage", "rule", "citation", "context"]
 N2T = Orthography.TARASKIEVICA
+T2N = Orthography.NARKAMAUKA
 
 
 def test_options_form_returns_text_and_changes() -> None:
@@ -27,10 +39,38 @@ def test_options_form_returns_text_and_changes() -> None:
     assert change["to"] == "сьнег"
 
 
+def test_response_has_exactly_the_frozen_fields() -> None:
+    payload = convert("снег", {"to": "taraskievica"}).to_dict()
+    assert list(payload) == RESPONSE_FIELDS, "the wire shape is frozen; field order included"
+
+
 def test_change_has_exactly_the_frozen_fields() -> None:
     result = convert("снег", {"to": "taraskievica"})
     (change,) = result.to_dict()["changes"]
     assert list(change) == CHANGE_FIELDS, "the wire shape is frozen; field order included"
+
+
+def test_direction_names_the_journey_not_the_destination() -> None:
+    """`n2t`, not `taraskievica`.
+
+    The target orthography alone does not say where the text started, and without that
+    a reader cannot interpret `from` and `to`. Requests name a destination; responses
+    name a direction.
+    """
+    assert convert("снег", {"to": "taraskievica"}).to_dict()["direction"] == "n2t"
+    assert convert("сьнег", {"to": "narkamauka"}).to_dict()["direction"] == "t2n"
+
+
+def test_the_two_versions_are_independent() -> None:
+    """Engine and data are separate lines. A response that conflated them would leave a
+    bug report ambiguous about which one to bisect."""
+    from pravapis import __version__
+    from pravapis.dataversion import read_data_version
+
+    payload = convert("снег", {"to": "taraskievica"}).to_dict()
+    assert payload["engine_version"] == __version__
+    assert payload["data_version"] == read_data_version()
+    assert payload["engine_version"] != payload["data_version"]
 
 
 def test_from_may_be_omitted() -> None:
@@ -66,7 +106,7 @@ def test_legacy_orthography_form_still_returns_a_string() -> None:
 def test_changes_are_not_behind_a_flag(converter: Converter) -> None:
     result = converter.convert("Снег і план сістэмы", N2T)
     assert [c.source for c in result.changes] == ["Снег", "план", "сістэмы"]
-    assert all(c.offset >= 0 for c in result.conversions)
+    assert all(c.start >= 0 and c.end > c.start for c in result.conversions)
 
 
 def test_unchanged_words_are_not_changes(converter: Converter) -> None:
@@ -75,20 +115,115 @@ def test_unchanged_words_are_not_changes(converter: Converter) -> None:
     assert result.changes == ()  # and nothing happened to it
 
 
-def test_offsets_index_the_sanitized_input(converter: Converter) -> None:
-    text = "Снег і план сістэмы, свіння"
-    clean = sanitize(text)
-    for change in converter.convert(text, N2T).changes:
-        assert clean[change.offset : change.offset + len(change.source)] == change.source
+# --- offsets ---------------------------------------------------------------------
+def test_offsets_index_the_output(converter: Converter) -> None:
+    """`start`/`end` slice `text`, the string the caller is holding.
+
+    Input offsets are not recoverable from the output — снег → сьнег is four code points
+    becoming five — so indexing the input would give a caller nothing to highlight.
+    """
+    result = converter.convert("Снег і план сістэмы, свіння", N2T)
+    for change in result.changes:
+        assert result.text[change.start : change.end] == change.target
 
 
 def test_offsets_hold_when_sanitize_changes_the_length(converter: Converter) -> None:
-    """A zero-width character is stripped, so offsets must index the cleaned string."""
-    text = "​снег план"
-    clean = sanitize(text)
-    assert len(clean) < len(text)
-    for change in converter.convert(text, N2T).changes:
-        assert clean[change.offset : change.offset + len(change.source)] == change.source
+    """A zero-width character is stripped before conversion, so the spans index the
+    post-sanitize output rather than anything the caller typed."""
+    result = converter.convert("​снег план", N2T)
+    assert result.changes
+    for change in result.changes:
+        assert result.text[change.start : change.end] == change.target
+
+
+def test_offsets_are_code_points_not_utf16_units(converter: Converter) -> None:
+    """The decision that costs a JS port a bug if it is left implicit.
+
+    An astral character is one code point and two UTF-16 units. Python slices by the
+    former, JavaScript by the latter. They agree on every Cyrillic letter and disagree
+    here, which is why the conformance corpus carries `offsets` cases.
+    """
+    result = converter.convert("🎉 Снег", N2T)
+    (change,) = result.changes
+    assert change.start == 2, "code points: the emoji is one"
+    utf16_index = len(result.text[: change.start].encode("utf-16-le")) // 2
+    assert utf16_index == 3, "UTF-16 units: the emoji is two — this is the trap"
+    assert result.text[change.start : change.end] == "Сьнег"
+
+
+def test_offsets_survive_an_astral_character_between_two_changes(
+    converter: Converter,
+) -> None:
+    result = converter.convert("Снег 🎉 план", N2T)
+    first, second = result.changes
+    assert result.text[first.start : first.end] == first.target
+    assert result.text[second.start : second.end] == second.target
+
+
+# --- the sanitizer is not a change -----------------------------------------------
+def test_sanitizer_edits_are_not_reported_as_changes(converter: Converter) -> None:
+    """Homoglyphs, apostrophes and zero-width characters are hygiene, not orthography.
+
+    Reporting them would bury the handful of real conversions under one entry per curly
+    quote in a pasted paragraph.
+    """
+    result = converter.convert("​з'ява лaпа", N2T)  # Latin 'a' in лaпа
+    assert result.text != "​з'ява лaпа", "the sanitizer did change the text"
+    for change in result.changes:
+        assert change.source != change.target, "a reported change must be a real change"
+
+
+def test_a_purely_sanitized_text_reports_no_changes(converter: Converter) -> None:
+    """Nothing orthographic happened, so `changes` is empty even though `text` moved."""
+    result = converter.convert("лaпa", N2T)  # both vowels are Latin look-alikes
+    assert result.text == "лапа"
+    assert result.changes == ()
+
+
+# --- context ---------------------------------------------------------------------
+def test_context_is_null_for_a_word_internal_rule(converter: Converter) -> None:
+    """`null` is a positive claim: this change is reproducible from the word alone."""
+    (change,) = converter.convert("снег", N2T).changes
+    assert change.context is None
+
+
+def test_context_is_set_for_a_cross_word_rule(converter: Converter) -> None:
+    changes = {c.source: c for c in converter.convert("Ён не быў", N2T).changes}
+    assert changes["не"].context is not None
+    assert changes["не"].context.trigger == "next_word"
+
+
+def test_context_records_what_the_rule_reached_across(converter: Converter) -> None:
+    """§18 Заўвага makes a quotation mark transparent, so the rule fires over one."""
+    result = converter.convert("сталіца «Украіны»", N2T)
+    (change,) = [c for c in result.changes if c.source == "Украіны"]
+    assert change.context is not None
+    assert change.context.trigger == "prev_word_vowel"
+    assert change.context.across == "«"
+
+
+def test_the_same_rule_is_cross_word_in_one_direction_only(converter: Converter) -> None:
+    """§18 forward is conditional on a preceding vowel; Правілы 2008 §15 п.4 backward is
+    categorical and reads nothing. Same rule id, different context, both correct."""
+    forward = converter.convert("сталіца Украіны", N2T)
+    (there,) = [c for c in forward.changes if c.rule_id == "morph.initial_u_w"]
+    assert there.context is not None
+
+    back = converter.convert("сталіца Ўкраіны", T2N)
+    (returned,) = [c for c in back.changes if c.rule_id == "morph.initial_u_w"]
+    assert returned.context is None
+
+
+# --- unresolved -------------------------------------------------------------------
+def test_unresolved_names_the_words_the_converter_declined(converter: Converter) -> None:
+    """Not every unchanged word — only the ones that matched an ambiguity trigger and
+    that no stage resolved. Silence is right; a silent silence is not."""
+    result = converter.convert("без мяне", N2T)
+    assert "мяне" in result.unresolved
+
+
+def test_unresolved_is_empty_when_nothing_was_ambiguous(converter: Converter) -> None:
+    assert converter.convert("снег", N2T).unresolved == ()
 
 
 # --- citations -------------------------------------------------------------------

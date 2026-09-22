@@ -1158,6 +1158,92 @@ def export_conformance_cmd(
     _json.loads((out / "manifest.json").read_text(encoding="utf-8"))  # written and parseable
 
 
+@app.command("conformance")
+def conformance_cmd(
+    coverage_flag: Annotated[
+        bool,
+        typer.Option(
+            "--coverage",
+            help="Audit the data boundary: fail if any rule, lexicon table or data file "
+            "has no conformance case.",
+        ),
+    ] = False,
+    data_dir: Annotated[Path | None, typer.Option("--data", help="Data directory")] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", help="Show every item and its case count.")
+    ] = False,
+) -> None:
+    """Report on the cross-language contract, and audit what it fails to reach.
+
+    ``--coverage`` is the data-boundary audit. The conformance corpus *is* the contract,
+    so anything that changes the output and has no case behind it is outside the
+    contract: a port can get it wrong and still claim to pass. This finds those — rules
+    with no case, lexicon tables no case resolves through, data files nothing reads —
+    and exits non-zero if any exist.
+
+    Exemptions are sentences, not patterns. A file or rule leaves the audit only when
+    someone writes down why it is not part of the contract, in
+    ``pravapis.conformance.EXEMPT_DATA`` / ``EXEMPT_RULES``.
+    """
+    from pravapis.conformance import EXEMPT_DATA, EXEMPT_RULES, build_corpus, coverage
+
+    base = data_dir or Config.default().lexicon.parent
+    cases, failures = build_corpus(base)
+
+    if not coverage_flag:
+        console.print(
+            f"[green]{len(cases)}[/green] cases, "
+            f"[yellow]{len(failures)}[/yellow] known failure(s). "
+            "Pass --coverage to audit the data boundary."
+        )
+        return
+
+    report = coverage(base, cases)
+
+    def _section(title: str, counts: dict[str, int], exempt: dict[str, str]) -> None:
+        table = Table(title=title, show_header=True, header_style="bold")
+        table.add_column("item", overflow="fold")
+        table.add_column("cases", justify="right")
+        for name, count in sorted(counts.items()):
+            if count == 0 and name in exempt:
+                table.add_row(f"[dim]{name}[/dim]", "[dim]exempt[/dim]")
+            elif count == 0:
+                table.add_row(f"[red]{name}[/red]", "[red]0[/red]")
+            elif verbose:
+                table.add_row(name, str(count))
+        if table.row_count:
+            console.print(table)
+
+    _section("Rules", report.rules, EXEMPT_RULES)
+    _section("Lexicon tables", report.lexicon_tables, {})
+    _section("Data files", report.data_files, EXEMPT_DATA)
+
+    covered = sum(1 for v in report.rules.values() if v)
+    console.print(
+        f"{covered}/{len(report.rules)} rules, "
+        f"{sum(1 for v in report.lexicon_tables.values() if v)}/{len(report.lexicon_tables)} "
+        f"lexicon tables, "
+        f"{sum(1 for v in report.data_files.values() if v)}/{len(report.data_files)} data files "
+        "have at least one conformance case."
+    )
+
+    if report.ok:
+        console.print(
+            "[green]Data boundary clean[/green] — everything is either covered or exempt."
+        )
+        return
+
+    errors.print(f"\n[red]{len(report.gaps)} uncovered[/red]:")
+    for gap in report.gaps:
+        errors.print(f"  {gap}")
+    errors.print(
+        "\nEach of these changes the output and no case pins it down, so a port can "
+        "get it wrong and still pass. Add a case, or record why it is not part of the "
+        "contract in pravapis.conformance.EXEMPT_DATA / EXEMPT_RULES."
+    )
+    raise typer.Exit(code=1)
+
+
 @app.command()
 def version() -> None:
     from pravapis.dataversion import DATA_VERSION, read_data_version

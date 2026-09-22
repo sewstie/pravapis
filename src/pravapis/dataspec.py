@@ -52,6 +52,8 @@ from pravapis.lexicon.stems import (
     validate_stems,
 )
 from pravapis.rules.engine import RuleError, load_rules, validate_rule_set
+from pravapis.rules.function_words import FUNCTION_WORDS_FILE
+from pravapis.rules.w_names import W_NAMES_FILE
 from pravapis.translit.engine import SchemeError, load_scheme, validate_scheme
 
 #: Re-exported from :mod:`pravapis.dataversion`, which is kept dependency-free so the
@@ -66,9 +68,11 @@ __all__ = [
     "read_data_version",
     "validate_corpus_file",
     "validate_data",
+    "validate_function_words_file",
     "validate_rules_file",
     "validate_scheme_file",
     "validate_stems_file",
+    "validate_w_names_file",
 ]
 
 #: The Cyrillic alphabet a transliteration scheme must be able to consume in full.
@@ -389,6 +393,12 @@ def validate_data(root: Path | None = None) -> list[Problem]:
         problems += validate_stems_file(path, base)
     for path in sorted((base / "translit").glob("*.yaml")):
         problems += validate_scheme_file(path, base)
+    w_names = base / W_NAMES_FILE
+    if w_names.is_file():
+        problems += validate_w_names_file(w_names, base)
+    function_words = base / FUNCTION_WORDS_FILE
+    if function_words.is_file():
+        problems += validate_function_words_file(function_words, base)
 
     # The corpus lives outside the data directory — it is generated *from* the data —
     # but it is part of the same contract, so one command checks both.
@@ -401,3 +411,162 @@ def validate_data(root: Path | None = None) -> list[Problem]:
 
 def format_problems(problems: Iterable[Problem]) -> str:
     return "\n".join(str(p) for p in problems)
+
+
+def validate_w_names_file(path: Path, root: Path | None = None) -> list[Problem]:
+    """The W-name inventory: its declaration, then every row against the schema.
+
+    Small and easy to get wrong in a way nothing else would catch. A stem that does not
+    begin with ў can never match — :func:`pravapis.rules.w_names.read_w_names` rejects
+    it outright — and a stem of one or two letters would match half the names in the
+    file by prefix, quietly pinning Ў on words §18 should be reversing. Neither shows up
+    as a crash; both show up as corrupted names.
+    """
+    from pravapis.lexicon.stems import read_declaration
+    from pravapis.rules import w_names as wn
+
+    schema = load_schema("w_names", root)
+    problems: list[Problem] = []
+
+    declaration = read_declaration(path)
+    if declaration.schema != wn.SCHEMA_ID:
+        problems.append(
+            Problem(
+                path,
+                "<declaration>",
+                f"declares schema {declaration.schema!r}, "
+                f"but this build implements {wn.SCHEMA_ID!r}",
+            )
+        )
+    if declaration.columns and declaration.columns != wn.DECLARED_COLUMNS:
+        problems.append(
+            Problem(
+                path,
+                "<declaration>",
+                f"declares columns {declaration.columns}, "
+                f"but the schema orders them {wn.DECLARED_COLUMNS}",
+            )
+        )
+
+    try:
+        rows = wn.read_w_names(path)
+    except wn.WNameError as exc:
+        problems.append(Problem(path, "<rows>", str(exc)))
+        return problems
+
+    validator = _validator(schema["$defs"]["row"])
+    seen: dict[str, int] = {}
+    for index, row in enumerate(rows, 1):
+        record = {"stem": row.stem, "provenance": row.provenance, "evidence": row.evidence}
+        for error in sorted(validator.iter_errors(record), key=lambda e: list(e.path)):
+            field = ".".join(str(p) for p in _specific(error).path) or "<row>"
+            problems.append(Problem(path, f"row {index} ({field})", _specific(error).message))
+        if row.stem in seen:
+            problems.append(
+                Problem(
+                    path,
+                    f"row {index}",
+                    f"{row.stem!r} already declared on row {seen[row.stem]}",
+                )
+            )
+        else:
+            seen[row.stem] = index
+
+    # A stem that is a prefix of another makes the longer one dead weight: the shorter
+    # already matches everything it would. Worth saying, because the usual cause is a
+    # mining run that kept both Ўотэр and Ўотэрз.
+    for stem, index in sorted(seen.items()):
+        shadow = next((s for s in seen if s != stem and stem.startswith(s)), None)
+        if shadow is not None:
+            problems.append(
+                Problem(
+                    path,
+                    f"row {index}",
+                    f"{stem!r} is already covered by the shorter stem {shadow!r}; drop it",
+                )
+            )
+    return problems
+
+
+def validate_function_words_file(path: Path, root: Path | None = None) -> list[Problem]:
+    """The function-word inventories: declaration, rows, and the invariants behind them.
+
+    The schema catches a bad role or a particle with no target. What it cannot see is
+    the relationship between roles, and that is where the damage is: a softening
+    preposition that is not also a clitic would count as a stressed syllable and pull
+    jakanne onto the word after it, which is a wrong output with nothing malformed
+    anywhere.
+    """
+    from pravapis.lexicon.stems import read_declaration
+    from pravapis.rules import function_words as fw
+
+    schema = load_schema("function_words", root)
+    problems: list[Problem] = []
+
+    declaration = read_declaration(path)
+    if declaration.schema != fw.SCHEMA_ID:
+        problems.append(
+            Problem(
+                path,
+                "<declaration>",
+                f"declares schema {declaration.schema!r}, "
+                f"but this build implements {fw.SCHEMA_ID!r}",
+            )
+        )
+    if declaration.columns and declaration.columns != fw.DECLARED_COLUMNS:
+        problems.append(
+            Problem(
+                path,
+                "<declaration>",
+                f"declares columns {declaration.columns}, "
+                f"but the schema orders them {fw.DECLARED_COLUMNS}",
+            )
+        )
+
+    try:
+        rows = fw.read_function_words(path)
+    except fw.FunctionWordError as exc:
+        problems.append(Problem(path, "<rows>", str(exc)))
+        return problems
+
+    validator = _validator(schema["$defs"]["row"])
+    seen: set[tuple[str, str]] = set()
+    for index, row in enumerate(rows, 1):
+        record = {
+            "form": row.form,
+            "role": row.role,
+            "target": row.target,
+            "citation": row.citation,
+        }
+        for error in sorted(validator.iter_errors(record), key=lambda e: list(e.path)):
+            field = ".".join(str(p) for p in _specific(error).path) or "<row>"
+            problems.append(Problem(path, f"row {index} ({field})", _specific(error).message))
+        if (row.form, row.role) in seen:
+            problems.append(
+                Problem(path, f"row {index}", f"{row.form!r} is already listed as {row.role!r}")
+            )
+        seen.add((row.form, row.role))
+
+    inventory = fw.FunctionWords.from_rows(rows)
+    for preposition in sorted(inventory.softening_prepositions):
+        if preposition not in inventory.clitics:
+            problems.append(
+                Problem(
+                    path,
+                    f"softening_preposition {preposition!r}",
+                    "is not also listed as a clitic, so it would count as a stressed "
+                    "first syllable and pull jakanne onto the following word",
+                )
+            )
+    for soft, hard in sorted(inventory.particles_t2n.items()):
+        if hard not in inventory.particles_n2t and hard not in inventory.softening_prepositions:
+            problems.append(
+                Problem(
+                    path,
+                    f"particle_t2n {soft!r}",
+                    f"reverts to {hard!r}, which is neither a particle_n2t nor a "
+                    "softening_preposition — nothing can produce it, so the reverse "
+                    "row is unreachable",
+                )
+            )
+    return problems

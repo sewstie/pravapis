@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 
 import pytest
@@ -26,8 +27,13 @@ def test_convert(client: TestClient) -> None:
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["text"] == "Ішоў сьнег у Менску."
-    assert body["stats"]["rule"] == 1
-    assert body["stats"]["lexicon"] == 1
+    # `stats` left the frozen contract (docs/API.md); the same facts are in `changes`.
+    stages = [c["stage"] for c in body["changes"]]
+    assert stages.count("rule") == 1
+    assert stages.count("lexicon") == 1
+    assert body["direction"] == "n2t"
+    assert body["engine_version"] and body["data_version"]
+    assert body["unresolved"] == []
     assert body["explanations"] is None
 
 
@@ -97,3 +103,34 @@ def test_stats(client: TestClient) -> None:
     assert body["rule_count"] >= 15
     assert body["model_version"] is None
     assert body["version"]
+
+
+def test_both_implementations_produce_the_same_bytes(client: TestClient) -> None:
+    """The contract's actual claim: two implementations, one response.
+
+    `/v1/convert` (FastAPI, Pydantic) and `/api/convert` (stdlib, serverless) reach the
+    wire by completely different routes, and the whole point of freezing the shape is
+    that a caller cannot tell them apart. Compared as serialized JSON rather than as
+    dicts, because key order is part of the contract too.
+
+    This is the test that catches the mismatches neither implementation's own tests can
+    see — a Pydantic model that writes `"across": null` where the library omits the key
+    looks perfectly correct until it is put next to the other one.
+    """
+    from pravapis.pipeline import Converter
+    from pravapis.webapi import convert_payload
+
+    converter = Converter.from_config(None)
+    for text in (
+        "🎉 Не быў без мяне ў Германіі",  # cross-word rules, astral offsets, unresolved
+        "сталіца «Украіны»",  # a context that reached across a quotation mark
+        "Снег і план",  # the documented example
+        "лaпa",  # sanitizer-only: text moves, changes stay empty
+        "",  # nothing at all
+    ):
+        serverless = convert_payload(converter, {"text": text, "direction": "taraskievica"})
+        served = client.post("/v1/convert", json={"text": text, "direction": "taraskievica"}).json()
+        served.pop("explanations")  # documented as outside the contract
+        assert json.dumps(served, ensure_ascii=False) == json.dumps(
+            serverless, ensure_ascii=False
+        ), f"the two implementations disagree on {text!r}"
