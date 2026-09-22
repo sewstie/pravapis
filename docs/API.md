@@ -296,6 +296,17 @@ names the destination. `text` is capped at 50,000 characters.
 
 ---
 
+## Privacy
+
+Request text is processed in memory and is not stored or logged. Request logging is
+metadata-only — endpoint, direction, character count, duration, engine version, data
+version, status — and never the text itself, a hash of it, or a flagged `unresolved`
+token, which is still a fragment of user input however short
+(`pravapis.api.request_log`; enforced in CI by
+`scripts/check_no_request_text_logging.py`).
+
+---
+
 ## Changing this contract
 
 Adding a field is a minor engine version. Removing one, renaming one, or changing what
