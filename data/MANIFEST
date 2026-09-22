@@ -1,0 +1,48 @@
+# Every source file that defines what the converter and transliterator produce.
+#
+# pravapis.dataversion.compute_data_hash() reads this file and hashes exactly the
+# files listed below, in this order — nothing more, nothing less. It is the one
+# place "the data hash" is computed; every other consumer (GET /v1/version, the
+# precompiled lexicon artifact's staleness check) calls into it rather than
+# recomputing a hash of its own.
+#
+# Deliberately excluded, and why:
+#   - eval/**, corpora/**, review/**  — evaluation and corpus-mining inputs; the
+#     converter never reads them, only test/build scripts do.
+#   - names/w_names.tsv               — retained as evidence only; nothing reads it
+#     (see data/NORMS.md and EXEMPT_DATA in pravapis.conformance).
+#   - data/lexicon.marisa, data/models/*.joblib — gitignored, locally-built
+#     artifacts derived from the sources below, not sources themselves. Hashing a
+#     derived binary would make the hash depend on the local build toolchain
+#     instead of on the data.
+#   - data/reference/                 — git-ignored copyrighted source texts.
+#
+# One path per line, relative to this file's directory (data/). Blank lines and
+# lines starting with # are ignored. Order matters: it is the order bytes are fed
+# to the hash, so reordering this file changes data_hash even if no byte in any
+# listed file changed. Keep new entries in the group they belong to.
+
+# rules (data/rules/*.yaml)
+rules/palatalization.yaml
+rules/loanwords.yaml
+rules/morphology.yaml
+
+# lexicon (data/lexicon/*.tsv, data/lexicon/stems/, data/lexicon/case/)
+lexicon/loanwords.tsv
+lexicon/proper_nouns.tsv
+lexicon/exceptions.tsv
+lexicon/stems/stems.tsv
+lexicon/case/ambiguous.tsv
+
+# morphology (function words, GrammarDB genitive-plural lemmas)
+morphology/function_words.tsv
+morphology/ment_lemmas.marisa
+
+# stress (GrammarDB first-stress marks)
+stress/first_stressed.marisa
+stress/proper_first_stressed.marisa
+
+# transliteration schemes
+translit/lacinka.yaml
+translit/lacinka_reverse.yaml
+translit/official2007.yaml

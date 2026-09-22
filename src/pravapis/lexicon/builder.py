@@ -207,6 +207,25 @@ def save_lexicon(
         fh.write(rev_bytes)
 
 
+def write_data_hash_marker(out: Path, data_root: Path | None = None) -> Path:
+    """Write an empty ``<out-stem>-<data_hash>.built`` marker next to ``out``.
+
+    Lets a build (or a test) read the data hash straight off a filename instead of
+    recomputing it, and cross-check it against ``pravapis.dataversion.compute_data_hash``
+    for the same data tree — the single computation GET /v1/version also reports.
+    Removes any stale marker for the same ``out`` stem first, so exactly one exists
+    per build.
+    """
+    from pravapis.dataversion import compute_data_hash
+
+    digest = compute_data_hash(data_root)
+    for stale in out.parent.glob(f"{out.stem}-*.built"):
+        stale.unlink()
+    marker = out.parent / f"{out.stem}-{digest}.built"
+    marker.touch()
+    return marker
+
+
 def load_lexicon_file(
     path: Path,
 ) -> tuple[marisa_trie.BytesTrie, marisa_trie.BytesTrie, bytes]:
