@@ -282,6 +282,7 @@ its `script` / `from_script` arguments, and returns the corresponding shape.
 | `POST` | `/v1/transliterate` | `TransliterateResponse` — see above. |
 | `GET` | `/v1/lexicon/{word}` | Lookup plus which rules would fire. |
 | `GET` | `/v1/stats` | Lexicon size, rule count, model version. |
+| `GET` | `/v1/version` | `{engine_version, data_version, data_hash}` — `data_hash` matches the deployed precompiled artifact's filename (`pravapis.artifact`) by construction. |
 | `GET` | `/health` | Liveness. |
 
 ### Request
@@ -293,6 +294,14 @@ its `script` / `from_script` arguments, and returns the corresponding shape.
 `direction` on the **request** is the target orthography — `"taraskievica"` or
 `"narkamauka"` — not the `n2t`/`t2n` code. The response echoes the journey; the request
 names the destination. `text` is capped at 50,000 characters.
+
+`/v1/convert` and `/v1/convert/batch` also take `?unresolved=true` as a query
+parameter (not a body field): computes the `unresolved` list this once, at the cost
+described in "Off by default" above. Every `/v1/convert` response also carries an
+`ETag` header derived from `(text, direction, script, unresolved, data_version)` — an
+in-process cache is keyed the same way, so the same five inputs always produce the
+same `ETag` and the same body, and a change to any one of them (`?unresolved=true`
+included — it changes the response shape) produces a different one.
 
 ---
 

@@ -15,8 +15,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from pravapis import __version__
+from pravapis.api.cache import ResponseCache
 from pravapis.api.request_log import log_request_metadata
 from pravapis.api.routes import router
 from pravapis.config import Config
@@ -43,6 +45,7 @@ def create_app(config: Config | Path | None = None) -> FastAPI:
         converter = Converter.from_config(resolved)
         app.state.converter = converter
         app.state.config = resolved
+        app.state.cache = ResponseCache()
         log.info(
             "pravapis %s ready: %s, %d rules, model=%s",
             __version__,
@@ -59,6 +62,17 @@ def create_app(config: Config | Path | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(router)
+    # Public, read-only, unauthenticated API: any origin may call it, and it sets no
+    # cookies and reads none — allow_credentials must stay False, since CORS forbids
+    # combining it with a wildcard origin (and there is nothing here credentials
+    # would protect anyway).
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.middleware("http")(log_request_metadata)
     return app
 

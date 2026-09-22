@@ -199,3 +199,13 @@ class HealthResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     status: str = "ok"
+
+
+class VersionResponse(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    engine_version: str
+    data_version: str
+    #: sha256 over data/MANIFEST's listed files, in order — see pravapis.dataversion.
+    #: Matches the hash in the deployed precompiled artifact's filename by construction.
+    data_hash: str

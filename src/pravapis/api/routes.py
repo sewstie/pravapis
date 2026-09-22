@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from pravapis import __version__
+from pravapis.api.cache import ResponseCache, cache_key, etag_for
 from pravapis.api.schemas import (
     BatchConvertRequest,
     BatchConvertResponse,
@@ -21,7 +23,9 @@ from pravapis.api.schemas import (
     TokenExplanation,
     TransliterateRequest,
     TransliterateResponse,
+    VersionResponse,
 )
+from pravapis.dataversion import compute_data_hash, read_data_version
 from pravapis.normalize import sanitize
 from pravapis.pipeline import Converter
 from pravapis.translit import PAIRED, REVERSIBLE
@@ -29,25 +33,56 @@ from pravapis.types import ConversionResult, Orthography, Script
 
 router = APIRouter()
 
+#: /v1/convert has no script of its own (that is /v1/transliterate); fixed so the
+#: cache key's shape is ready for that endpoint to share this cache later.
+CONVERT_SCRIPT = "cyrillic"
+
+UnresolvedQuery = Annotated[
+    bool,
+    Query(
+        description="Also report words the converter declined to decide on. Off by "
+        'default — see docs/API.md, "Off by default: measured, not guessed".'
+    ),
+]
+
 
 def get_converter(request: Request) -> Converter:
     converter: Converter = request.app.state.converter
     return converter
 
 
+def get_cache(request: Request) -> ResponseCache:
+    cache: ResponseCache = request.app.state.cache
+    return cache
+
+
 ConverterDep = Annotated[Converter, Depends(get_converter)]
+CacheDep = Annotated[ResponseCache, Depends(get_cache)]
 
 
-def _to_response(
-    converter: Converter, text: str, direction: Orthography, explain: bool
-) -> ConvertResponse:
+@lru_cache(maxsize=1)
+def _data_version() -> str:
+    """Cached: the data version does not change while a process runs."""
+    return read_data_version()
+
+
+def _convert_cached(
+    converter: Converter, cache: ResponseCache, text: str, direction: Orthography, unresolved: bool
+) -> tuple[ConversionResult, tuple[str, str, str, bool, str]]:
+    key = cache_key(text, direction, CONVERT_SCRIPT, unresolved, _data_version())
+    result = cache.get_or_set(
+        key, lambda: converter.convert(text, direction, unresolved=unresolved)
+    )
+    return result, key
+
+
+def _to_response(result: ConversionResult, explain: bool) -> ConvertResponse:
     """Build the frozen response. The shape lives in `pravapis.types.ConversionResult`.
 
     Built from `result.to_dict()` rather than field by field, so the FastAPI service and
     the library's own public shape cannot drift: there is one place that decides what a
     conversion looks like on the wire.
     """
-    result: ConversionResult = converter.convert(text, direction)
     payload = result.to_dict()
     explanations = None
     if explain:
@@ -84,8 +119,16 @@ def _to_response(
 
 
 @router.post("/v1/convert", response_model=ConvertResponse)
-def convert(req: ConvertRequest, converter: ConverterDep) -> ConvertResponse:
-    return _to_response(converter, req.text, req.direction, req.explain)
+def convert(
+    req: ConvertRequest,
+    converter: ConverterDep,
+    cache: CacheDep,
+    response: Response,
+    unresolved: UnresolvedQuery = False,
+) -> ConvertResponse:
+    result, key = _convert_cached(converter, cache, req.text, req.direction, unresolved)
+    response.headers["ETag"] = etag_for(key)
+    return _to_response(result, req.explain)
 
 
 @router.post("/v1/transliterate", response_model=TransliterateResponse)
@@ -125,10 +168,17 @@ def transliterate(req: TransliterateRequest, converter: ConverterDep) -> Transli
 
 
 @router.post("/v1/convert/batch", response_model=BatchConvertResponse)
-def convert_batch(req: BatchConvertRequest, converter: ConverterDep) -> BatchConvertResponse:
-    return BatchConvertResponse(
-        results=[_to_response(converter, t, req.direction, req.explain) for t in req.texts]
-    )
+def convert_batch(
+    req: BatchConvertRequest,
+    converter: ConverterDep,
+    cache: CacheDep,
+    unresolved: UnresolvedQuery = False,
+) -> BatchConvertResponse:
+    results = []
+    for t in req.texts:
+        result, _key = _convert_cached(converter, cache, t, req.direction, unresolved)
+        results.append(_to_response(result, req.explain))
+    return BatchConvertResponse(results=results)
 
 
 @router.get("/v1/lexicon/{word}", response_model=LexiconResponse)
@@ -163,6 +213,18 @@ def stats(converter: ConverterDep) -> StatsResponse:
         lexicon_size=len(converter.lexicon),
         rule_count=len(converter.engine),
         model_version=converter.model_version,
+    )
+
+
+@router.get("/v1/version", response_model=VersionResponse)
+def version() -> VersionResponse:
+    """Which engine and which data this instance is running — the same data_hash a
+    precompiled artifact's filename carries (pravapis.artifact), by construction:
+    both call pravapis.dataversion.compute_data_hash()."""
+    return VersionResponse(
+        engine_version=__version__,
+        data_version=_data_version(),
+        data_hash=compute_data_hash(),
     )
 
 

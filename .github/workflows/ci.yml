@@ -28,6 +28,9 @@ jobs:
       # Request text must never reach a log line, in src/pravapis/api/ or anywhere a
       # future endpoint lands. See docs/API.md, "Privacy".
       - run: uv run python scripts/check_no_request_text_logging.py
+      # The committed openapi.json is the FastAPI service's contract in machine-
+      # readable form. Any drift is either a documented /v2 decision or a bug.
+      - run: uv run python scripts/export_openapi.py --check
       # The data is a specification, so check it against that specification before
       # anything else runs: a schema nobody enforces is a comment.
       - run: uv run pravapis validate-data
