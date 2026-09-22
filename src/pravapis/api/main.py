@@ -17,6 +17,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from pravapis import __version__
+from pravapis.api.request_log import log_request_metadata
 from pravapis.api.routes import router
 from pravapis.config import Config
 from pravapis.pipeline import Converter
@@ -58,6 +59,7 @@ def create_app(config: Config | Path | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(router)
+    app.middleware("http")(log_request_metadata)
     return app
 
 
