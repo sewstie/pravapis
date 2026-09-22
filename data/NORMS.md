@@ -639,13 +639,99 @@ not a patch. Re-run it after every batch of mined stems.
 
 ## Known gaps (not implemented, need the codification)
 
-*(The genitive plural -аў was logged here for a long time. It is not a gap and not a rule:
-§80 extends -аў to feminine and neuter nouns in a vowel, but for many words **both** forms
+*(The genitive plural -аў was logged here for a long time. It is not a gap and not a rule.
+**Correction:** this paragraph, `src/pravapis/morphology.py` and the comment in
+`data/lexicon/exceptions.tsv` all used to cite "§80" for it. That is wrong — Збор 2005 §80
+is the German *ei* rule (Ляйпцыг, Айнштайн), which this file cites correctly elsewhere.
+There is no § to cite, because **Збор 2005 is a spelling code (§1–92) and does not legislate
+declension at all**; its preface calls it "даведнік цяжкасьцяў беларускага правапісу". The
+-аў genitive plural is a morphological feature of Taraškievica, sourced here to the project
+owner's instruction and not to the codification. For many words **both** forms
 are permissible — хвілін and хвілінаў are equally valid — so a rule that fires on all of
 them corrupts ordinary text. Six nouns where -аў is strongly preferred are whitelisted in
 `data/lexicon/exceptions.tsv`; everything else is left alone. A table-driven version was
 built from every GrammarDB noun first and cost 10 false positives against 3 words gained.)*
 
+
+## Ў after a vowel (Збор 2005, §18; §20)
+
+`morph.initial_u_w`. Implemented, cited, and the citation is **§18** — an earlier note in
+this file guessed §15 and was wrong. §15 is і → ы after a prefix ending in a consonant
+(`безыдэйны`, `дэзынфэкцыя`). The guess was never shipped, because a rule that cannot be
+cited is not written here; the book settled it.
+
+§18 reads: "Пасьля галосных літараў на месцы у пішацца ў, калі на яго не прыпадае
+націск", and its own examples carry the case the recall harness kept reporting:
+
+> ва Ўфе , сталіца Ўкраіны , Марыя Ўласевіч , едзе ў Вільню , ЗША ўзьнялі пытаньне
+
+So a **capitalised** proper noun after a vowel does take Ў, and that is where the two
+orthographies part: Narkamaŭka writes *ва Украіне*, Taraškievica *ва Ўкраіне*. Only
+capitals are converted — lowercase у after a vowel is already ў in Narkamaŭka too
+(*ва ўніверсітэце*), so there is nothing there to change.
+
+§18 names three exceptions, all implemented:
+
+| Exception | §18's examples | How |
+|---|---|---|
+| stressed у | але у́т, Са у́даўская Арабія, да У́йпэшту, пра У́мбрыю | `StressTable`, plus `STRESSED_INITIAL_U` |
+| initial "У." for a name | за У. Сыракомлю, пра У. Караткевіча | single-letter token |
+| initial abbreviations | БДЭУ, РУУС, САУ | `word.isupper()` |
+
+`STRESSED_INITIAL_U` exists because the stress table is GrammarDB, a lexicon of
+Belarusian: it does not contain *Умбрыя* or *Уйпэшт*, and for a word it does not know
+`is_first_syllable_stressed` has to answer "no". The three stems listed are §18's own
+examples of the exception.
+
+§18 Заўвага — "Злучок і двукосьсе ня ёсьць знакамі прыпынку й на правапіс ў не
+ўплываюць" — is the same note the §13 conjunction rule already relied on, so a hyphen or
+a quotation mark is transparent here too: *рыба-ўюн*, *Кука-Ўітсан*.
+
+### The reverse direction: a different code, and a different shape
+
+T → N here answers to **Правілы беларускай арфаграфіі і пунктуацыі (2008)**, the rules
+attached to Закон № 420-З — the Narkamaŭka side's own codification, the counterpart of
+Збор правілаў 2005 on the Taraškievica side. Cited as `Правілы 2008, §N`; obtained and
+hash-pinned by `scripts/fetch_reference.py` (see data/reference/README.md).
+
+> **Правілы 2008, §15 п.4** — «Гук [у] на пачатку ўласных імён і назваў **заўсёды**
+> перадаецца вялікай літарай У складовае **без надрадковага значка**: ва Узбекістан
+> (для ўзбекаў), на Уральскіх гарах, на Украіне (за ўкраінцаў), за Уладзіміра, каля
+> Уладзіслава, да Усяслава.»
+
+**The two directions are not mirror images.** §18 makes У → Ў conditional: after a
+vowel, unstressed, capitalised. §15 п.4 makes the reverse unconditional — a proper name
+never begins with Ў in Narkamaŭka, whatever precedes it. So the forward rule needs the
+previous word and the stress table; the reverse rule needs neither.
+
+#### What this corrected
+
+This project previously kept Ў in Narkamaŭka for names that render English *W* —
+*Разумнік Ўіл Гантынг*, *з Ўотэрзам* — on the strength of six hand-written rows in
+`data/eval/tarask/gold_t2n.tsv`, and carried a `W_NAMES` exception list so T → N would
+leave them alone. Checked against the N-side authority, that was wrong:
+
+* §15 п.4 is categorical, and says the opposite.
+* The 2008 rules contain **no word-initial Ў anywhere** — the only capital Ў in the
+  whole text is inside ЗНАКАЎ and ПАСЛЯДОЎНАСЦЬ.
+* §14 lists *Уэльс* among proper names taking no prosthetic в — a W-name, written У.
+* Usage agrees by a wide margin: on be.wikipedia, Уіл 115 hits to Ўіл 1, Уэльс 756 to
+  Ўэльс 2, Уотэр 10 to Ўотэр 0.
+
+The six gold rows were corrected to У складовае and the exception was removed. The
+inventory itself survives as `data/names/w_names.tsv` — it is real evidence about which
+names these are, mined from Wikidata (see `scripts/mine_w_names.py`) — but **nothing in
+the converter reads it**, and `pravapis conformance --coverage` lists it as a deliberate
+exemption rather than letting it look live. Its natural use is the *forward* direction,
+where N → T might write Уіл as Ўіл in positions §18 alone does not reach; that is an
+open question, not implemented.
+
+### What it bought
+
+The `other` alternation class, which was **0 of 35** on dev, is now 42.9% (15/35); the
+rest of that class is the two wikis disagreeing about у/ў in the other direction, which
+is not the converter's to reconcile. Dev N → T recall 74.2% → 75.1%, test 73.5% → 74.5%,
+precision unchanged.
 
 ## Project decision: no ґ
 

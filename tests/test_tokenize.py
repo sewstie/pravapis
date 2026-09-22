@@ -85,3 +85,19 @@ def test_next_word_breaks_on_punctuation() -> None:
     tokens = tokenize("не, быў")
     assert next_word(tokens, 0) is None
     assert next_word(tokens, len(tokens) - 1) is None
+
+
+def test_next_word_crosses_a_quotation_mark() -> None:
+    """§13 Заўвага: двукосье is not a punctuation mark, so it is not a break.
+
+    An opening quote is silent, and a clitic agrees with what is spoken. Found in the
+    parallel corpus as з «Віцебскам», which be-tarask writes зь.
+    """
+    tokens = tokenize("з «Віцебскам»")
+    assert next_word(tokens, 0) is not None
+    assert next_word(tokens, 0).text == "Віцебскам"  # type: ignore[union-attr]
+
+
+def test_next_word_still_breaks_on_a_dash() -> None:
+    """A працяжнік *is* a punctuation mark. §13 names злучок and двукосье, not this."""
+    assert next_word(tokenize("з — снегам"), 0) is None

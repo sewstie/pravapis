@@ -28,8 +28,8 @@ def test_explain_segments_rebuild_the_output(converter: Converter) -> None:
     body = convert_payload(
         converter, {"text": "Не быў у Мінску, план сістэмы — снег.", "explain": True}
     )
-    assert body["result"] == "Ня быў у Менску, плян сыстэмы — сьнег."
-    assert "".join(s["text"] for s in body["segments"]) == body["result"]
+    assert body["text"] == "Ня быў у Менску, плян сыстэмы — сьнег."
+    assert "".join(s["text"] for s in body["segments"]) == body["text"]
     changed = {s["source"]: s for s in body["segments"] if s.get("changed")}
     assert changed["Не"]["method"] == "rule"
     assert changed["Не"]["traces"][0]["rule_id"] == "morph.particle"
@@ -37,18 +37,27 @@ def test_explain_segments_rebuild_the_output(converter: Converter) -> None:
     assert changed["снег"]["traces"] == [
         {"rule_id": "palat.assim", "before": "снег", "after": "сьнег"}
     ]
-    st = body["stats"]
-    assert st["words"] == 7
-    assert st["changed"] == 5
-    assert st["by_method"]["lexicon"] + st["by_method"]["rule"] == 5
+    # `stats` left the response when the contract was frozen (docs/API.md): the same
+    # counts are derivable from `changes`, and an extra top-level key is exactly the
+    # kind of thing a port would omit without anyone noticing.
+    assert len(body["changes"]) == 5
+    stages = [c["stage"] for c in body["changes"]]
+    assert stages.count("lexicon") + stages.count("rule") == 5
+    assert len([s for s in body["segments"] if "source" in s]) == 7
 
 
 def test_aggressive_field(converter: Converter) -> None:
+    """`aggressive` is a request option, and the response no longer echoes it.
+
+    The frozen contract has six fields and an echo is not one of them; what the option
+    did is visible in the output itself, which is the thing worth asserting anyway.
+    """
     default = convert_payload(converter, {"text": "Фёдар і Мама"})
-    assert default["result"] == "Фёдар і Мама" and default["aggressive"] is False
+    assert default["text"] == "Фёдар і Мама"
+    assert "aggressive" not in default
     aggressive = convert_payload(converter, {"text": "Фёдар і Мама", "aggressive": True})
-    assert aggressive["result"] == "Хведар і Мама"  # і after a consonant stays
-    assert convert_payload(converter, {"text": "Мама і тата", "aggressive": True})["result"] == (
+    assert aggressive["text"] == "Хведар і Мама"  # і after a consonant stays
+    assert convert_payload(converter, {"text": "Мама і тата", "aggressive": True})["text"] == (
         "Мама й тата"
     )
     with pytest.raises(ApiError) as exc:
@@ -115,7 +124,7 @@ def test_preflight(converter: Converter) -> None:
 
 def test_post_carries_cors_for_allowed_origin(converter: Converter) -> None:
     status, body, headers = _post(converter, {"text": "снег"}, origin="http://localhost:3000")
-    assert status == 200 and body["result"] == "сьнег"
+    assert status == 200 and body["text"] == "сьнег"
     assert headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
 
 
@@ -174,7 +183,7 @@ def test_root_function_over_http() -> None:
     r = json.loads(proc.stdout)
     status, body, headers = r["post"]
     assert status == 200
-    assert body["result"] == "Ня быў у Менску"
+    assert body["text"] == "Ня быў у Менску"
     assert headers["Access-Control-Allow-Origin"] == "https://paznaj.by"
     assert headers["Content-Type"] == "application/json; charset=utf-8"
     assert r["preflight"][0] == 204

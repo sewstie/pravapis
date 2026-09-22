@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:w_names:1",
+  "title": "pravapis W-name inventory row",
+  "description": "Names whose initial Ў renders English W rather than Збор правілаў 2005 §18's alternation of у (data/names/w_names.tsv). §18 turns an unstressed initial У into Ў after a vowel and the reverse direction undoes it; Belarusian also writes Ў at the start of a borrowed name for English W, and Narkamaŭka keeps that Ў. After a vowel the two are indistinguishable, so reversing a name would corrupt it. This file is the list of stems where the Ў stays, and it is NORMATIVE: a port that does not read it will corrupt every W-name that follows a vowel. The file is TSV, so this schema describes the file dialect in `x-tsv` and the object each data line parses into in `$defs/row`.",
+
+  "x-tsv": {
+    "delimiter": "\t",
+    "comment": "#",
+    "encoding": "utf-8",
+    "blankLinesIgnored": true,
+    "cellsAreTrimmed": true,
+    "declaration": {
+      "required": true,
+      "description": "The file declares the schema it is written against and its column order, as the stem inventory does, so the column order is a fact about the file rather than a fact about the parser.",
+      "directives": {
+        "schema": {
+          "syntax": "#!schema <schema $id>",
+          "example": "#!schema tag:pravapis,2026:schema:w_names:1"
+        },
+        "columns": {
+          "syntax": "#!columns <name>\\t<name>…",
+          "example": "#!columns stem\tprovenance\tevidence"
+        }
+      }
+    },
+    "columns": [
+      {
+        "name": "stem",
+        "index": 0,
+        "required": true,
+        "description": "The stem, lowercase, always beginning with ў. Matching is by PREFIX on the lowercased word, so one stem covers a whole paradigm: ўотэрз matches Ўотэрзам, ўіл matches Ўіла. Take the first word of the name; the remaining words of a multi-word name are matched as tokens of their own."
+      },
+      {
+        "name": "provenance",
+        "index": 1,
+        "required": true,
+        "description": "Where the row came from. `hand` rows were read off an attested sentence in data/eval/tarask/gold_t2n.tsv — a stronger warrant than a label pair, so they are never overwritten by mining. `wikidata` rows come from an item whose English label begins with W and whose be-tarask label begins with Ў."
+      },
+      {
+        "name": "evidence",
+        "index": 2,
+        "required": true,
+        "description": "What backs the row: the gold file path for `hand`, or `<QID> <English label>` for `wikidata`."
+      }
+    ]
+  },
+
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stem", "provenance", "evidence"],
+      "properties": {
+        "stem": {
+          "type": "string",
+          "minLength": 3,
+          "pattern": "^\\u045E[\\u0400-\\u04FF\\u2019'\\u02BC-]+$",
+          "description": "Lowercase, begins with ў (U+045E)."
+        },
+        "provenance": {
+          "enum": ["hand", "wikidata"]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+
+  "x-openEnded": "This inventory is open-ended by nature and cannot be completed. A W-name nobody has written down will still come back from T → N with У. That is a stated limit of rule morph.initial_u_w, recorded in data/NORMS.md; it is not a defect this file can close."
+}

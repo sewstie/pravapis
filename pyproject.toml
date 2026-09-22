@@ -24,6 +24,9 @@ dependencies = [
 
 [project.optional-dependencies]
 ml = ["scikit-learn>=1.5", "joblib>=1.4", "pandas>=2.2"]
+# Validating the data against data/schemas/ is a development and CI activity, so the
+# core install stays light: `pravapis validate-data` asks for this extra when it needs it.
+spec = ["jsonschema>=4.22"]
 
 [project.scripts]
 pravapis = "pravapis.cli:app"
@@ -38,6 +41,8 @@ dev = [
   "ruff>=0.5",
   "httpx>=0.27",
   "types-PyYAML",
+  "jsonschema>=4.22",
+  "types-jsonschema",
   "pre-commit>=3.7",
   "scikit-learn>=1.5",
   "joblib>=1.4",

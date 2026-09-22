@@ -80,6 +80,10 @@ class Rule:
     repeat: bool = False  # apply until fixpoint (for chained softness)
     exceptions: frozenset[str] = field(default_factory=frozenset)
     description: str = ""
+    #: where the rule comes from — a § of the codification, ``derived:<rule-id>`` for an
+    #: inverse, or ``convention:<reason>``. Required by data/schemas/rules.schema.json and
+    #: reported on every change record, so a caller can trace any rewrite to its source.
+    citation: str = ""
     tests: tuple[RuleTest, ...] = ()
     #: the codification permits both the input and the output form; applied only
     #: in aggressive mode (see data/NORMS.md, "Policy: optional forms")
@@ -202,6 +206,7 @@ def _parse_rule(raw: dict[str, Any], default_direction: Orthography | None) -> R
         repeat=bool(raw.get("repeat", False)),
         exceptions=frozenset(str(e).lower() for e in exceptions_raw),
         description=str(raw.get("description", "")),
+        citation=str(raw.get("citation", "")),
         tests=_parse_tests(raw.get("tests")),
         optional=bool(raw.get("optional", False)),
         requires_class=requires_class,
@@ -294,6 +299,7 @@ class RuleEngine:
         self._repeat_rules: dict[Orthography, tuple[Rule, ...]] = {
             d: tuple(r for r in rs if r.repeat) for d, rs in self._by_direction.items()
         }
+        self._by_id: dict[str, Rule] = {r.id: r for r in self._rules}
 
     @classmethod
     def from_yaml(
@@ -324,6 +330,11 @@ class RuleEngine:
         """Every loaded rule, optional ones included (applied or not)."""
         return self._rules
 
+    @property
+    def stems(self) -> dict[Orthography, StemIndex]:
+        """The etymology indexes this engine gates its class-bound rules on."""
+        return self._stems
+
     def __len__(self) -> int:
         return len(self._rules)
 
@@ -332,7 +343,12 @@ class RuleEngine:
         return list(self._by_direction[direction])
 
     def get(self, rule_id: str) -> Rule | None:
-        return next((r for r in self._rules if r.id == rule_id), None)
+        return self._by_id.get(rule_id)
+
+    def citation_for(self, rule_id: str) -> str | None:
+        """The citation of one rule, by id."""
+        rule = self._by_id.get(rule_id)
+        return rule.citation or None if rule is not None else None
 
     def explain(self, word: str, direction: Orthography) -> list[RuleTrace]:
         """Apply every rule for ``direction`` and record the ones that changed the word.

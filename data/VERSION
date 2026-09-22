@@ -1,0 +1,4 @@
+# The version of the DATA package: rules, stems, lexicon, transliteration schemes,
+# and the schemas that describe them. Versioned separately from the code — see
+# data/VERSIONING.md for what a bump means. One semver triple, nothing else.
+1.3.0

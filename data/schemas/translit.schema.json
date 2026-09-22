@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:pravapis,2026:schema:translit:1",
+  "title": "pravapis transliteration scheme",
+  "description": "A transliteration table (data/translit/*.yaml). NORMATIVE for any implementation. The table is consumed by a single left-to-right longest-match pass: at each position, the longest `from` whose condition holds is emitted and consumed, and the scan moves past it. That discipline is the point — a priority-ordered rule engine run to a fixpoint would let дз → dz be re-entered by з → z. Conditions are a closed vocabulary rather than regex so a scheme can be checked against a published table by someone who does not read code, and they are evaluated against the SOURCE string only, never against output already produced.",
+  "$defs": {
+    "condition": {
+      "description": "A single context condition. Evaluated against the source string, with the matched grapheme spanning [start, end).",
+      "oneOf": [
+        { "const": "default", "title": "always true; the fallback" },
+        { "const": "initial", "title": "start of the word (start == 0)" },
+        { "const": "final", "title": "nothing follows (end == length)" },
+        { "const": "after_vowel", "title": "source[start-1] is a vowel; ў counts as one" },
+        { "const": "after_consonant", "title": "source[start-1] is a consonant (not a vowel, not ь/ъ)" },
+        { "const": "after_apostrophe", "title": "source[start-1] is an apostrophe" },
+        { "const": "after_soft_sign", "title": "source[start-1] is ь" },
+        { "const": "after_l", "title": "source[start-1] is л" },
+        { "const": "before_vowel", "title": "source[end] is a vowel; ў counts as one" },
+        { "const": "before_soft_vowel", "title": "source[end] is one of е ё і ю я" },
+        { "const": "before_consonant", "title": "source[end] is a consonant" }
+      ]
+    },
+    "when": {
+      "type": "string",
+      "description": "One condition, or several joined by '|', meaning ANY of them (disjunction). There is no conjunction and no negation: a scheme that needs them is describing something this transducer should not be asked to do.",
+      "pattern": "^(default|initial|final|after_vowel|after_consonant|after_apostrophe|after_soft_sign|after_l|before_vowel|before_soft_vowel|before_consonant)(\\|(default|initial|final|after_vowel|after_consonant|after_apostrophe|after_soft_sign|after_l|before_vowel|before_soft_vowel|before_consonant))*$",
+      "default": "default"
+    },
+    "mapping": {
+      "type": "object",
+      "description": "One grapheme, one output, one condition. Order matters only among mappings that share a `from`: the first whose condition holds wins. A longer `from` always beats a shorter one regardless of order.",
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The source grapheme. May be several characters (дзь, дж); longest match wins."
+        },
+        "to": {
+          "type": "string",
+          "description": "What it becomes. May be empty (a grapheme the scheme deliberately drops), several characters, or contain combining marks — compare as NFC."
+        },
+        "when": { "$ref": "#/$defs/when" },
+        "lossy": {
+          "type": "boolean",
+          "description": "The scheme has no faithful rendering for this grapheme; the output is a best effort and the caller is told via `unresolved`. A bare ь after a consonant with no soft Latin counterpart is the case in point. Reporting beats silently dropping.",
+          "default": false
+        }
+      },
+      "required": ["from", "to"],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "scheme": {
+      "type": "string",
+      "description": "The scheme's name. `lacinka` and `official` are the two shipped; a reverse table is named after the scheme it reads.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the scheme is, and which orthography it pairs with. The pairing is not decoration: Łacinka marks assimilative softness exactly as Taraškievica does, the 2007 romanisation marks only the ь that is written, as Narkamaŭka does — so rendering converts to the paired orthography first."
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The published table this one is transcribed from, cited well enough to check it against. Required: a transliteration scheme with no source is a preference."
+    },
+    "reverse_of": {
+      "type": "string",
+      "description": "Present on a Latin → Cyrillic table: the name of the forward scheme it inverts. A scheme that does not record assimilative softness has no faithful inverse and must NOT ship one — reading it back would be a guess about something the source never wrote down.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "mappings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mapping" },
+      "minItems": 1
+    },
+    "tests": {
+      "type": "array",
+      "description": "Inline cases, exported verbatim into the conformance corpus.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "minLength": 1 },
+          "expected": { "type": "string" }
+        },
+        "required": ["input", "expected"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["scheme", "description", "source", "mappings", "tests"],
+  "additionalProperties": false,
+
+  "x-constraints": [
+    "Coverage: every letter of the scheme's source alphabet must be consumable by some mapping, or the scheme has a blind spot that will surface as `unresolved` on real text. Enforced by validate_scheme().",
+    "A mapping list must not contain two entries with the same (from, when) pair: the second can never be reached.",
+    "Conditions read the source string only. A mapping can never observe a decision another mapping already made."
+  ]
+}

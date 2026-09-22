@@ -133,6 +133,12 @@ def main(argv: list[str]) -> int:
         "- **Genitive plural -аў**: хвілін or хвілінаў, краін or краінаў? The project "
         "converts краінаў only, on instruction, and leaves every other noun alone. Is -аў "
         "general, or does it depend on the noun?\n"
+        "- **унутр or унутар?** `morph.final_tr` inserts the epenthetic а in every "
+        "word-final -тр (тэатр → тэатар, цэнтр → цэнтар), so it also makes унутр → унутар. "
+        "Both wikis write унутр unchanged. §26 governs borrowings, and унутр is native "
+        "(у + нутро), so the rule may simply not reach it — but §26 could not be read to "
+        "confirm. If унутар is wrong, унутр joins сартр and нотр in the rule's exception "
+        "list in `data/rules/morphology.yaml`.\n"
         "- **Softness across a hyphen**: §29 limits assimilative softness to "
         '"у межах слова". In a compound like сьвятлова-зялёны, does the softness of the '
         "first part carry?\n"

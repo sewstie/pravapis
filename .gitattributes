@@ -1,0 +1,13 @@
+# The conformance corpus is a byte-exact artifact: `pravapis export-conformance --check`
+# compares the committed bytes against freshly generated ones, and CI fails on a
+# difference. With core.autocrlf=true (the Windows default) git would rewrite the line
+# endings on checkout and every Windows contributor would see a spurious "stale corpus"
+# failure. -text tells git to leave these files exactly as committed, on every platform.
+conformance/cases.jsonl -text
+conformance/known_failures.jsonl -text
+conformance/manifest.json -text
+
+# Same reasoning, weaker stakes: the data files carry the content the corpus is
+# generated from, and a hash over them should not depend on who checked them out.
+data/VERSION -text
+data/lexicon/stems/*.tsv -text

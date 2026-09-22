@@ -168,7 +168,13 @@
       });
       const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      output.value = body.result;
+      // The frozen contract (docs/API.md): the converted text is `text`, and
+      // `changes` carry start/end offsets into it. Those offsets are Unicode CODE
+      // POINTS, and JS strings are indexed in UTF-16 code units — identical for
+      // Cyrillic, one apart the moment the input holds an emoji. Nothing here slices
+      // by offset yet; anything that starts to must convert first. See codePointSlice
+      // in docs/API.md.
+      output.value = body.text;
     } catch (err) {
       fail(err.message);
     } finally {

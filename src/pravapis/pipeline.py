@@ -13,10 +13,11 @@ threshold.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, overload
 
 import regex
 
@@ -28,14 +29,15 @@ from pravapis.lexicon.store import Lexicon
 from pravapis.morphology import MENT_RULE_ID, MentSuffix
 from pravapis.normalize import sanitize
 from pravapis.rules.engine import RuleEngine
+from pravapis.rules.function_words import FunctionWords, default_function_words
 from pravapis.rules.loanwords import build_stem_indexes
 from pravapis.rules.morphology import (
     CONJ_RULE_ID,
-    PARTICLES_N2T,
-    PARTICLES_T2N,
-    SOFTENING_PREPOSITIONS,
+    INITIAL_W_RULE_ID,
     conjunction_i_to_j,
     convert_particle,
+    initial_u_to_w,
+    initial_w_to_u,
 )
 from pravapis.stress import StressTable
 from pravapis.tokenize import (
@@ -50,6 +52,7 @@ from pravapis.translit import PAIRED, REVERSIBLE, Transliterator, detect_script
 from pravapis.translit.engine import TransliterationResult
 from pravapis.types import (
     METHOD_PRIORITY,
+    ChangeContext,
     Conversion,
     ConversionResult,
     Method,
@@ -69,16 +72,101 @@ log = logging.getLogger(__name__)
 PARTICLE_RULE_ID: Final[str] = "morph.particle"
 CACHE_LIMIT: Final[int] = 200_000
 
-#: Words whose conversion depends on the next word; never memoised.
-CONTEXT_SENSITIVE: Final[frozenset[str]] = (
-    frozenset(PARTICLES_N2T) | frozenset(PARTICLES_T2N) | SOFTENING_PREPOSITIONS
-)
+#: The rules that read a neighbouring word, and what they read. Only these get a
+#: ``context`` on the wire, so a ``null`` there positively means the change is
+#: reproducible from the word alone. Keyed by rule id because that is what a change
+#: carries; a combined id ("morph.particle+palat.assim") matches on any component.
+CROSS_WORD_TRIGGERS: Final[dict[str, tuple[str, str | None]]] = {
+    PARTICLE_RULE_ID: ("next_word", None),
+    CASE_RULE_ID: ("prev_word", None),
+    CONJ_RULE_ID: ("prev_word_vowel", "§13"),
+    INITIAL_W_RULE_ID: ("prev_word_vowel", "§18"),
+}
+
+#: Citations for the rules that run here rather than in the YAML engine, because they
+#: need the neighbouring word or a morphological fact. The YAML rules carry their own
+#: `citation` field; these four have nowhere to carry one, so they are listed against
+#: their entries in data/NORMS.md. Every change record can then name its source.
+PSEUDO_RULE_CITATIONS: Final[dict[str, str]] = {
+    CASE_RULE_ID: "Збор 2005, §37; GrammarDB RELEASE-202601 paradigms",
+    PARTICLE_RULE_ID: "Збор 2005, §3, §29, §29 Заўвага А",
+    CONJ_RULE_ID: "Збор 2005, §13",
+    INITIAL_W_RULE_ID: "Збор 2005, §18; §20 (N→T) / Правілы 2008, §15 п.4 (T→N)",
+    MENT_RULE_ID: "Збор 2005, §11б",
+}
+
+
+def context_sensitive(words: FunctionWords) -> frozenset[str]:
+    """Words whose conversion depends on the next word; never memoised.
+
+    Derived from the inventories rather than listed again: a particle added to
+    ``data/morphology/function_words.tsv`` that was not also added here would be
+    memoised on its first context and then converted wrongly ever after.
+    """
+    return (
+        frozenset(words.particles_n2t)
+        | frozenset(words.particles_t2n)
+        | words.softening_prepositions
+    )
+
 
 #: Shared empty context, so the no-classifier path allocates no list per token.
 _NO_CONTEXT: Final[list[Token]] = []
 
 #: (lowercase target, method, rule ids) for a context-free word.
 Resolved = tuple[str, Method, str | None]
+
+
+def _across(tokens: Sequence[Token], i: int, *, back: bool) -> str | None:
+    """The non-space characters a cross-word rule reached over, or None if only space.
+
+    §18 Заўвага — "Злучок і двукосьсе ня ёсьць знакамі прыпынку" — lets these rules see
+    past a hyphen or a quotation mark. That is the part of a firing a reader is least
+    able to reconstruct from the two words alone, so it is recorded: *школу «Ўітні»* is
+    a rule reaching across a «, and `across: null` says the two words were merely
+    adjacent.
+    """
+    step = -1 if back else 1
+    j = i + step
+    bridged: list[str] = []
+    while 0 <= j < len(tokens) and tokens[j].kind is not TokenKind.WORD:
+        if tokens[j].kind is not TokenKind.SPACE:
+            bridged.append(tokens[j].text)
+        j += step
+    if not (0 <= j < len(tokens)):
+        return None
+    if back:
+        bridged.reverse()
+    joined = "".join(bridged)
+    return joined or None
+
+
+def _context_for(
+    conv: Conversion, tokens: Sequence[Token], i: int, direction: Orthography
+) -> ChangeContext | None:
+    """The cross-word context for a change, or None when the rule read only the word.
+
+    Assigned in one place, from the rule that fired, rather than at each construction
+    site: a rule that gains a neighbour-reading condition then cannot quietly keep
+    reporting ``context: null``.
+    """
+    if not conv.changed or conv.rule_id is None:
+        return None
+    for part in conv.rule_id.split("+"):
+        trigger = CROSS_WORD_TRIGGERS.get(part)
+        if trigger is None:
+            continue
+        # T → N undoes §18 unconditionally (Правілы 2008 §15 п.4), reading no
+        # neighbour, so only the forward direction is cross-word there.
+        if part == INITIAL_W_RULE_ID and direction is not Orthography.TARASKIEVICA:
+            continue
+        name, rule = trigger
+        return ChangeContext(
+            trigger=name,
+            across=_across(tokens, i, back=name.startswith("prev")),
+            rule=rule,
+        )
+    return None
 
 
 def _recase_like(source: str, lw: str, target: str) -> str:
@@ -104,6 +192,7 @@ class Converter:
         aggressive: bool = False,
         case_forms: CaseForms | None = None,
         ment_suffix: MentSuffix | None = None,
+        function_words: FunctionWords | None = None,
     ):
         """``aggressive`` also applies optional transformations: rewrites of forms the
         codification already allows (Фёдар → Хведар, і → й after a vowel). Off by default;
@@ -118,9 +207,18 @@ class Converter:
         self.stress = stress
         self.case_forms = case_forms if case_forms is not None else CaseForms.empty()
         self.ment_suffix = ment_suffix if ment_suffix is not None else MentSuffix.empty()
+        #: Particle, clitic and preposition inventories, from data.
+        self.function_words = (
+            function_words if function_words is not None else default_function_words()
+        )
+        self._context_sensitive = context_sensitive(self.function_words)
         triggers = config.ambiguity_triggers if config else DEFAULT_AMBIGUITY_TRIGGERS
         self._triggers: tuple[regex.Pattern[str], ...] = tuple(regex.compile(t) for t in triggers)
         self._cache: dict[tuple[str, Orthography], Resolved | None] = {}
+        #: rule_id (possibly several joined with "+") -> citation. Memoised because the
+        #: set of combinations that actually occur is small and closed, so after warmup
+        #: attaching a citation to a change is a dict hit.
+        self._citations: dict[str | None, str | None] = {None: None}
         self._variants: dict[bool, Converter] = {aggressive: self}
         if disambiguator is not None and config is not None:
             disambiguator.threshold = config.confidence_threshold
@@ -137,6 +235,7 @@ class Converter:
                 aggressive=aggressive,
                 case_forms=self.case_forms,
                 ment_suffix=self.ment_suffix,
+                function_words=self.function_words,
             )
             other._variants = self._variants
             other.lexicon_origin = self.lexicon_origin
@@ -248,8 +347,9 @@ class Converter:
                 )
             except Exception as exc:  # fail-safe: rules + lexicon still work
                 log.warning("disambiguation model %s not loaded: %s", config.model, exc)
+        function_words = FunctionWords.load(config.lexicon.parent)
         case_forms = (
-            CaseForms.load(config.case_forms)
+            CaseForms.load(config.case_forms, function_words.dative_locative_prepositions)
             if config.case_forms is not None and config.case_forms.exists()
             else None
         )
@@ -260,6 +360,7 @@ class Converter:
             config,
             stress,
             case_forms=case_forms,
+            function_words=function_words,
             ment_suffix=(
                 MentSuffix.load(config.morphology)
                 if config.morphology is not None and config.morphology.exists()
@@ -276,6 +377,26 @@ class Converter:
 
     def is_ambiguous(self, word: str) -> bool:
         return any(t.search(word) for t in self._triggers)
+
+    def citation_for(self, rule_id: str | None) -> str | None:
+        """Why the rewrite that ``rule_id`` names is permissible.
+
+        ``rule_id`` may name several rules joined with ``+`` — the cascade composes them
+        — in which case the citations are joined too, in firing order, without repeats.
+        """
+        try:
+            return self._citations[rule_id]
+        except KeyError:
+            pass
+        assert rule_id is not None
+        found: list[str] = []
+        for part in rule_id.split("+"):
+            citation = PSEUDO_RULE_CITATIONS.get(part) or self.engine.citation_for(part)
+            if citation and citation not in found:
+                found.append(citation)
+        result = "; ".join(found) or None
+        self._citations[rule_id] = result
+        return result
 
     # --- text-level API -------------------------------------------------------
     def convert(
@@ -304,7 +425,7 @@ class Converter:
             # the case-dependent lexicon. Both are keyed on the word itself, so scanning
             # for neighbours around every token is work thrown away for all but a few.
             lw = tok.text.lower()
-            if lw in CONTEXT_SENSITIVE or lw in self.case_forms:
+            if lw in self._context_sensitive or lw in self.case_forms:
                 following, preceding = next_word(tokens, i), previous_word(tokens, i)
             else:
                 following = preceding = None
@@ -324,12 +445,75 @@ class Converter:
         for ti, new in self._optional_conjunctions(tokens, out, direction):
             ci = next(c for t, c in words if t == ti)
             out[ti] = new
-            conversions[ci] = Conversion(tokens[ti].text, new, Method.RULE, CONJ_RULE_ID)
+            conversions[ci] = Conversion(
+                tokens[ti].text,
+                new,
+                Method.RULE,
+                CONJ_RULE_ID,
+                citation=self.citation_for(CONJ_RULE_ID),
+            )
+        for ti, new in self._initial_u(tokens, out, direction):
+            ci = next(c for t, c in words if t == ti)
+            out[ti] = new
+            conversions[ci] = Conversion(
+                tokens[ti].text,
+                new,
+                Method.RULE,
+                INITIAL_W_RULE_ID,
+                citation=self.citation_for(INITIAL_W_RULE_ID),
+            )
         done = [c for c in conversions if c is not None]
         stats: dict[Method, int] = dict.fromkeys(Method, 0)
         for c in done:
             stats[c.method] += 1
-        return ConversionResult("".join(out), tuple(done), stats)
+        spanned = self._with_output_spans(tokens, out, words, conversions, direction)
+        unresolved = tuple(
+            c.source
+            for c in spanned
+            if c.method is Method.UNKNOWN and not c.changed and self.is_ambiguous(c.source.lower())
+        )
+        return ConversionResult(
+            "".join(out), spanned, stats, direction=direction, unresolved=unresolved
+        )
+
+    @staticmethod
+    def _with_output_spans(
+        tokens: Sequence[Token],
+        out: Sequence[str],
+        words: Sequence[tuple[int, int]],
+        conversions: Sequence[Conversion | None],
+        direction: Orthography,
+    ) -> tuple[Conversion, ...]:
+        """Give every conversion its span in the **output** text, in code points.
+
+        The output rather than the input because that is the string the caller has in
+        hand, and a rule that changes a word's length makes the input offsets
+        unrecoverable from it. Code points because ``len`` on a Python ``str`` counts
+        those; a JS port converts at its own boundary (see docs/API.md).
+
+        Computed here, once, from the same ``out`` list the text is joined from, so the
+        spans cannot drift from the string they index into.
+        """
+        starts: list[int] = []
+        cursor = 0
+        for piece in out:
+            starts.append(cursor)
+            cursor += len(piece)
+        spanned: list[Conversion] = []
+        for token_index, conversion_index in words:
+            conv = conversions[conversion_index]
+            if conv is None:  # pragma: no cover - the classifier pass fills these in
+                continue
+            start = starts[token_index]
+            spanned.append(
+                replace(
+                    conv,
+                    start=start,
+                    end=start + len(out[token_index]),
+                    context=_context_for(conv, tokens, token_index, direction),
+                )
+            )
+        return tuple(spanned)
 
     def convert_word(
         self,
@@ -353,41 +537,47 @@ class Converter:
     def explain(
         self, text: str, direction: Orthography, *, aggressive: bool | None = None
     ) -> list[TokenExplanation]:
+        """A **view** over :meth:`convert`, not a second pass over the text.
+
+        Every conversion decision — which stage resolved the word, which rules fired,
+        the citation, the offset — is already made and recorded by ``convert``, because
+        the cascade cannot convert a word without making it. All this adds is the
+        per-rule trace: the intermediate forms a word passed through on its way to the
+        answer, which nothing but an explanation needs.
+
+        Keeping these as one code path is the point. When they were two, they could
+        disagree, and an explanation that disagrees with the conversion it explains is
+        worse than no explanation.
+        """
         if aggressive is not None and aggressive != self.aggressive:
             return self.variant(aggressive).explain(text, direction)
-        text = sanitize(text)
-        tokens = tokenize(text)
-        explanations: list[TokenExplanation] = []
-        out = [t.text for t in tokens]
-        index: dict[int, int] = {}  # token index -> explanation index
-        for i, tok in enumerate(tokens):
-            if tok.kind is not TokenKind.WORD:
-                continue
-            conv = self._convert_token(
-                tok,
-                context_of(tokens, i),
-                next_word(tokens, i),
+        conversions = self.convert(text, direction).conversions
+        # The conversions are exactly the word tokens, in order, so the next word is the
+        # next conversion — no need to tokenize the text a second time to find it.
+        return [
+            self._explanation_for(
+                conv,
                 direction,
-                previous_word(tokens, i),
+                conversions[i + 1].source if i + 1 < len(conversions) else None,
             )
-            traces: tuple[RuleTrace, ...] = ()
-            if conv.method in (Method.RULE, Method.MODEL):
-                traces = self._traces_for(tok.text.lower(), conv, direction, next_word(tokens, i))
-            elif conv.rule_id == CASE_RULE_ID:
-                traces = (RuleTrace(CASE_RULE_ID, tok.text.lower(), conv.target.lower()),)
-            index[i] = len(explanations)
-            out[i] = conv.target
-            explanations.append(
-                TokenExplanation(
-                    conv.source, conv.target, conv.method, conv.rule_id, conv.confidence, traces
-                )
-            )
-        for ti, new in self._optional_conjunctions(tokens, out, direction):
-            src = tokens[ti].text
-            explanations[index[ti]] = TokenExplanation(
-                src, new, Method.RULE, CONJ_RULE_ID, 1.0, (RuleTrace(CONJ_RULE_ID, src, new),)
-            )
-        return explanations
+            for i, conv in enumerate(conversions)
+        ]
+
+    def _explanation_for(
+        self, conv: Conversion, direction: Orthography, following: str | None
+    ) -> TokenExplanation:
+        """One conversion, plus the trace of how it got there."""
+        lw = conv.source.lower()
+        traces: tuple[RuleTrace, ...] = ()
+        if conv.rule_id == CONJ_RULE_ID:
+            traces = (RuleTrace(CONJ_RULE_ID, conv.source, conv.target),)
+        elif conv.method in (Method.RULE, Method.MODEL):
+            traces = self._traces_for(lw, conv, direction, following)
+        elif conv.rule_id == CASE_RULE_ID:
+            traces = (RuleTrace(CASE_RULE_ID, lw, conv.target.lower()),)
+        return TokenExplanation(
+            conv.source, conv.target, conv.method, conv.rule_id, conv.confidence, traces
+        )
 
     def _optional_conjunctions(
         self, tokens: Sequence[Token], out: Sequence[str], direction: Orthography
@@ -405,6 +595,47 @@ class Converter:
             if tok.kind is TokenKind.WORD:
                 if prev is not None and all(bridges_words(tokens, j) for j in range(prev + 1, i)):
                     new = conjunction_i_to_j(tok.text, out[prev])
+                    if new is not None:
+                        changes.append((i, new))
+                        out = [*out[:i], new, *out[i + 1 :]]
+                prev = i
+            elif not bridges_words(tokens, i):
+                prev = None
+        return changes
+
+    def _initial_u(
+        self, tokens: Sequence[Token], out: Sequence[str], direction: Orthography
+    ) -> list[tuple[int, str]]:
+        """Збор 2005 §18 forward; Правілы 2008 §15 п.4 back.
+
+        The two directions are not mirror images. §18 makes У → Ў *conditional* — after
+        a vowel, unstressed, capitalised. §15 п.4 makes the reverse *unconditional*:
+        Narkamaŭka never starts a proper name with Ў, whatever precedes it. Each side
+        of the converter answers to its own codification, and here the two codifications
+        genuinely differ in shape, not just in spelling.
+
+        A post-pass rather than a rule in the engine, because it needs the *previous*
+        word as it will finally be written — and the same shape as the §13 conjunction
+        rule next to it, including its §18 Заўвага: a hyphen or a quotation mark is not
+        a punctuation mark and does not break the run (`Кука-Ўітсан`).
+
+        Not gated behind ``aggressive``. §13 says the conjunction *may* become й; §18
+        says У *is* written Ў, and the reverse direction has no optionality either.
+        """
+        changes: list[tuple[int, str]] = []
+        prev: int | None = None
+        for i, tok in enumerate(tokens):
+            if tok.kind is TokenKind.WORD:
+                if direction is Orthography.NARKAMAUKA:
+                    # Правілы 2008 §15 п.4 is categorical, so unlike the forward rule
+                    # this one does not care what came before: a capital word-initial
+                    # Ў is written У wherever it stands.
+                    new = initial_w_to_u(out[i])
+                    if new is not None:
+                        changes.append((i, new))
+                        out = [*out[:i], new, *out[i + 1 :]]
+                elif prev is not None and all(bridges_words(tokens, j) for j in range(prev + 1, i)):
+                    new = initial_u_to_w(out[i], out[prev], self.stress, self.function_words)
                     if new is not None:
                         changes.append((i, new))
                         out = [*out[:i], new, *out[i + 1 :]]
@@ -438,8 +669,14 @@ class Converter:
         assert self.disambiguator is not None
         if predicted != lw and self.disambiguator.is_confident(score):
             final, ids = self.engine.apply(predicted, direction)
+            rule_id = "+".join(ids) or None
             return Conversion(
-                source, recase(source, final), Method.MODEL, "+".join(ids) or None, score
+                source,
+                recase(source, final),
+                Method.MODEL,
+                rule_id,
+                score,
+                citation=self.citation_for(rule_id),
             )
         return Conversion(source, source, Method.UNKNOWN)
 
@@ -469,16 +706,26 @@ class Converter:
             choice = self.case_forms.choose(lw, preceding.text if preceding else None)
             assert choice is not None
             return Conversion(
-                source, _recase_like(source, lw, choice[0]), Method.LEXICON, CASE_RULE_ID
+                source,
+                _recase_like(source, lw, choice[0]),
+                Method.LEXICON,
+                CASE_RULE_ID,
+                citation=self.citation_for(CASE_RULE_ID),
             )
-        if lw in CONTEXT_SENSITIVE:
+        if lw in self._context_sensitive:
             resolved = self._resolve_clitic(lw, following.text if following else None, direction)
         else:
             resolved = self._resolve_cached(lw, direction)
         if resolved is None:
             return None
         target, method, rule_id = resolved
-        return Conversion(source, _recase_like(source, lw, target), method, rule_id)
+        return Conversion(
+            source,
+            _recase_like(source, lw, target),
+            method,
+            rule_id,
+            citation=self.citation_for(rule_id),
+        )
 
     def _lookup(self, lw: str, direction: Orthography) -> Resolved | None:
         """Steps 1 and 2: identity set, then lexicon."""
@@ -547,7 +794,12 @@ class Converter:
         fired: list[str] = []
         work = lw
         particle = convert_particle(
-            lw, following, direction, self.stress, self._next_target(following, direction)
+            lw,
+            following,
+            direction,
+            self.stress,
+            self._next_target(following, direction),
+            self.function_words,
         )
         if particle is not None and particle != lw:
             work = particle
@@ -570,7 +822,7 @@ class Converter:
         if following is None or direction is not Orthography.TARASKIEVICA:
             return None
         lw = following.lower()
-        if lw in CONTEXT_SENSITIVE:
+        if lw in self._context_sensitive:
             return self.engine.apply(lw, direction)[0]
         resolved = self._resolve_cached(lw, direction)
         return lw if resolved is None else resolved[0]
@@ -593,12 +845,12 @@ class Converter:
         return (lw, Method.UNKNOWN, None)
 
     def _traces_for(
-        self, lw: str, conv: Conversion, direction: Orthography, following: Token | None
+        self, lw: str, conv: Conversion, direction: Orthography, following: str | None
     ) -> tuple[RuleTrace, ...]:
         traces: list[RuleTrace] = []
         work = lw
         if conv.method is Method.RULE:
-            nxt = following.text if following else None
+            nxt = following
             particle = convert_particle(
                 lw, nxt, direction, self.stress, self._next_target(nxt, direction)
             )
@@ -622,5 +874,70 @@ def default_converter() -> Converter:
     return Converter.from_config()
 
 
-def convert(text: str, direction: Orthography, *, aggressive: bool = False) -> str:
-    return default_converter().convert(text, direction, aggressive=aggressive).text
+def parse_options(options: Mapping[str, str]) -> Orthography:
+    """``{"from": …, "to": …}`` → the direction to convert in.
+
+    ``to`` is required. ``from`` is optional — there are exactly two orthographies, so
+    omitting it means "the other one" — but when given it must be the other one, because
+    a caller who says ``from`` and ``to`` has stated an expectation, and silently
+    converting in a direction they did not ask for is how a caller ends up shipping
+    text they never checked.
+    """
+    if "to" not in options:
+        raise ValueError("convert() needs a 'to' orthography in its options")
+    try:
+        to = Orthography(options["to"])
+    except ValueError as exc:
+        raise ValueError(
+            f"unknown orthography {options['to']!r}; expected one of "
+            f"{[o.value for o in Orthography]}"
+        ) from exc
+    unknown = set(options) - {"from", "to"}
+    if unknown:
+        raise ValueError(f"unknown option(s) {sorted(unknown)}; expected 'from' and 'to'")
+    if "from" in options:
+        try:
+            source = Orthography(options["from"])
+        except ValueError as exc:
+            raise ValueError(
+                f"unknown orthography {options['from']!r}; expected one of "
+                f"{[o.value for o in Orthography]}"
+            ) from exc
+        if source is to:
+            raise ValueError(f"'from' and 'to' are both {to.value}; there is nothing to convert")
+    return to
+
+
+@overload
+def convert(text: str, options: Orthography, *, aggressive: bool = False) -> str: ...
+
+
+@overload
+def convert(
+    text: str, options: Mapping[str, str], *, aggressive: bool = False
+) -> ConversionResult: ...
+
+
+def convert(
+    text: str, options: Orthography | Mapping[str, str], *, aggressive: bool = False
+) -> str | ConversionResult:
+    """Convert ``text`` between the two orthographies.
+
+    The frozen public form takes an options mapping and returns the full result::
+
+        >>> convert("снег", {"from": "narkamauka", "to": "taraskievica"}).to_dict()
+        {'text': 'сьнег', 'changes': [{'from': 'снег', 'to': 'сьнег', 'offset': 0,
+         'rule': 'palat.assim', 'class': 'rule', 'citation': 'Збор 2005, §29'}]}
+
+    That shape — ``convert(text, {from, to}) → {text, changes}`` — is the contract, and
+    it is the same in every implementation of pravapis. ``changes`` is always present:
+    see :class:`~pravapis.types.ConversionResult`.
+
+    Passing an :class:`~pravapis.types.Orthography` instead returns just the converted
+    string. It is the older, narrower form, kept because it reads well at a REPL and in
+    a one-line script; new callers should prefer the options form, which can tell them
+    what it did.
+    """
+    if isinstance(options, Orthography):
+        return default_converter().convert(text, options, aggressive=aggressive).text
+    return default_converter().convert(text, parse_options(options), aggressive=aggressive)

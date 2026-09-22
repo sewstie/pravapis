@@ -42,6 +42,9 @@ RUNTIME_MODULES = (
     "types.py",
     "casing.py",
     "config.py",
+    # small and dependency-free on purpose: the deployed function reports which data
+    # version it is serving. The validator (dataspec.py) stays out of the bundle.
+    "dataversion.py",
     "normalize.py",
     "tokenize.py",
     "pipeline.py",
@@ -51,6 +54,7 @@ RUNTIME_MODULES = (
     "rules/__init__.py",
     "rules/engine.py",
     "rules/loanwords.py",
+    "rules/function_words.py",
     "rules/morphology.py",
     "rules/palatalization.py",
     "lexicon/__init__.py",
@@ -110,6 +114,10 @@ def export(out: Path, *, force: bool = False) -> dict[str, int]:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SRC / rel, dst)
 
+    # The data package's own version travels with the data it versions, so the deployed
+    # function can say which data it is serving rather than only which commit built it.
+    (vendor / "data").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(DATA / "VERSION", vendor / "data" / "VERSION")
     (vendor / "data" / "rules").mkdir(parents=True)
     for yml in sorted((DATA / "rules").glob("*.yaml")):
         shutil.copy2(yml, vendor / "data" / "rules" / yml.name)

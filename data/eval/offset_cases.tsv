@@ -1,0 +1,30 @@
+#!schema tag:pravapis,2026:schema:offset_cases:1
+#!columns text	direction	note
+# text<TAB>direction<TAB>note
+#
+# Inputs whose CHANGE OFFSETS are part of the conformance corpus.
+#
+# Every other kind of case pins the converted text. These pin `start` and `end`: the
+# code-point spans of each change in the OUTPUT, which docs/API.md freezes and which a
+# port can get wrong while producing a byte-identical string.
+#
+# That is not a hypothetical. Python indexes a str by Unicode code point; JavaScript
+# indexes by UTF-16 code unit. The two agree on every Cyrillic letter and part company
+# on the first astral character, so a port that slices the output with the offsets it
+# was given is correct until someone pastes an emoji, and then silently off by one per
+# astral character that precedes the change.
+#
+# direction  n2t = Narkamaŭka -> Taraškievica, t2n = the reverse
+#
+# Keep this file small. It exists to pin the offset convention, not to re-test
+# conversion; the gold set already does that.
+#
+# No ZWJ emoji sequence here on purpose. `sanitize` strips U+200D along with the
+# other zero-width characters, so 👨‍👩‍👧‍👦 arrives as four separate people. That is a
+# real defect in the sanitizer, not a property of the offset contract, and pinning
+# it here would oblige every port to reproduce it. Tracked separately.
+🎉 Снег і план	n2t	astral character before the first change: code point 2, UTF-16 unit 3
+🎼𝄞 сьнег	t2n	two unrelated astral characters before a change, reverse direction
+Снег 🎉 план	n2t	an astral character BETWEEN two changes shifts only the second
+Снег і план	n2t	the same text with no astral characters, as the control
+🎉🎉 без мяне	n2t	two astral characters, and an unresolved word after them

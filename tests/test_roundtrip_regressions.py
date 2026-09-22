@@ -12,6 +12,7 @@ import pytest
 
 from pravapis.lexicon.stems import WordClass, read_stem_sources, validate_stems
 from pravapis.lexicon.store import Lexicon
+from pravapis.metrics import read_regressions
 from pravapis.pipeline import Converter
 from pravapis.rules import loanwords, morphology
 from pravapis.rules.engine import RuleEngine
@@ -23,27 +24,7 @@ N2T = Orthography.TARASKIEVICA
 T2N = Orthography.NARKAMAUKA
 
 
-@pytest.mark.parametrize(
-    ("nark", "tarask"),
-    [
-        # palatalization: unassim must run before ungeminate (found by hypothesis)
-        ("зллю", "зьльлю"),
-        # loan.l_palatalization had no reverse rule
-        ("лабараторыі", "лябараторыі"),
-        ("дыпламатыя", "дыпляматыя"),
-        ("тэхналогій", "тэхналёгій"),
-        ("тэрміналогіяй", "тэрміналёгіяй"),
-        ("класаў", "клясаў"),
-        # класічны got only the л half of its adaptation and could not come back
-        ("класічнага", "клясычнага"),
-        ("Класікі", "Клясыкі"),
-        # loan.i_to_y had no reverse rule
-        ("сінагогу", "сынагогу"),
-        ("сінонімы", "сынонімы"),
-        ("сістэму", "сыстэму"),
-        ("сінтэзу", "сынтэзу"),
-    ],
-)
+@pytest.mark.parametrize(("nark", "tarask"), read_regressions(), ids=lambda v: v)
 def test_word_round_trips(converter: Converter, nark: str, tarask: str) -> None:
     there = converter.convert(nark, N2T).text
     assert there == tarask
@@ -59,6 +40,10 @@ CODIFICATION_CLITICS = [
     ("не было", "не было"),  # было´: second syllable, no jakanne (endnote xxxi)
     # §29: softness extends to з, без/бяз, праз, цераз
     ("з вераю", "зь вераю"),
+    # §13 Заўвага: двукосье is not a punctuation mark, so it does not break the
+    # clitic — the quote is silent and з agrees with what is spoken. The dash does break it.
+    ("з «Віцебскам»", "зь «Віцебскам»"),
+    ("без «святла»", "безь «сьвятла»"),
     ("без слёз", "бязь сьлёз"),
     ("праз лес", "празь лес"),
     ("цераз сетку", "церазь сетку"),

@@ -25,17 +25,40 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
+      # The data is a specification, so check it against that specification before
+      # anything else runs: a schema nobody enforces is a comment.
+      - run: uv run pravapis validate-data
+      # The conformance corpus is the cross-language contract. It is generated from the
+      # data, so a data change that did not regenerate it leaves the contract describing
+      # the old behaviour — which is worse than having no contract. This fails on that.
+      - run: uv run pravapis export-conformance --check
       - run: uv run pytest --cov=pravapis --cov-report=term-missing
       - run: uv run pravapis build-lexicon data/lexicon --out data/lexicon.marisa
       - run: uv run pravapis eval data/eval/gold.tsv --json eval.json
       # Independent T → N on genuine Taraškievica. No --out: CI reports, never rewrites
       # the reviewed verdicts in data/eval/tarask/audit.tsv.
       - run: uv run pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --top 15
+      # Recall and precision against the aligned be ↔ be-tarask corpus, so both numbers
+      # are in the log of every run rather than only in whatever was last pasted into the
+      # README. Reporting only: the gates that can fail the build are in pytest
+      # (tests/test_negative_set.py). The dev split — test is frozen and read at
+      # milestones, not on every push.
+      - run: uv run pravapis eval --recall --split dev
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest'
         with:
           name: eval-report
           path: eval.json
+      # The artifact a port is measured against, published per run alongside the data
+      # version that produced it.
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: conformance-corpus
+          path: |
+            conformance/cases.jsonl
+            conformance/known_failures.jsonl
+            conformance/manifest.json
 
   docker:
     runs-on: ubuntu-latest

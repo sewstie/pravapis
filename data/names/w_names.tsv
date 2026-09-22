@@ -1,0 +1,58 @@
+#!schema tag:pravapis,2026:schema:w_names:1
+#!columns stem	provenance	evidence
+# stem<TAB>provenance<TAB>evidence
+#
+# Names whose initial Ў renders English W, not Збор 2005 §18's alternation of у.
+#
+# §18 turns an unstressed initial У into Ў after a vowel, and T -> N undoes it. But
+# Belarusian also writes Ў at the start of a name for English W, and Narkamaŭka keeps
+# that Ў. After a vowel the two are indistinguishable — `школу Ўайлд` could be either —
+# so reversing a name would corrupt it. This file is the list of words where the Ў
+# stays. See data/NORMS.md, rule morph.initial_u_w.
+#
+# Matching is by prefix on the lowercased word, so a stem covers the whole paradigm:
+# `ўотэрз` matches Ўотэрзам, `ўіл` matches Ўіла.
+#
+# stem        lowercased, always begins with ў
+# provenance  hand     = read off an attested sentence in data/eval/tarask/gold_t2n.tsv
+#             wikidata = an item whose en label starts with W and be-tarask label with Ў
+# evidence    the gold file for `hand`; `QID en-label` for `wikidata`
+#
+# Regenerate with `python scripts/mine_w_names.py`. Hand rows are preserved verbatim;
+# the list is open-ended by nature and a name nobody has written down yet will still
+# come back from T -> N with У. That limit is recorded in data/NORMS.md, not hidden.
+ўайлд	hand	data/eval/tarask/gold_t2n.tsv
+ўотэр	hand	data/eval/tarask/gold_t2n.tsv
+ўэйлз	hand	data/eval/tarask/gold_t2n.tsv
+ўэлт	hand	data/eval/tarask/gold_t2n.tsv
+ўіл	hand	data/eval/tarask/gold_t2n.tsv
+ўайт	wikidata	Q2273618 White Watson
+ўарэнпойнт	wikidata	Q2252351 Warrenpoint Town F.C.
+ўолес	wikidata	Q333724 Wallace Carothers
+ўолт	wikidata	Q81438 Walt Whitman
+ўорнэр	wikidata	Q312073 Warner Baxter
+ўорыкшыр	wikidata	Q23140 Warwickshire
+ўорэн	wikidata	Q35286 Warren G. Harding
+ўотфард	wikidata	Q2714 Watford F.C.
+ўудзі	wikidata	Q25089 Woody Allen
+ўудстацкі	wikidata	Q164815 Woodstock Festival
+ўулвэргэмптан	wikidata	Q126269 Wolverhampton
+ўупі	wikidata	Q49001 Whoopi Goldberg
+ўустэршыр	wikidata	Q23135 Worcestershire
+ўэйк	wikidata	Q43296 Wake Island
+ўэйн	wikidata	Q206677 Wayne Bridge
+ўэмблі	wikidata	Q128468 Wembley Stadium
+ўэнздэй	wikidata	Q105553568 Wednesday
+ўэст	wikidata	Q18744 West Bromwich Albion F.C.
+ўэсьлі	wikidata	Q1100531 Wes Hoolahan
+ўіган	wikidata	Q18750 Wigan Athletic F.C.
+ўімбэлданскі	wikidata	Q41520 Wimbledon Championships
+ўіндгук	wikidata	Q3935 Windhoek
+ўіндзар	wikidata	Q182625 Windsor
+ўінона	wikidata	Q101797 Winona Ryder
+ўінстан	wikidata	Q598029 Winston Graham
+ўінчэстэр	wikidata	Q172157 Winchester
+ўітбі	wikidata	Q386338 Whitby
+ўітні	wikidata	Q34389 Whitney Houston
+ўітэнагемот	wikidata	Q497578 Witan
+ўічыта	wikidata	Q49266 Wichita

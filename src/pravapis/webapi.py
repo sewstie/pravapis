@@ -13,14 +13,24 @@ POST /api/convert, ``Content-Type: application/json``::
 - ``explain``: add per-token ``segments`` covering the whole output
 - ``aggressive``: also apply optional transformations (default false)
 
-200::
+200 — the frozen conversion contract (docs/API.md), identical to /v1/convert::
 
-    {"result": "Ня быў без мяне", "direction": "taraskievica",
-     "stats": {"words": 4, "changed": 1, "by_method": {"rule": 1, ...}},
-     "segments": [{"text": "Ня", "source": "Не", "method": "rule",
-                   "rule_id": "morph.particle", "changed": true,
-                   "traces": [{"rule_id": "morph.particle", "before": "не", "after": "ня"}]},
-                  {"text": " "}, ...]}
+    {"text": "Ня быў бяз мяне", "direction": "n2t",
+     "engine_version": "0.1.0", "data_version": "1.3.0",
+     "changes": [{"start": 0, "end": 2, "from": "Не", "to": "Ня",
+                  "stage": "rule", "rule": "morph.particle",
+                  "citation": "Збор 2005, §3, §29, §29 Заўвага А",
+                  "context": {"trigger": "next_word"}}, ...],
+     "unresolved": []}
+
+``explain`` adds ``segments``, which is **outside** the frozen contract: it covers the
+whole output including the pieces nothing changed, which the demo page wants and a port
+need not reproduce.
+
+Transliteration (a Latin ``script`` or ``from_script``) is a different operation and
+keeps its own shape — see docs/API.md, "Transliteration is not conversion". It names
+its output ``text`` too, so the field that carries the answer is called the same thing
+on every response this service produces, whatever the operation.
 """
 
 from __future__ import annotations
@@ -36,7 +46,7 @@ from pravapis.normalize import sanitize
 from pravapis.pipeline import Converter
 from pravapis.tokenize import tokenize
 from pravapis.translit import PAIRED, REVERSIBLE
-from pravapis.types import Method, Orthography, Script, TokenKind
+from pravapis.types import Orthography, Script, TokenKind
 
 MAX_CHARS: Final[int] = 50_000
 MAX_BODY_BYTES: Final[int] = MAX_CHARS * 4 + 4_096  # UTF-8 worst case plus JSON overhead
@@ -164,14 +174,14 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
         # two Latin schemes are paired with different ones. See data/TRANSLIT.md.
         if script.is_latin:
             return {
-                "result": converter.transcode(text, script, from_script=from_script),
+                "text": converter.transcode(text, script, from_script=from_script),
                 "direction": PAIRED[script].value,
                 "from_script": from_script.value,
                 "script": script.value,
                 "aggressive": aggressive,
             }
         return {
-            "result": converter.read_script(text, from_script, direction),
+            "text": converter.read_script(text, from_script, direction),
             "direction": direction.value,
             "from_script": from_script.value,
             "script": Script.CYRILLIC.value,
@@ -187,29 +197,18 @@ def convert_payload(converter: Converter, payload: Any) -> dict[str, Any]:
         if not isinstance(convert_first, bool):
             raise ApiError(400, "convert must be a boolean")
         return {
-            "result": converter.render(text, script, convert=convert_first),
+            "text": converter.render(text, script, convert=convert_first),
             "direction": PAIRED[script].value if convert_first else None,
             "script": script.value,
             "aggressive": aggressive,
         }
 
-    result = converter.convert(text, direction)
-    by_method = {m.value: 0 for m in Method}
-    for c in result.conversions:
-        if c.target != c.source:
-            by_method[c.method.value] += 1
-    body: dict[str, Any] = {
-        "result": result.text,
-        "direction": direction.value,
-        "script": Script.CYRILLIC.value,
-        "aggressive": aggressive,
-        "stats": {
-            "words": len(result.conversions),
-            "changed": sum(by_method.values()),
-            "by_method": by_method,
-        },
-    }
+    # The frozen conversion contract, byte for byte the same as /v1/convert returns.
+    # Built from `to_dict()` rather than assembled here, so the serverless function and
+    # the FastAPI service cannot drift: one place decides what a conversion looks like.
+    body: dict[str, Any] = converter.convert(text, direction).to_dict()
     if explain:
+        # Outside the frozen contract, and documented as such in docs/API.md.
         body["segments"] = _segments(converter, text, direction)
     return body
 

@@ -1,3 +1,10 @@
+#!schema tag:pravapis,2026:schema:stems:1
+#!columns stem	class	alternations	source	provenance	target
+#
+# The two lines above are the file's declaration: the schema it is written against and
+# the column order it uses. They are comments, so every existing reader skips them, but
+# `pravapis validate-data` refuses a stems file that does not declare. Column order is
+# then a fact about the file rather than a fact about whichever parser reads it.
 # stem	class	alternations	source	provenance	[target]
 #
 # The etymology fact the loanword rules need: is this stem a Western borrowing?
@@ -70,7 +77,12 @@
 кармазін	loan	i	Збор 2005 §67 Заўвага А	cited
 кузін	loan	i	Збор 2005 §67 Заўвага А	cited
 магазін	loan	i	Збор 2005 §67 Заўвага А	cited
-разінк	loan	i	Збор 2005 §67 Заўвага А	cited
+# разынкі is written with ы in Narkamaŭka too — real Narkamaŭka text has "з цукрам,
+# разынкамі і цэдрай" (data/eval/roundtrip_corpus.txt) — so §67 Заўвага А, which lists
+# разынкі among the words where з/с stayed hard, describes a spelling the two
+# orthographies share. Forward is harmless; the reverse invented разінкамі, which is why
+# this is n2t only.
+разінк	loan	i:n2t	Збор 2005 §67 Заўвага А	cited
 экзіл	loan	i	Збор 2005 §67 Заўвага А	cited
 
 # --- §67 Заўвага А: fixed soft, and the homonym pairs і exists to keep apart ---

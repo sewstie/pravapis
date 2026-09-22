@@ -1,0 +1,19 @@
+{
+  "corpus": {
+    "path": "data/corpora/parallel.tsv",
+    "fingerprint": "f4687014a1fa0928",
+    "dev_pairs": 1007
+  },
+  "metrics": {
+    "dev_n2t_recall": 0.750592,
+    "dev_n2t_precision": 0.951916,
+    "dev_t2n_recall": 0.752962,
+    "dev_t2n_precision": 0.97097,
+    "test_n2t_recall": 0.745274,
+    "test_n2t_precision": 0.960414,
+    "test_t2n_recall": 0.74811,
+    "test_t2n_precision": 0.976558,
+    "negative_set_forms": 3213.0
+  },
+  "updated": "2026-09-21"
+}

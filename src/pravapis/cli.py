@@ -7,6 +7,9 @@ pravapis explain "сімвал" --to taraskievica
 pravapis build-lexicon data/lexicon/ --out data/lexicon.marisa
 pravapis train data/eval/ambiguous.tsv --out data/models/disambig.joblib
 pravapis eval data/eval/gold.tsv
+pravapis eval --recall --misses misses.tsv
+pravapis eval --coverage --top 20000
+pravapis eval --round-trip
 pravapis audit data/eval/tarask/corpus.tsv --to narkamauka --out audit.tsv
 pravapis bench --size 10mb
 pravapis serve --port 8000
@@ -354,7 +357,7 @@ def train(
 
 @app.command("eval")
 def eval_cmd(
-    gold: Annotated[Path, typer.Argument(help="TSV: narkamauka, taraskievica.")],
+    gold: Annotated[Path | None, typer.Argument(help="TSV: narkamauka, taraskievica.")] = None,
     config: ConfigOption = None,
     direction: Annotated[
         str, typer.Option("--direction", "-d", help="taraskievica, narkamauka or both")
@@ -370,16 +373,78 @@ def eval_cmd(
             help="Score only hand_written rows (never adjusted after seeing converter output).",
         ),
     ] = False,
+    recall: Annotated[
+        bool,
+        typer.Option("--recall", help="Measure recall against the aligned be ↔ be-tarask corpus."),
+    ] = False,
+    corpus: Annotated[
+        Path | None, typer.Option("--corpus", help="Parallel corpus for --recall.")
+    ] = None,
+    split: Annotated[
+        str,
+        typer.Option(
+            "--split",
+            help="Which split to score: dev (default), train, test, or all. "
+            "test is frozen — read it at milestones, not while iterating.",
+        ),
+    ] = "dev",
+    misses: Annotated[
+        Path | None, typer.Option("--misses", help="Write every miss, grouped by cause.")
+    ] = None,
+    coverage: Annotated[
+        bool, typer.Option("--coverage", help="Stem and lexicon coverage over a frequency list.")
+    ] = False,
+    frequency: Annotated[
+        Path | None, typer.Option("--frequency", help="Frequency list for --coverage.")
+    ] = None,
+    top: Annotated[
+        int, typer.Option("--top", help="How many forms of the list to measure.")
+    ] = 20_000,
+    round_trip: Annotated[
+        bool, typer.Option("--round-trip", help="N→T→N identity rate; dumps non-identity cases.")
+    ] = False,
+    round_trip_corpus: Annotated[
+        Path | None, typer.Option("--round-trip-corpus", help="Text to round-trip.")
+    ] = None,
+    round_trip_dump: Annotated[
+        Path | None, typer.Option("--round-trip-dump", help="Where to write the failures.")
+    ] = None,
 ) -> None:
     """Score the converter on a gold set: accuracy, coverage split, round trip, throughput.
 
     Rows marked ``uncertain`` are never scored. By default the remaining rows
     are scored and the hand_written subset is scored alongside for comparison;
     ``--trusted`` scores only that subset.
+
+    ``--recall``, ``--coverage`` and ``--round-trip`` each answer a question the gold set
+    cannot, and each runs without a gold file.
     """
     from pravapis.metrics import HAND_WRITTEN, evaluate, read_gold, read_gold_rows
 
     converter = _converter(config)
+    if recall or coverage or round_trip:
+        data = Config.default().lexicon.parent
+        if recall:
+            for measured in _recall_directions(direction):
+                _report_recall(
+                    converter,
+                    corpus or data / "corpora" / "parallel.tsv",
+                    misses,
+                    None if split == "all" else split,
+                    measured,
+                )
+        if coverage:
+            _report_coverage(converter, frequency or data / "corpora" / "frequency_be.tsv", top)
+        if round_trip:
+            _report_round_trip(
+                converter,
+                round_trip_corpus or data / "eval" / "roundtrip_corpus.txt",
+                round_trip_dump or data / "eval" / "roundtrip_failures.tsv",
+            )
+        return
+    if gold is None:
+        errors.print("[red]a gold file is required[/red] (or use --recall/--coverage/--round-trip)")
+        raise typer.Exit(code=2)
     rows = read_gold_rows(gold)
     origin = read_gold_origin(gold)
     n_uncertain = sum(r.provenance in UNSCORED for r in rows)
@@ -800,9 +865,394 @@ def serve(
     uvicorn.run("pravapis.api.main:app", host=host, port=port)
 
 
+def _recall_directions(direction: str) -> list[Orthography]:
+    """Which directions ``--recall`` measures.
+
+    Defaults to both, because the package ships both and reporting one of them is
+    reporting half the product. ``-d taraskievica`` or ``-d narkamauka`` picks one.
+    """
+    if direction == "both":
+        return [Orthography.TARASKIEVICA, Orthography.NARKAMAUKA]
+    return [Orthography(direction)]
+
+
+def _report_recall(
+    converter: Converter,
+    corpus: Path,
+    misses_out: Path | None,
+    split: str | None,
+    direction: Orthography = Orthography.TARASKIEVICA,
+) -> None:
+    """In-scope recall with a confidence interval, and the exclusions stated, not hidden."""
+    from pravapis.recall import common_shapes, measure_recall, read_parallel, write_misses
+    from pravapis.scope import Scope, format_interval
+
+    if not corpus.is_file():
+        errors.print(
+            f"[red]no parallel corpus at {corpus}[/red] — build one with "
+            "`python scripts/fetch_parallel_corpus.py --articles 2600`"
+        )
+        raise typer.Exit(code=2)
+    pairs = read_parallel(corpus, split)
+    if not pairs:
+        errors.print(f"[red]no rows in {corpus.name} for split {split!r}[/red]")
+        raise typer.Exit(code=2)
+    report = measure_recall(pairs, converter, split, direction)
+
+    arrow = "N → T" if direction is Orthography.TARASKIEVICA else "T → N"
+    console.rule(f"recall {arrow} — split: {split or 'all'}")
+    console.print(
+        f"corpus: {corpus.name} · [bold]{report.articles}[/bold] articles · "
+        f"[bold]{report.pairs}[/bold] sentence pairs · [bold]{report.tokens}[/bold] tokens · "
+        f"[bold]{report.changes}[/bold] attested differences"
+    )
+    low, high = report.interval
+    console.print(
+        f"\n  [bold]in-scope {arrow} recall: {report.recall:.1%}[/bold] "
+        f"[[{low:.1%}, {high:.1%}] Wilson 95%]  "
+        f"({report.in_scope_hits}/{report.in_scope})"
+    )
+    p_low, p_high = report.precision_interval
+    console.print(
+        f"  [bold]precision: {report.precision:.1%}[/bold] "
+        f"[[{p_low:.1%}, {p_high:.1%}] Wilson 95%]  "
+        f"({report.in_scope_hits}/{report.in_scope_hits + report.wrong})"
+    )
+    console.print(
+        f"[dim]  {len(report.false_positives)} change(s) where none was due; "
+        f"{report.wrong_changes} wrong where one was[/dim]\n"
+    )
+
+    buckets = Table(title="every attested difference, sorted by whose job it is", box=box.SIMPLE)
+    buckets.add_column("bucket")
+    buckets.add_column("n", justify="right")
+    buckets.add_column("share", justify="right")
+    buckets.add_column("counts toward the headline?")
+    reasons = {
+        Scope.IN_SCOPE: "[bold]yes — this is the contract[/bold]",
+        Scope.GRAMMATICAL: "no — Збор 2005 is a spelling code; declension is outside it",
+        Scope.REFERENCE_DEVIATES: "no — be-tarask contradicts the 2005 code here",
+        Scope.NOT_ORTHOGRAPHIC: "no — the two writers chose different words",
+    }
+    total = report.changes or 1
+    for scope in Scope:
+        n = report.by_scope.get(scope, 0)
+        buckets.add_row(scope.value, str(n), f"{n / total:.0%}", reasons[scope])
+    console.print(buckets)
+
+    causes = Table(title="in-scope misses by cause — where a fix would go", box=box.SIMPLE)
+    causes.add_column("cause")
+    causes.add_column("n", justify="right")
+    causes.add_column("share", justify="right")
+    causes.add_column("example")
+    counted = len(report.misses) or 1
+    for cause, n in sorted(report.by_cause.items(), key=lambda kv: -kv[1]):
+        if not n:
+            continue
+        example = next(m for m in report.misses if m.cause is cause)
+        causes.add_row(
+            cause.value,
+            str(n),
+            f"{n / counted:.0%}",
+            f"{example.change.source} → {example.change.expected} ({example.detail})",
+        )
+    console.print(causes)
+
+    per = Table(title="in-scope recall by alternation, with 95% intervals", box=box.SIMPLE)
+    per.add_column("alternation")
+    per.add_column("recall [95% CI]", justify="right")
+    per.add_column("n", justify="right")
+    for code, (ok, n) in sorted(report.by_alternation.items(), key=lambda kv: -kv[1][1]):
+        per.add_row(code, format_interval(ok, n), f"{ok}/{n}")
+    console.print(per)
+    console.print(
+        "[dim]Intervals are Wilson 95%. A class of eighty cases cannot support a claim "
+        "narrower than its interval, however precise the point estimate looks.[/dim]"
+    )
+
+    shapes = common_shapes(report)
+    if shapes:
+        inside = Table(
+            title="inside `other` — in-scope changes no alternation models", box=box.SIMPLE
+        )
+        inside.add_column("edit")
+        inside.add_column("n", justify="right")
+        for shape, n in shapes:
+            inside.add_row(shape, str(n))
+        console.print(inside)
+
+    if report.false_positives:
+        console.print(
+            f"[yellow]{len(report.false_positives)} word(s) the two wikis spell identically "
+            "that the converter changed anyway[/yellow], e.g. "
+            + ", ".join(f"{s}→{t} ({r})" for s, t, r in report.false_positives[:5])
+        )
+        console.print(
+            "[dim]Weaker evidence than the false-positive rate on the gold set: be-tarask "
+            "articles are not uniformly Taraškievica, so an unconverted word on that side "
+            "looks the same here as a converter error.[/dim]"
+        )
+    else:
+        console.print("[green]no changes to words both wikis spell alike[/green]")
+
+    if misses_out is not None:
+        write_misses(report, misses_out)
+        console.print(f"in-scope misses → {misses_out}")
+
+
+def _report_coverage(converter: Converter, frequency: Path, top: int) -> None:
+    from pravapis.coverage import measure_coverage, read_frequency_list
+
+    if not frequency.is_file():
+        errors.print(
+            f"[red]no frequency list at {frequency}[/red] — build one with "
+            "`python scripts/build_frequency_list.py --articles 4000`"
+        )
+        raise typer.Exit(code=2)
+    forms = read_frequency_list(frequency, limit=top)
+    report = measure_coverage(forms, converter)
+    console.rule(f"coverage — top {report.forms} word forms")
+    console.print(
+        f"list: {frequency.name} · [bold]{report.forms}[/bold] forms · "
+        f"[bold]{report.occurrences}[/bold] occurrences"
+    )
+    table = Table(box=box.SIMPLE)
+    table.add_column("what the converter knows")
+    table.add_column("forms", justify="right")
+    table.add_column("of types", justify="right")
+    table.add_column("of tokens", justify="right")
+    for label, bucket in (
+        ("stem — loan", report.stem_loan),
+        ("stem — native guard", report.stem_native),
+        ("lexicon entry", report.lexicon),
+        ("a rule changes it (no etymology needed)", report.rule),
+        ("nothing", report.untouched),
+    ):
+        types, tokens = report.share(bucket)
+        table.add_row(label, str(bucket.types), f"{types:.1%}", f"{tokens:.1%}")
+    console.print(table)
+    stem_types, stem_tokens = report.share(report.stem)
+    console.print(
+        f"[bold]stem coverage: {stem_types:.1%} of forms, {stem_tokens:.1%} of tokens[/bold]"
+    )
+    console.print(
+        "[dim]A low stem figure is not in itself a gap: stems exist only to tell the "
+        "loanword rules that a word is a borrowing, and most Belarusian word forms are "
+        "native and need none. Read it next to the loanword recall above.[/dim]"
+    )
+
+
+def _report_round_trip(converter: Converter, corpus: Path, dump: Path) -> None:
+    from pravapis.metrics import round_trip_consistency, write_round_trip_failures
+
+    if not corpus.is_file():
+        errors.print(f"[red]no corpus at {corpus}[/red]")
+        raise typer.Exit(code=2)
+    lines = [
+        ln.strip()
+        for ln in corpus.read_text(encoding="utf-8").splitlines()
+        if ln.strip() and not ln.startswith("#")
+    ]
+    sentence_rate = round_trip_consistency(lines, converter)
+    n_words, failures, groups = write_round_trip_failures(lines, converter, dump, corpus.name)
+    console.rule("round-trip drift — N → T → N")
+    console.print(
+        f"corpus: {corpus.name} · [bold]{len(lines)}[/bold] sentences · "
+        f"[bold]{n_words}[/bold] words"
+    )
+    table = Table(box=box.SIMPLE)
+    table.add_column("identity rate")
+    table.add_column("rate", justify="right")
+    table.add_column("n", justify="right")
+    table.add_row(
+        "word level",
+        f"[bold]{1 - len(failures) / n_words if n_words else 0:.2%}[/bold]",
+        f"{n_words - len(failures)}/{n_words}",
+    )
+    table.add_row("sentence level", f"{sentence_rate:.2%}", f"{len(lines)}")
+    console.print(table)
+    for group, items in groups[:10]:
+        console.print(f"  {len(items):5d}  {group}")
+    console.print(f"non-identity cases → {dump}")
+
+
+@app.command("validate-data")
+def validate_data_cmd(
+    data_dir: Annotated[
+        Path | None,
+        typer.Argument(help="Data directory to check; defaults to the one pravapis reads."),
+    ] = None,
+) -> None:
+    """Check every data file against the JSON Schemas in data/schemas/.
+
+    The schemas are the specification. This command is what makes them binding, and it
+    is the same check CI runs.
+    """
+    from pravapis.dataspec import DATA_VERSION, validate_data
+
+    base = data_dir or Config.default().lexicon.parent
+    problems = validate_data(base)
+    if not problems:
+        console.print(
+            f"[green]ok[/green] — {base} is valid against data/schemas/ "
+            f"(this build implements data version {DATA_VERSION})"
+        )
+        return
+    table = Table(box=box.SIMPLE, header_style="bold")
+    table.add_column("file")
+    table.add_column("where")
+    table.add_column("problem")
+    for problem in problems:
+        table.add_row(str(problem.file.name), problem.where, problem.message)
+    console.print(table)
+    errors.print(f"[red]{len(problems)} problem(s)[/red]")
+    raise typer.Exit(code=1)
+
+
+@app.command("export-conformance")
+def export_conformance_cmd(
+    out: Annotated[
+        Path, typer.Option("--out", help="Directory for cases.jsonl and manifest.json")
+    ] = Path("conformance"),
+    data_dir: Annotated[Path | None, typer.Option("--data", help="Data directory")] = None,
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Fail if the committed corpus is not what this would write."),
+    ] = False,
+) -> None:
+    """Flatten every test case in the data into one cross-language contract.
+
+    Inline rule tests, inline transliteration tests, the trusted gold subset and the
+    independent held-out sentences become ``conformance/cases.jsonl``. A port is correct
+    iff it passes that file. Regenerate it on every data change and commit it.
+    """
+    import json as _json
+
+    from pravapis.conformance import export
+
+    base = data_dir or Config.default().lexicon.parent
+    if check:
+        before = (out / "cases.jsonl").read_bytes() if (out / "cases.jsonl").is_file() else b""
+    manifest = export(base, out)
+    if check:
+        after = (out / "cases.jsonl").read_bytes()
+        if before != after:
+            (out / "cases.jsonl").write_bytes(before)
+            errors.print(
+                "[red]conformance/cases.jsonl is stale[/red] — the data has changed since it "
+                "was generated. Run `pravapis export-conformance` and commit the result."
+            )
+            raise typer.Exit(code=1)
+    console.print(
+        f"[green]{manifest['cases']}[/green] cases → {out / 'cases.jsonl'}  "
+        f"(data version {manifest['data_version']}, sha256 {manifest['sha256'][:12]}…)"
+    )
+    for kind, count in manifest["cases_by_kind"].items():
+        console.print(f"  {kind:<9} {count:>5}")
+    if manifest["known_failures"]:
+        console.print(
+            f"  [yellow]{manifest['known_failures']} known failure(s)[/yellow] → "
+            f"{out / 'known_failures.jsonl'} — cases the reference implementation does not "
+            "pass, kept out of the contract and not hidden."
+        )
+    _json.loads((out / "manifest.json").read_text(encoding="utf-8"))  # written and parseable
+
+
+@app.command("conformance")
+def conformance_cmd(
+    coverage_flag: Annotated[
+        bool,
+        typer.Option(
+            "--coverage",
+            help="Audit the data boundary: fail if any rule, lexicon table or data file "
+            "has no conformance case.",
+        ),
+    ] = False,
+    data_dir: Annotated[Path | None, typer.Option("--data", help="Data directory")] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", help="Show every item and its case count.")
+    ] = False,
+) -> None:
+    """Report on the cross-language contract, and audit what it fails to reach.
+
+    ``--coverage`` is the data-boundary audit. The conformance corpus *is* the contract,
+    so anything that changes the output and has no case behind it is outside the
+    contract: a port can get it wrong and still claim to pass. This finds those — rules
+    with no case, lexicon tables no case resolves through, data files nothing reads —
+    and exits non-zero if any exist.
+
+    Exemptions are sentences, not patterns. A file or rule leaves the audit only when
+    someone writes down why it is not part of the contract, in
+    ``pravapis.conformance.EXEMPT_DATA`` / ``EXEMPT_RULES``.
+    """
+    from pravapis.conformance import EXEMPT_DATA, EXEMPT_RULES, build_corpus, coverage
+
+    base = data_dir or Config.default().lexicon.parent
+    cases, failures = build_corpus(base)
+
+    if not coverage_flag:
+        console.print(
+            f"[green]{len(cases)}[/green] cases, "
+            f"[yellow]{len(failures)}[/yellow] known failure(s). "
+            "Pass --coverage to audit the data boundary."
+        )
+        return
+
+    report = coverage(base, cases)
+
+    def _section(title: str, counts: dict[str, int], exempt: dict[str, str]) -> None:
+        table = Table(title=title, show_header=True, header_style="bold")
+        table.add_column("item", overflow="fold")
+        table.add_column("cases", justify="right")
+        for name, count in sorted(counts.items()):
+            if count == 0 and name in exempt:
+                table.add_row(f"[dim]{name}[/dim]", "[dim]exempt[/dim]")
+            elif count == 0:
+                table.add_row(f"[red]{name}[/red]", "[red]0[/red]")
+            elif verbose:
+                table.add_row(name, str(count))
+        if table.row_count:
+            console.print(table)
+
+    _section("Rules", report.rules, EXEMPT_RULES)
+    _section("Lexicon tables", report.lexicon_tables, {})
+    _section("Data files", report.data_files, EXEMPT_DATA)
+
+    covered = sum(1 for v in report.rules.values() if v)
+    console.print(
+        f"{covered}/{len(report.rules)} rules, "
+        f"{sum(1 for v in report.lexicon_tables.values() if v)}/{len(report.lexicon_tables)} "
+        f"lexicon tables, "
+        f"{sum(1 for v in report.data_files.values() if v)}/{len(report.data_files)} data files "
+        "have at least one conformance case."
+    )
+
+    if report.ok:
+        console.print(
+            "[green]Data boundary clean[/green] — everything is either covered or exempt."
+        )
+        return
+
+    errors.print(f"\n[red]{len(report.gaps)} uncovered[/red]:")
+    for gap in report.gaps:
+        errors.print(f"  {gap}")
+    errors.print(
+        "\nEach of these changes the output and no case pins it down, so a port can "
+        "get it wrong and still pass. Add a case, or record why it is not part of the "
+        "contract in pravapis.conformance.EXEMPT_DATA / EXEMPT_RULES."
+    )
+    raise typer.Exit(code=1)
+
+
 @app.command()
 def version() -> None:
+    from pravapis.dataversion import DATA_VERSION, read_data_version
+
     console.print(f"pravapis {__version__}")
+    try:
+        console.print(f"data {read_data_version()} (implements {DATA_VERSION})")
+    except Exception as exc:  # the package may be installed without its data
+        console.print(f"data [yellow]unavailable[/yellow] (implements {DATA_VERSION}): {exc}")
 
 
 if __name__ == "__main__":  # pragma: no cover

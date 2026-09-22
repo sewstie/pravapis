@@ -91,9 +91,9 @@ def test_preposition_softness_follows_converted_next_word(
     The palatalization bug class (зллю, без слёз): a condition evaluated on the
     Narkamaŭka form, where assimilative softness is not written.
     """
-    from pravapis.rules.morphology import CLITICS, _soft_onset, _unstressed_initial_i
+    from pravapis.rules.morphology import _soft_onset, _unstressed_initial_i
 
-    assume(w not in CLITICS)
+    assume(w not in converter.function_words.clitics)
     out = converter.convert(f"{prep} {w}", N2T)
     assume(len(out.conversions) == 2)
     head, nxt = out.conversions

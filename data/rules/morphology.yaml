@@ -8,6 +8,7 @@ rules:
   # ---------------------------------------------------------------- N → T
   - id: morph.final_tr
     description: "Epenthetic а in word-final -тр/-др: тэатр → тэатар, цэнтр → цэнтар, кадр → кадар"
+    citation: "Збор 2005, §26, §26 Заўвага А"
     direction: narkamauka_to_taraskievica
     pattern: '([тд])р$'
     replacement: '\1ар'
@@ -33,6 +34,7 @@ rules:
   # ---------------------------------------------------------------- T → N
   - id: morph.particle.nya
     description: "Standalone ня → не"
+    citation: "derived:morph.particle (Збор 2005, §3)"
     direction: taraskievica_to_narkamauka
     pattern: '^ня$'
     replacement: 'не'
@@ -45,6 +47,7 @@ rules:
 
   - id: morph.particle.byaz
     description: "Standalone бяз / бязь → без"
+    citation: "derived:morph.particle (Збор 2005, §3, §29)"
     direction: taraskievica_to_narkamauka
     pattern: '^бязь?$'
     replacement: 'без'
@@ -56,6 +59,7 @@ rules:
 
   - id: morph.preposition.z
     description: "Softened prepositions зь / безь / празь / церазь → з / без / праз / цераз"
+    citation: "derived:morph.particle (Збор 2005, §29)"
     direction: taraskievica_to_narkamauka
     pattern: '^(з|без|праз|цераз)ь$'
     replacement: '\1'
@@ -70,6 +74,7 @@ rules:
 
   - id: morph.conj_j_i
     description: "The conjunction й has no Narkamaŭka form: сала й цыбуля → сала і цыбуля"
+    citation: "derived:morph.conj_i_j (Збор 2005, §13)"
     direction: taraskievica_to_narkamauka
     # Збор 2005 §13 lets the conjunction і become й after a vowel in Taraškievica; the
     # forward rule is optional (morph.conj_i_j, aggressive mode only) because і stays
@@ -89,6 +94,7 @@ rules:
 
   - id: morph.dsk_to_dzk
     description: "д + ск → дзк before the adjective suffix: мадрыдскі → мадрыдзкі"
+    citation: "Збор 2005, §46"
     direction: narkamauka_to_taraskievica
     # Збор 2005 §46. Taraškievica writes the phonetic result of the merger where
     # Narkamaŭka keeps the root consonant intact (the morphological principle):
@@ -110,6 +116,7 @@ rules:
 
   - id: morph.dzk_to_dsk
     description: "Reverse of morph.dsk_to_dzk: мадрыдзкі → мадрыдскі"
+    citation: "derived:morph.dsk_to_dzk (Збор 2005, §46)"
     direction: taraskievica_to_narkamauka
     pattern: 'дзк'
     replacement: 'дск'
@@ -123,12 +130,21 @@ rules:
 
   - id: morph.ejsk_normalise
     description: "The adjective suffix is -ейск-, never -эйск-: эўрапэйскі → еўрапейскі"
+    citation: "Збор 2005, §11б заўвага"
     direction: taraskievica_to_narkamauka
     # Збор 2005 §11б, заўвага: the suffix -ейск- keeps its е after a hard consonant,
     # so эўрапэйскі is an error rather than a variant — be-tarask writes it by applying
     # §11б where the заўвага exempts it. The forward direction can never produce it
     # (e_to_eh exempts the suffix), so this only normalises input that arrives wrong.
-    pattern: 'эйск'
+    # The guard is a list of roots whose эй is part of the STEM, not the suffix, so the
+    # э is correct in Narkamaŭka too and rewriting it produces a word that does not
+    # exist. Found by the round-trip harness (яўрэйскую → яўрейскую) and confirmed
+    # against data/corpora/frequency_be.tsv, which is 44M tokens of Narkamaŭka:
+    #   яўрэйск- 5,500+ occurrences, яўрейск- 0
+    #   паліцэйск- 1,450+,            паліцейск- 0
+    #   карэйск-   390+,              карейск-   0
+    # The suffix cases it is meant to catch (эўрапэйскі, армэйскі) have no such root.
+    pattern: '(?<!яўр)(?<!паліц)(?<!кар)эйск'
     replacement: 'ейск'
     priority: 60
     tests:
@@ -138,3 +154,6 @@ rules:
       negative:
         - { input: "эўрапейскі", expected: "эўрапейскі" }
         - { input: "мадрыдзкі", expected: "мадрыдзкі" }
+        - { input: "яўрэйскую", expected: "яўрэйскую" }
+        - { input: "паліцэйскі", expected: "паліцэйскі" }
+        - { input: "карэйскай", expected: "карэйскай" }

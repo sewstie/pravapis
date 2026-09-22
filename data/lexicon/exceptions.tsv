@@ -75,7 +75,9 @@
 серада	серада
 месца	месца
 месяц	месяц
-# --- Genitive plural -аў (§80). Taraškievica extends the -аў/-яў genitive plural to
+# --- Genitive plural -аў. NOT §80 — that is the German ei rule (Ляйпцыг); Збор 2005 is a
+# --- spelling code and does not legislate declension. Source: project owner's instruction.
+# --- Taraškievica extends the -аў/-яў genitive plural to
 # --- feminine and neuter nouns in a vowel, but for many words both forms are permissible,
 # --- so this is a whitelist rather than a rule: a blanket conversion corrupts ordinary
 # --- text. Words where -аў is strongly preferred, on the project owner's instruction.
@@ -83,7 +85,7 @@
 # --- краін ↔ краінаў is two-way (it predates this list and is covered by
 # --- tests/test_codification_2005.py). The five added here are one-way (n2t): the
 # --- Taraškievica form is supplied going forward, but -аў arriving in T → N is left as
-# --- it is, because §80 makes both forms permissible and the gold keeps справаў.
+# --- it is, because both forms are permissible and the gold keeps справаў.
 краін	краінаў
 моў	моваў	n2t
 задач	задачаў	n2t

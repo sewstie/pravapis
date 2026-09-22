@@ -346,3 +346,43 @@ def test_converter_from_config_has_the_ment_table() -> None:
     converter = Converter.from_config()
     assert len(converter.ment_suffix) > 0
     assert converter.convert("дакументацыя", N2T).text == "дакумэнтацыя"
+
+
+# --- the inventory directory holds inventories, and nothing else --------------------
+DECLARATION = "#!schema tag:pravapis,2026:schema:stems:1\n"
+
+
+def test_directory_load_ignores_a_file_that_does_not_declare(tmp_path: Path) -> None:
+    """A working file in the inventory directory must not become inventory.
+
+    This happened. `scripts/mine_wikidata_labels.py` wrote its review queue — 1,584
+    unreviewed candidates, `бел` → `бэл` among them — to data/lexicon/stems/, the glob
+    read every row, and the converter started writing *Бэларусь* and *пэршы*. A
+    candidates row and a stems row share their first six columns, so nothing failed.
+    """
+    (tmp_path / "stems.tsv").write_text(
+        DECLARATION + "план\tloan\tl\t§55.1\tcited\n", encoding="utf-8"
+    )
+    (tmp_path / "candidates.tsv").write_text(
+        "бел\tloan\te\tWikidata Q1\tderived\tбэл\trefuted\t454828\t64\t-\t-\t-\n",
+        encoding="utf-8",
+    )
+    entries = read_stem_sources(tmp_path)
+    assert [e.stem for e in entries] == ["план"]
+
+
+def test_a_named_file_is_read_even_without_a_declaration(tmp_path: Path) -> None:
+    """Naming one path is saying which file you mean; only the glob has to be told."""
+    path = tmp_path / "anything.tsv"
+    path.write_text("план\tloan\tl\t§55.1\tcited\n", encoding="utf-8")
+    assert [e.stem for e in read_stem_sources(path)] == ["план"]
+
+
+def test_the_shipped_inventory_declares_the_schema(data_dir: Path) -> None:
+    """Otherwise the guard above would silently empty the real inventory."""
+    declared = [
+        p.name
+        for p in sorted((data_dir / "lexicon" / "stems").glob("*.tsv"))
+        if DECLARATION.strip() in p.read_text(encoding="utf-8")
+    ]
+    assert declared == ["stems.tsv"]
