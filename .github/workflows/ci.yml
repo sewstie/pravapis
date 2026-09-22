@@ -52,9 +52,10 @@ jobs:
       # a JSON Schema, translates the regex dialect, and emits js/src/generated/*.json.
       - run: npm ci
         working-directory: js
-      - run: npm run typecheck
-        working-directory: js
+      # src/ imports the generated JSON (gitignored), so it must exist before tsc runs.
       - run: npm run build-data
+        working-directory: js
+      - run: npm run typecheck
         working-directory: js
       # It computed its own data hash the same way compute_data_hash() does; if the two
       # disagree, the two builds are reading two different ideas of "the data" and every
