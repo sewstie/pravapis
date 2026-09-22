@@ -27,7 +27,15 @@ rules:
     direction: narkamauka_to_taraskievica
     # Збор 2005 §40 (судзьдзя, стагодзьдзе); §32 and §41 Заўвага А: prefixes
     # ад-/пад-/над-/перад- before дз are written unchanged (аддзел, аддзячыць, паддзець).
-    pattern: '(?<!^(?:па|за|на|вы|пера|раз|ус|у|з)?(?:а|па|на|пера))д(?=дз[еёіюяь])'
+    # Written as one (?<!^prefix) per length rather than a single variable-width
+    # lookbehind over the prefix alternation: stdlib re (and JS RegExp) require each
+    # lookbehind to be fixed-width, only `regex` accepts variable width, and scripts/
+    # lint_patterns.py compiles every pattern both ways so a JS port can rely on it.
+    # Each group here is exactly the original alternation's members of that length —
+    # `(?<!^A)(?<!^B)` excludes the same set as `(?<!^(?:A|B))` when A and B are the only
+    # two candidates, by De Morgan; verified against every (prefix, trigger) combination
+    # the original alternation could produce, plus every corpus word containing "ддз".
+    pattern: '(?<!^а)(?<!^(?:за|на|па|уа))(?<!^(?:выа|заа|зна|зпа|наа|паа|уна|упа|уса))(?<!^(?:вына|выпа|зана|запа|нана|напа|пана|папа|пера|раза|усна|успа))(?<!^(?:зпера|пераа|разна|разпа|упера))(?<!^(?:выпера|запера|напера|папера|перана|перапа|успера))(?<!^разпера)(?<!^перапера)д(?=дз[еёіюяь])'
     replacement: 'дзь'
     priority: 115
     tests:

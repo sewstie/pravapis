@@ -20,11 +20,19 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - run: uv python install 3.12
       - run: uv sync --all-extras --dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
+      # Every data/rules/ pattern must compile as JS RegExp (stdlib re as a portability
+      # proxy, then an actual Node `new RegExp(p, 'u')`) and avoid constructs — \w \b \Z,
+      # inline flags, conditional groups — that compile fine but silently never fire on
+      # Cyrillic in a JS port. Runs before anything that would build on top of the rules.
+      - run: uv run python scripts/lint_patterns.py
       # Request text must never reach a log line, in src/pravapis/api/ or anywhere a
       # future endpoint lands. See docs/API.md, "Privacy".
       - run: uv run python scripts/check_no_request_text_logging.py
