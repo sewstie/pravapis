@@ -13,6 +13,7 @@ dist/
 build/
 *.egg-info/
 data/lexicon.marisa
+data/*.built
 data/models/
 eval.json
 .benchmarks/

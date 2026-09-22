@@ -305,6 +305,7 @@ def build_lexicon(
         save_lexicon,
         sources_digest,
         validate_entries,
+        write_data_hash_marker,
     )
 
     problems = validate_entries(read_sources(src))
@@ -316,10 +317,12 @@ def build_lexicon(
         raise typer.Exit(1)
     fwd, rev = build_from_sources(src)
     save_lexicon(fwd, rev, out, source_digest=sources_digest(src))
+    marker = write_data_hash_marker(out)
     console.print(
         f"wrote [bold]{out}[/bold]: {len(fwd)} n→t keys, {len(rev)} t→n keys, "
         f"{out.stat().st_size / 1024:.1f} KiB"
     )
+    console.print(f"data hash marker: [bold]{marker.name}[/bold]")
 
 
 @app.command()

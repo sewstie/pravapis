@@ -11,6 +11,7 @@ See data/VERSIONING.md for what a major and a minor bump mean.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Final
 
@@ -71,3 +72,32 @@ def check_data_version(root: Path | None = None, *, implemented: str = DATA_VERS
             "this build does not know about."
         )
     return None
+
+
+def _manifest_paths(root: Path) -> list[Path]:
+    """Every path ``data/MANIFEST`` lists, in its declared order — comments and
+    blank lines stripped, each resolved relative to ``root``."""
+    manifest = root / "MANIFEST"
+    try:
+        lines = manifest.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise DataVersionError(f"{manifest}: cannot read the data manifest: {exc}") from exc
+    return [root / line for raw in lines if (line := raw.strip()) and not line.startswith("#")]
+
+
+def compute_data_hash(root: Path | None = None) -> str:
+    """Sha256 over every file ``data/MANIFEST`` lists, in its declared order.
+
+    This is the one place "the data hash" is computed. Everything that reports or
+    checks a data hash — GET /v1/version, the precompiled lexicon artifact's
+    staleness check — calls this rather than hashing its own idea of what "the
+    data" is; see ``data/MANIFEST`` for exactly what is hashed and why.
+    """
+    base = root or find_data_dir()
+    digest = hashlib.sha256()
+    for path in _manifest_paths(base):
+        try:
+            digest.update(path.read_bytes())
+        except OSError as exc:
+            raise DataVersionError(f"{path}: listed in MANIFEST but unreadable: {exc}") from exc
+    return digest.hexdigest()
