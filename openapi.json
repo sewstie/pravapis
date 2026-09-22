@@ -1,0 +1,839 @@
+{
+  "components": {
+    "schemas": {
+      "BatchConvertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "$ref": "#/components/schemas/Orthography"
+          },
+          "explain": {
+            "default": false,
+            "title": "Explain",
+            "type": "boolean"
+          },
+          "texts": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Texts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "texts",
+          "direction"
+        ],
+        "title": "BatchConvertRequest",
+        "type": "object"
+      },
+      "BatchConvertResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ConvertResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "BatchConvertResponse",
+        "type": "object"
+      },
+      "Change": {
+        "additionalProperties": false,
+        "description": "One word the converter changed, in the frozen cross-language shape.\n\n``from`` is a Python keyword, so it is declared with an alias: the contract is the\nsame in every language, so the language bends, not the contract.",
+        "properties": {
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "from": {
+            "title": "From",
+            "type": "string"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/Method"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "from",
+          "to",
+          "stage"
+        ],
+        "title": "Change",
+        "type": "object"
+      },
+      "ChangeContext": {
+        "additionalProperties": false,
+        "description": "Why a cross-word rule fired: what it looked at outside the word itself.\n\nPresent only on changes made by a rule that reads a neighbouring word. A ``null``\ncontext is therefore a positive statement — this change is reproducible from the\nword alone — not an absence of information.",
+        "properties": {
+          "across": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Across"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trigger"
+        ],
+        "title": "ChangeContext",
+        "type": "object"
+      },
+      "ConvertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "$ref": "#/components/schemas/Orthography"
+          },
+          "explain": {
+            "default": false,
+            "title": "Explain",
+            "type": "boolean"
+          },
+          "text": {
+            "maxLength": 50000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "direction"
+        ],
+        "title": "ConvertRequest",
+        "type": "object"
+      },
+      "ConvertResponse": {
+        "additionalProperties": false,
+        "description": "The frozen conversion contract. See ``docs/API.md``.\n\nEvery conversion endpoint returns exactly these six fields, and a port returns them\ntoo. ``explanations`` is the one documented exception: it appears only when the\ncaller asks for it and is explicitly **outside** the frozen contract.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "engine_version": {
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "explanations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TokenExplanation"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanations"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "unresolved": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unresolved",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "direction",
+          "engine_version",
+          "data_version"
+        ],
+        "title": "ConvertResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "LexiconResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "$ref": "#/components/schemas/Orthography"
+          },
+          "identity": {
+            "title": "Identity",
+            "type": "boolean"
+          },
+          "lexicon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lexicon"
+          },
+          "result": {
+            "$ref": "#/components/schemas/TokenExplanation"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleTraceOut"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "word": {
+            "title": "Word",
+            "type": "string"
+          }
+        },
+        "required": [
+          "word",
+          "direction",
+          "lexicon",
+          "identity",
+          "rules",
+          "result"
+        ],
+        "title": "LexiconResponse",
+        "type": "object"
+      },
+      "Method": {
+        "description": "Which stage of the cascade resolved a word.",
+        "enum": [
+          "identity",
+          "lexicon",
+          "rule",
+          "model",
+          "unknown"
+        ],
+        "title": "Method",
+        "type": "string"
+      },
+      "Orthography": {
+        "description": "The two Belarusian orthographies. Used as the *target* of a conversion.",
+        "enum": [
+          "narkamauka",
+          "taraskievica"
+        ],
+        "title": "Orthography",
+        "type": "string"
+      },
+      "RuleTraceOut": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "rule_id": {
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "before",
+          "after"
+        ],
+        "title": "RuleTraceOut",
+        "type": "object"
+      },
+      "Script": {
+        "description": "The writing system a text is in.\n\nOrthogonal to :class:`Orthography`: Narkamaŭka and Taraškievica are two spellings\nof Belarusian, Cyrillic and the Latin schemes are two ways of writing either. Each\nLatin scheme does, however, share a softness convention with one orthography —\nŁacinka marks assimilative softness (śnieh) as Taraškievica does, the 2007 national\nromanisation does not (snieh) as Narkamaŭka does not — which is why\n:data:`pravapis.translit.PAIRED` exists.",
+        "enum": [
+          "cyrillic",
+          "lacinka",
+          "official"
+        ],
+        "title": "Script",
+        "type": "string"
+      },
+      "StatsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lexicon_size": {
+            "title": "Lexicon Size",
+            "type": "integer"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "rule_count": {
+            "title": "Rule Count",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "lexicon_size",
+          "rule_count",
+          "model_version"
+        ],
+        "title": "StatsResponse",
+        "type": "object"
+      },
+      "TokenExplanation": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "method": {
+            "$ref": "#/components/schemas/Method"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "method",
+          "rule_id",
+          "confidence"
+        ],
+        "title": "TokenExplanation",
+        "type": "object"
+      },
+      "TransliterateRequest": {
+        "additionalProperties": false,
+        "description": "Script conversion. ``script`` is the target; ``from_script`` reads Latin back.\n\n``convert`` controls the orthography step: Łacinka is paired with Taraškievica and\nthe 2007 romanisation with Narkamaŭka, so by default the text is converted to the\npaired orthography before transliteration (снег → śnieh). Set it false to\ntransliterate the input exactly as given (снег → snieh).",
+        "properties": {
+          "convert": {
+            "default": true,
+            "title": "Convert",
+            "type": "boolean"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Orthography"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_script": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Script"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "script": {
+            "$ref": "#/components/schemas/Script",
+            "default": "lacinka"
+          },
+          "text": {
+            "maxLength": 50000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TransliterateRequest",
+        "type": "object"
+      },
+      "TransliterateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Orthography"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "script": {
+            "$ref": "#/components/schemas/Script"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "unresolved": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unresolved",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "script"
+        ],
+        "title": "TransliterateResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data_hash": {
+            "title": "Data Hash",
+            "type": "string"
+          },
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "engine_version": {
+            "title": "Engine Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine_version",
+          "data_version",
+          "data_hash"
+        ],
+        "title": "VersionResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Bidirectional Belarusian orthography converter (Narkamaŭka ↔ Taraškievica)",
+    "title": "pravapis",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/v1/convert": {
+      "post": {
+        "operationId": "convert_v1_convert_post",
+        "parameters": [
+          {
+            "description": "Also report words the converter declined to decide on. Off by default — see docs/API.md, \"Off by default: measured, not guessed\".",
+            "in": "query",
+            "name": "unresolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also report words the converter declined to decide on. Off by default — see docs/API.md, \"Off by default: measured, not guessed\".",
+              "title": "Unresolved",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConvertResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Convert"
+      }
+    },
+    "/v1/convert/batch": {
+      "post": {
+        "operationId": "convert_batch_v1_convert_batch_post",
+        "parameters": [
+          {
+            "description": "Also report words the converter declined to decide on. Off by default — see docs/API.md, \"Off by default: measured, not guessed\".",
+            "in": "query",
+            "name": "unresolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also report words the converter declined to decide on. Off by default — see docs/API.md, \"Off by default: measured, not guessed\".",
+              "title": "Unresolved",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchConvertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchConvertResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Convert Batch"
+      }
+    },
+    "/v1/lexicon/{word}": {
+      "get": {
+        "operationId": "lexicon_lookup_v1_lexicon__word__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "word",
+            "required": true,
+            "schema": {
+              "title": "Word",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Orthography",
+              "default": "taraskievica"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexiconResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lexicon Lookup"
+      }
+    },
+    "/v1/stats": {
+      "get": {
+        "operationId": "stats_v1_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stats"
+      }
+    },
+    "/v1/transliterate": {
+      "post": {
+        "description": "Cyrillic ↔ Latin. See data/TRANSLIT.md for the schemes and their sources.",
+        "operationId": "transliterate_v1_transliterate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransliterateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransliterateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transliterate"
+      }
+    },
+    "/v1/version": {
+      "get": {
+        "description": "Which engine and which data this instance is running — the same data_hash a\nprecompiled artifact's filename carries (pravapis.artifact), by construction:\nboth call pravapis.dataversion.compute_data_hash().",
+        "operationId": "version_v1_version_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Version"
+      }
+    }
+  }
+}

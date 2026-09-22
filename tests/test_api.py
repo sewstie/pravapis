@@ -97,6 +97,67 @@ def test_lexicon_lookup(client: TestClient) -> None:
     assert body["result"]["target"] == "сьвіньня"
 
 
+def test_version(client: TestClient) -> None:
+    from pravapis.dataversion import compute_data_hash
+
+    body = client.get("/v1/version").json()
+    assert body["engine_version"]
+    assert body["data_version"]
+    assert body["data_hash"] == compute_data_hash()
+
+
+def test_unresolved_query_param(client: TestClient) -> None:
+    default = client.post("/v1/convert", json={"text": "без мяне", "direction": "taraskievica"})
+    assert default.json()["unresolved"] == []
+
+    flagged = client.post(
+        "/v1/convert",
+        json={"text": "без мяне", "direction": "taraskievica"},
+        params={"unresolved": "true"},
+    )
+    assert flagged.json()["unresolved"] == ["мяне"]
+
+    batch = client.post(
+        "/v1/convert/batch",
+        json={"texts": ["без мяне"], "direction": "taraskievica"},
+        params={"unresolved": "true"},
+    )
+    assert batch.json()["results"][0]["unresolved"] == ["мяне"]
+
+
+def test_etag_reflects_the_cache_key(client: TestClient) -> None:
+    r1 = client.post("/v1/convert", json={"text": "снег", "direction": "taraskievica"})
+    r2 = client.post("/v1/convert", json={"text": "снег", "direction": "taraskievica"})
+    assert r1.headers["etag"] and r1.headers["etag"] == r2.headers["etag"]
+
+    flagged = client.post(
+        "/v1/convert",
+        json={"text": "снег", "direction": "taraskievica"},
+        params={"unresolved": "true"},
+    )
+    assert flagged.headers["etag"] != r1.headers["etag"]
+
+    other_direction = client.post("/v1/convert", json={"text": "снег", "direction": "narkamauka"})
+    assert other_direction.headers["etag"] != r1.headers["etag"]
+
+
+def test_cache_does_not_change_the_answer(client: TestClient) -> None:
+    """A cache hit must return exactly what a cache miss would have — same text in,
+    same response out, whether or not this exact key was asked before."""
+    first = client.post("/v1/convert", json={"text": "Германіі", "direction": "taraskievica"})
+    second = client.post("/v1/convert", json={"text": "Германіі", "direction": "taraskievica"})
+    assert first.json() == second.json()
+
+
+def test_cors_allows_any_origin_without_credentials(client: TestClient) -> None:
+    resp = client.options(
+        "/v1/convert",
+        headers={"Origin": "https://anything.example", "Access-Control-Request-Method": "POST"},
+    )
+    assert resp.headers["access-control-allow-origin"] == "*"
+    assert "access-control-allow-credentials" not in resp.headers
+
+
 def test_stats(client: TestClient) -> None:
     body = client.get("/v1/stats").json()
     assert body["lexicon_size"] > 200

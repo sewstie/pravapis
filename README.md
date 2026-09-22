@@ -803,23 +803,37 @@ pravapis serve
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/v1/convert` | `{"text", "direction", "explain"}` → converted text, stats, and `changes` (always) |
+| `POST` | `/v1/convert` | `{"text", "direction", "explain"}` (+ `?unresolved=true`) → converted text, stats, and `changes` (always) |
 | `POST` | `/v1/transliterate` | `{"text", "script", "from_script", "convert"}` → Latin or Cyrillic |
-| `POST` | `/v1/convert/batch` | Up to 100 strings |
+| `POST` | `/v1/convert/batch` | Up to 100 strings (+ `?unresolved=true`) |
 | `GET` | `/v1/lexicon/{word}` | Lexicon lookup + which rules would fire |
 | `GET` | `/v1/stats` | Lexicon size, rule count, model version |
+| `GET` | `/v1/version` | `{engine_version, data_version, data_hash}` |
 | `GET` | `/health` | Liveness |
 
-The lexicon and rules are loaded once in the FastAPI lifespan handler.
+The lexicon and rules are loaded once in the FastAPI lifespan handler. CORS is
+`allow_origins=["*"]`, `allow_credentials=False` — a public, unauthenticated, read-only
+API with nothing credentials would protect, and CORS forbids combining the wildcard
+with credentials regardless. `/v1/convert` responses carry an `ETag` and are served
+from an in-process LRU keyed on `(text, direction, script, unresolved, data_version)`
+(`pravapis.api.cache`) — restart the process to clear it; there is no invalidation
+beyond that, which is fine for a pure function of those five inputs.
 
 ```bash
 docker build -t pravapis .
 docker run -p 8000:8000 pravapis
 curl -X POST localhost:8000/v1/convert -H 'content-type: application/json' \
      -d '{"text": "план", "direction": "taraskievica"}'
+curl localhost:8000/v1/version
 ```
 
 Set `PRAVAPIS_DATA_DIR` to point at a different `data/` directory.
+
+`openapi.json` at the repo root is the committed schema; `scripts/export_openapi.py
+--check` (wired into CI right after mypy) fails the build if it drifts from what the
+current routes and Pydantic models actually produce — regenerate with
+`python scripts/export_openapi.py` and commit the result alongside any route/schema
+change.
 
 ## Serverless deployment (Vercel)
 
