@@ -10,4 +10,13 @@ conformance/manifest.json -text
 # Same reasoning, weaker stakes: the data files carry the content the corpus is
 # generated from, and a hash over them should not depend on who checked them out.
 data/VERSION -text
+data/MANIFEST -text
+data/chars/*.tsv -text
+data/rules/*.yaml -text
+data/lexicon/*.tsv -text
 data/lexicon/stems/*.tsv -text
+data/lexicon/case/*.tsv -text
+data/morphology/function_words.tsv -text
+data/morphology/*.marisa -text
+data/stress/*.marisa -text
+data/translit/*.yaml -text

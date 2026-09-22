@@ -482,17 +482,6 @@ EXEMPT_DATA: Final[dict[str, str]] = {
         '(4 MB, 227 lines of {"pairs": …}). Nothing reads it and it is not data. '
         "Exempted rather than deleted so the removal is a deliberate commit of its own."
     ),
-    "lexicon.marisa": (
-        "a gitignored, locally-built compilation of lexicon/loanwords.tsv, "
-        "proper_nouns.tsv and exceptions.tsv, which are already covered above; "
-        "hashing or case-testing the compiled binary itself would be redundant with "
-        "testing the sources it was built from, and not every checkout has it built"
-    ),
-    "models/disambig.joblib": (
-        "a gitignored, optional classifier artifact; Config.default() never loads a "
-        "model (see README, 'Why the classifier was removed'), so its presence or "
-        "absence changes no default output, and not every checkout has one trained"
-    ),
     "names/w_names.tsv": (
         "retained as evidence about which names render English W, but NOTHING READS IT: "
         "Правілы 2008 §15 п.4 makes the T -> N reversal unconditional, so the exception "
