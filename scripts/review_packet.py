@@ -1,4 +1,4 @@
-﻿"""Collect every open question into one document a native Taraškievica writer can answer.
+"""Collect every open question into one document a native Taraškievica writer can answer.
 
     python scripts/review_packet.py --out review-packet.md
 
