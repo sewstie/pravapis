@@ -204,7 +204,7 @@ claim narrower than its interval, however precise the point estimate looks.
 | split | direction | in-scope recall | precision |
 |---|---|---|---|
 | dev (1,006 pairs) | N → T | **75.1%** [72.9, 77.1] | 95.2% [93.9, 96.2] |
-| dev | T → N | **75.3%** [73.1, 77.3] | 97.1% [96.0, 97.9] |
+| dev | T → N | **75.4%** [73.1, 77.3] | 97.1% [96.0, 97.9] |
 | test (1,225 pairs, frozen) | N → T | **74.5%** [72.6, 76.4] | 96.0% [94.9, 96.9] |
 | test | T → N | **74.8%** [72.9, 76.6] | 97.7% [96.8, 98.3] |
 
@@ -261,6 +261,34 @@ it was marked UNVERIFIED and left unwritten rather than shipped on a guess.
 **Read this next to the precision figures, not instead of them.** Those are not wrong:
 the converter changes very little it should not. It simply changes less than a
 Taraškievica writer would, and until this harness existed there was no way to say so.
+
+### Unresolved: measured, not guessed
+
+The API can flag a passthrough word as a possible miss — the `unresolved` field in
+`docs/API.md` — using the same shape-based triggers built for the (off-by-default)
+disambiguation classifier's candidate net (`Converter.is_ambiguous`; e.g. a consonant
+before е, the shape of a loan vs. native е/э split). Whether that heuristic is worth
+showing a caller is itself measurable, using this section's own ground truth: a
+flagged word is a real miss when the dev parallel corpus attests it should have
+changed, the same signal `measure_recall` scores misses against.
+
+| direction | flag precision | flag rate |
+|---|---|---|
+| N → T | 15.2% | 15.3% |
+| T → N | 1.9% | 12.9% |
+
+*Flag precision* — of flagged words, the share that were real misses. *Flag rate* —
+flagged words as a share of every dev token, not just the passthrough ones. The bar for
+shipping this on by default was precision ≥ 0.5 and rate ≤ 2%, in both directions; it
+misses both, by a wide margin, in both directions, so `unresolved` ships **off**:
+`Converter.convert()` takes `unresolved: bool = False`, and `/v1/convert` returns `[]`
+until a `?unresolved=true` request flag reaches it. `[дтнмсзпбвфр]е` — consonant, then
+е, anywhere in the word — is the biggest offender: it fires on ordinary native
+vocabulary far more often than on an actual loanword, which is exactly the shape a
+bigger stem inventory resolves outright (`### What the next review session is worth`,
+next) rather than leaving ambiguous. Both figures are ratcheted in
+`data/eval/baseline.json` next to recall and precision, so a heuristic tweak that
+quietly makes either worse fails the build instead of shipping unnoticed.
 
 ### What the next review session is worth
 

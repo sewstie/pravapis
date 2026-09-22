@@ -400,10 +400,21 @@ class Converter:
 
     # --- text-level API -------------------------------------------------------
     def convert(
-        self, text: str, direction: Orthography, *, aggressive: bool | None = None
+        self,
+        text: str,
+        direction: Orthography,
+        *,
+        aggressive: bool | None = None,
+        unresolved: bool = False,
     ) -> ConversionResult:
+        """``unresolved`` is off by default: measured on the dev parallel corpus, the
+        heuristic behind it flags a possible miss at 12-15% of all tokens for a
+        precision of 2-15% (see README, "Unresolved: measured, not guessed") — far
+        short of the 0.5 precision / 2% rate bar for shipping it unconditionally.
+        Pass ``unresolved=True`` to compute it anyway (the future ``?unresolved=true``
+        API flag)."""
         if aggressive is not None and aggressive != self.aggressive:
-            return self.variant(aggressive).convert(text, direction)
+            return self.variant(aggressive).convert(text, direction, unresolved=unresolved)
         text = sanitize(text)
         tokens = tokenize(text)
         conversions: list[Conversion | None] = []
@@ -467,13 +478,19 @@ class Converter:
         for c in done:
             stats[c.method] += 1
         spanned = self._with_output_spans(tokens, out, words, conversions, direction)
-        unresolved = tuple(
-            c.source
-            for c in spanned
-            if c.method is Method.UNKNOWN and not c.changed and self.is_ambiguous(c.source.lower())
+        unresolved_words = (
+            tuple(
+                c.source
+                for c in spanned
+                if c.method is Method.UNKNOWN
+                and not c.changed
+                and self.is_ambiguous(c.source.lower())
+            )
+            if unresolved
+            else ()
         )
         return ConversionResult(
-            "".join(out), spanned, stats, direction=direction, unresolved=unresolved
+            "".join(out), spanned, stats, direction=direction, unresolved=unresolved_words
         )
 
     @staticmethod

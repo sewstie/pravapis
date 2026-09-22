@@ -215,15 +215,22 @@ def test_the_same_rule_is_cross_word_in_one_direction_only(converter: Converter)
 
 
 # --- unresolved -------------------------------------------------------------------
+# Off by default: measured on the dev parallel corpus (README, "Unresolved: measured,
+# not guessed"), the heuristic falls well short of the 0.5 precision / 2% rate bar for
+# shipping it unconditionally. `unresolved=True` is the future `?unresolved=true` flag.
+def test_unresolved_is_empty_by_default(converter: Converter) -> None:
+    assert converter.convert("без мяне", N2T).unresolved == ()
+
+
 def test_unresolved_names_the_words_the_converter_declined(converter: Converter) -> None:
     """Not every unchanged word — only the ones that matched an ambiguity trigger and
     that no stage resolved. Silence is right; a silent silence is not."""
-    result = converter.convert("без мяне", N2T)
+    result = converter.convert("без мяне", N2T, unresolved=True)
     assert "мяне" in result.unresolved
 
 
 def test_unresolved_is_empty_when_nothing_was_ambiguous(converter: Converter) -> None:
-    assert converter.convert("снег", N2T).unresolved == ()
+    assert converter.convert("снег", N2T, unresolved=True).unresolved == ()
 
 
 # --- citations -------------------------------------------------------------------

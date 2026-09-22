@@ -7,13 +7,17 @@
   "metrics": {
     "dev_n2t_recall": 0.750592,
     "dev_n2t_precision": 0.951916,
-    "dev_t2n_recall": 0.752962,
-    "dev_t2n_precision": 0.97097,
+    "dev_t2n_recall": 0.754147,
+    "dev_t2n_precision": 0.971014,
     "test_n2t_recall": 0.745274,
     "test_n2t_precision": 0.960414,
     "test_t2n_recall": 0.74811,
     "test_t2n_precision": 0.976558,
-    "negative_set_forms": 3213.0
+    "negative_set_forms": 3213.0,
+    "dev_n2t_unresolved_flag_precision": 0.152444,
+    "dev_n2t_unresolved_flag_rate": 0.152625,
+    "dev_t2n_unresolved_flag_precision": 0.018967,
+    "dev_t2n_unresolved_flag_rate": 0.128748
   },
   "updated": "2026-09-21"
 }
