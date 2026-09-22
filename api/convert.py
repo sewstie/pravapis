@@ -1,7 +1,10 @@
 """Vercel Python serverless function: /api/convert (POST, OPTIONS).
 
-Deployed straight from this repository: the package is imported from src/,
-the lexicon, rules and stress tables from data/. All request handling lives in
+Deployed straight from this repository: the package is imported from src/, and the
+converter is loaded whole from data/pravapis-<hash>.bin — one pickle.load, no YAML or
+TSV parsing at cold start or on any request. That file is built by
+`pravapis build-artifact` from exactly the sources data/MANIFEST lists (see
+pravapis.artifact); it is not generated here. All request handling lives in
 pravapis.webapi; this file only adapts it to BaseHTTPRequestHandler.
 """
 
@@ -16,12 +19,20 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from pravapis.config import Config  # noqa: E402
-from pravapis.pipeline import Converter  # noqa: E402
+from pravapis.artifact import ArtifactError, load_artifact  # noqa: E402
 from pravapis.webapi import handle  # noqa: E402
 
+DATA = ROOT / "data"
+_candidates = sorted(DATA.glob("pravapis-*.bin"))
+if not _candidates:
+    raise ArtifactError(
+        f"{DATA}: no pravapis-<hash>.bin artifact; run `pravapis build-artifact` first"
+    )
+if len(_candidates) > 1:
+    raise ArtifactError(f"{DATA}: more than one artifact ({[p.name for p in _candidates]})")
+
 # Built once per cold start, reused by every request on this instance.
-CONVERTER = Converter.from_config(Config.default(ROOT / "data"))
+CONVERTER = load_artifact(_candidates[0]).converter()
 
 
 class handler(BaseHTTPRequestHandler):

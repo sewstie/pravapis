@@ -33,6 +33,20 @@ class Lexicon:
         self._n2t = n2t
         self._t2n = t2n
 
+    # marisa_trie's own pickle support round-trips correctly but is not byte-stable
+    # across processes (its __reduce__ output differs run to run for identical tries,
+    # confirmed empirically — .tobytes()/.frombytes(), its *native* serialization, is
+    # stable). A build tool that pickles this (pravapis.artifact) needs reproducible
+    # bytes, so trade the trie objects for their tobytes() form across a pickle.
+    def __getstate__(self) -> dict[str, bytes]:
+        return {"n2t": self._n2t.tobytes(), "t2n": self._t2n.tobytes()}
+
+    def __setstate__(self, state: dict[str, bytes]) -> None:
+        self._n2t = marisa_trie.BytesTrie()
+        self._n2t.frombytes(state["n2t"])
+        self._t2n = marisa_trie.BytesTrie()
+        self._t2n.frombytes(state["t2n"])
+
     # --- construction ---------------------------------------------------------
     @classmethod
     def load(cls, path: Path, *, sources: Path | None = None) -> Lexicon:

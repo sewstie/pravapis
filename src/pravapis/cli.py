@@ -325,6 +325,28 @@ def build_lexicon(
     console.print(f"data hash marker: [bold]{marker.name}[/bold]")
 
 
+@app.command("build-artifact")
+def build_artifact_cmd(
+    data_dir: Annotated[
+        Path | None,
+        typer.Argument(help="Data directory to build from; defaults to the one pravapis reads."),
+    ] = None,
+    out_dir: Annotated[
+        Path | None, typer.Option("--out-dir", "-o", help="Directory to write the artifact into.")
+    ] = None,
+) -> None:
+    """Build pravapis-<data-hash>.bin: the trie, the compiled rules, and the tables
+    the cascade needs, pre-parsed from exactly the files data/MANIFEST lists."""
+    from pravapis.artifact import ArtifactError, build_artifact
+
+    try:
+        path = build_artifact(data_dir, out_dir)
+    except ArtifactError as exc:
+        errors.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    console.print(f"wrote [bold]{path}[/bold] ({path.stat().st_size / 1024:.1f} KiB)")
+
+
 @app.command()
 def train(
     data: Annotated[Path, typer.Argument(help="TSV: source, target, context.")],

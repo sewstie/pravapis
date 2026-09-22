@@ -308,6 +308,31 @@ class StemIndex:
             regex.compile("|".join(regex.escape(s) for s in unanchored)) if unanchored else None
         )
 
+    # See pravapis.lexicon.store.Lexicon.__getstate__: marisa_trie's own pickle
+    # support is not byte-stable across processes; tobytes()/frombytes() is. Same
+    # problem, same fix, for regex.Pattern alternations of literal strings — see
+    # pravapis.rules.engine.Rule.__getstate__; ``_unanchored`` is built exactly that
+    # way (``"|".join(regex.escape(s) for s in unanchored)``).
+    def __getstate__(self) -> dict[str, object]:
+        state = dict(self.__dict__)
+        state["_trie"] = self._trie.tobytes()
+        if self._unanchored is not None:
+            state["_unanchored"] = (self._unanchored.pattern, self._unanchored.flags)
+        return state
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        self.__dict__.update(state)
+        trie_bytes = state["_trie"]
+        assert isinstance(trie_bytes, bytes)
+        self._trie = marisa_trie.Trie()
+        self._trie.frombytes(trie_bytes)
+        unanchored_state = state["_unanchored"]
+        if unanchored_state is not None:
+            assert isinstance(unanchored_state, tuple)
+            source, flags = unanchored_state
+            assert isinstance(source, str) and isinstance(flags, int)
+            self._unanchored = regex.compile(source, flags)
+
     @classmethod
     def load(cls, path: Path) -> StemIndex:
         return cls(read_stem_sources(path))

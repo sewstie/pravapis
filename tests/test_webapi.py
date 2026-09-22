@@ -11,10 +11,23 @@ from pathlib import Path
 
 import pytest
 
+from pravapis.artifact import artifact_filename, build_artifact
+from pravapis.dataversion import compute_data_hash
 from pravapis.pipeline import Converter
 from pravapis.webapi import ApiError, convert_payload, cors_headers, handle
 
 ROOT = Path(__file__).resolve().parent.parent
+DATA = ROOT / "data"
+
+
+@pytest.fixture(scope="module")
+def built_artifact() -> Path:
+    """api/convert.py now loads data/pravapis-<hash>.bin at import — build it once for
+    the subprocess test below rather than requiring a committed (gitignored) artifact."""
+    existing = DATA / artifact_filename(compute_data_hash(DATA))
+    if existing.is_file():
+        return existing
+    return build_artifact(DATA, DATA)
 
 
 def _post(converter: Converter, body: object, **headers: str) -> tuple[int, dict, dict]:
@@ -168,7 +181,8 @@ print(json.dumps(out, ensure_ascii=False))
 """
 
 
-def test_root_function_over_http() -> None:
+def test_root_function_over_http(built_artifact: Path) -> None:
+    del built_artifact  # exists on disk; api/convert.py finds it by globbing data/
     proc = subprocess.run(
         [sys.executable, "-c", DRIVER, str(ROOT / "api" / "convert.py")],
         capture_output=True,

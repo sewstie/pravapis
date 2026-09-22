@@ -48,6 +48,15 @@ class MentSuffix:
     def __init__(self, forms: marisa_trie.Trie):
         self.forms = forms
 
+    # See pravapis.lexicon.store.Lexicon.__getstate__: marisa_trie's own pickle
+    # support is not byte-stable across processes; tobytes()/frombytes() is.
+    def __getstate__(self) -> dict[str, bytes]:
+        return {"forms": self.forms.tobytes()}
+
+    def __setstate__(self, state: dict[str, bytes]) -> None:
+        self.forms = marisa_trie.Trie()
+        self.forms.frombytes(state["forms"])
+
     @classmethod
     def load(cls, path: Path) -> MentSuffix:
         trie = marisa_trie.Trie()

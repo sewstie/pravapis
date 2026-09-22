@@ -3,6 +3,11 @@
 One Vercel project, one domain: a Python serverless function sits next to the Next.js
 app. No separate service, no CORS.
 
+This exporter still vendors raw YAML/TSV sources and builds the `Converter` at cold
+start, unlike this repo's own `/api/convert` (README, "Precompiled artifact"), which
+now loads a single precompiled `data/pravapis-<hash>.bin`. Porting this export to the
+same artifact has not been done — it is a real follow-up, not a design choice.
+
 ## Build the files
 
 From the pravapis repo:
