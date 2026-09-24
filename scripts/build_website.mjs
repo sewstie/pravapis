@@ -1,6 +1,6 @@
 // Run `npm ci --prefix website` first. No Python needed to build or serve the site.
 import { build } from '../website/node_modules/esbuild/lib/main.js';
-import { cp, mkdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -24,8 +24,16 @@ const output = new URL('../.vercel/output/', import.meta.url);
 await mkdir(new URL('static/', output), { recursive: true });
 await cp(new URL('../public/', import.meta.url), new URL('static/', output), { recursive: true });
 const preview = process.env.VERCEL_ENV === 'preview';
+if (preview) {
+  for (const path of ['index.html', 'en/index.html', 'developers/index.html']) {
+    const target = new URL(`static/${path}`, output);
+    const html = await readFile(target, 'utf8');
+    await writeFile(target, html.replace('<head>', '<head><meta name="robots" content="noindex, nofollow">'));
+  }
+}
 // Keep clean public URLs while serving the index files generated above.
 const routes = [
+  { src: '^/api(?:/.*)?$', status: 404 },
   { src: '^/en/?$', dest: '/en/index.html' },
   { src: '^/developers/?$', dest: '/developers/index.html' },
 ];

@@ -117,6 +117,9 @@ try {
     check(response.status() === 200, `Clean URL ${path}`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Mobile overflow ${path}`);
   }
+  check(await page.locator('meta[name="robots"]').count() === 0, 'Production pages stay indexable');
+  const api = await page.request.post(origin + '/api/convert', { data: { text: 'Снег' } });
+  check([404, 405].includes(api.status()), 'Removed Python API stays absent');
   await page.goto(origin + '/en/');
   await page.locator('#example').click();
   await input.press('Control+Enter');
