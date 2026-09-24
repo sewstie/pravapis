@@ -78,7 +78,7 @@ jobs:
       - run: npm test
         working-directory: js
       # Bundles the package (tsup: ESM + CJS + .d.ts) and checks its published file
-      # list stays limited to dist/ + package.json — no src/, scripts/, or generated/
+      # list stays limited to dist/ + package.json + README.md — no src/, scripts/, or generated/
       # leaking into what `npm publish` would ship.
       - run: npm run build
         working-directory: js
@@ -88,8 +88,12 @@ jobs:
         run: |
           files=$(npm pack --dry-run --json --ignore-scripts 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d)[0].files.map(f=>f.path).join('\n')))")
           echo "$files"
-          if echo "$files" | grep -vE '^dist/|^package\.json$'; then
+          if echo "$files" | grep -vE '^dist/|^package\.json$|^README\.md$'; then
             echo "::error::unexpected file(s) in the npm package — see above"
+            exit 1
+          fi
+          if ! echo "$files" | grep -qx 'README.md'; then
+            echo "::error::README.md is missing from the npm package"
             exit 1
           fi
       # The conformance corpus is the cross-language contract. It is generated from the

@@ -1,8 +1,36 @@
 {
   "name": "pravapis",
-  "private": true,
   "version": "0.1.0",
-  "description": "Bidirectional Belarusian orthography conversion (Narkamaŭka <-> Taraškievica).",
+  "description": "Belarusian orthography converter (Narkamaŭka ↔ Taraškievica) and Cyrillic ↔ Łacinka transliteration. Канвертар беларускага правапісу і транслітарацыя.",
+  "keywords": [
+    "belarusian",
+    "belarusian-language",
+    "pravapis",
+    "беларуская",
+    "беларуская-мова",
+    "правапіс",
+    "тарашкевіца",
+    "наркамаўка",
+    "лацінка",
+    "транслітарацыя",
+    "taraskievica",
+    "narkamauka",
+    "orthography",
+    "transliteration",
+    "cyrillic",
+    "lacinka",
+    "nlp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sewstie/pravapis.git",
+    "directory": "js"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/sewstie/pravapis#readme",
+  "bugs": {
+    "url": "https://github.com/sewstie/pravapis/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "engines": {
