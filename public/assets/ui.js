@@ -1,3 +1,4 @@
+// Initializes the converter, theme controls, and language navigation. Preserves converter state in memory when switching languages.
 import { initConverter } from './converter.js';
 import { mountFeedback } from './feedback.js';
 
@@ -9,12 +10,10 @@ function initTheme() {
   document.getElementById('theme')?.addEventListener('click', () => {
     const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = theme;
-    try { localStorage.setItem('pravapis-theme', theme); } catch { /* Optional preference. */ }
+    try { localStorage.setItem('pravapis-theme', theme); } catch {}
   });
 }
 initTheme();
-
-// Keep submitted text only in memory. Real links remain the no-JavaScript fallback.
 async function switchLanguage(url, push) {
   const id = ++navigation;
   try {

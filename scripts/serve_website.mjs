@@ -1,4 +1,4 @@
-// Local static preview. No Python, API, or conversion server.
+// Serves the static website locally with clean page URLs. Accepts an optional port argument and defaults to 5329.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

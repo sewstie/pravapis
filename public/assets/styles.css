@@ -1,3 +1,4 @@
+/* Defines shared layouts, typography, themes, and responsive styles for the website. */
 :root{color-scheme:light;--bg:#f7f6f2;--surface:#fff;--text:#20231f;--muted:#60655d;--accent:#a1271f;--hover:#821f19;--on-accent:#fff;--border:#d9ddd3;--control:#858b80;--change:#e8f1e4;--change-text:#285334;--focus:#245ec7;--soft:#eeede7;font-family:"Segoe UI", "Noto Sans",Arial,sans-serif}
 .footer-left>span,.footer-links a[href*="/data/LICENSE"]{display:none}
 :root[data-theme=dark]{color-scheme:dark;--bg:#171a17;--surface:#222622;--text:#f1f3ec;--muted:#b1b9ad;--accent:#f08b80;--hover:#ffa89e;--on-accent:#171a17;--border:#41493e;--control:#899381;--change:#2d4431;--change-text:#c2e4b9;--focus:#95baff;--soft:#292e27}

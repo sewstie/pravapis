@@ -1,4 +1,4 @@
-// Run `npm run dev --prefix website` first, then: node scripts/test_website.mjs
+// Tests conversion, navigation, privacy, accessibility-related behavior, and mobile layout in a browser. Uses WEBSITE_URL or a local server at http://127.0.0.1:5329.
 import { chromium } from '../website/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 import { changeSegments } from '../public/assets/converter.js';
@@ -80,7 +80,7 @@ try {
   await page.waitForURL('**/en/');
   await page.locator('#source').selectOption('narkamauka');
   await page.locator('#latin-output').uncheck();
-  await convert(); // Load the new language page's worker before going offline.
+  await convert();
   await context.setOffline(true);
   await mode.selectOption('taraskievica'); await input.fill('Снег і план'); await convert();
   check(await output.textContent() === 'Сьнег і плян', 'Conversion works offline after engine load');
@@ -96,7 +96,6 @@ try {
   await page.locator('#convert').click();
   check((await page.locator('#status').textContent()).includes('50,000'), 'Oversize feedback');
   await input.fill('Снег'); await mode.selectOption('taraskievica');
-  // A blocked worker download must give localized feedback without losing input.
   await page.reload();
   await input.fill('Снег');
   await page.evaluate(() => {
@@ -107,8 +106,6 @@ try {
   await page.waitForFunction(() => document.querySelector('#status').classList.contains('error'));
   check(await input.inputValue() === 'Снег', 'Worker failure preserves text');
   check((await page.locator('#status').textContent()).includes('Could not load'), 'Engine load error is useful');
-
-  // A worker deliberately ignores termination: request IDs must still protect output.
   await page.evaluate(() => {
     window.Worker = class {
       postMessage(data) { setTimeout(() => this.onmessage?.({ data: { id: data.id, result: { text: 'STALE', changes: [] } } }), 400); }

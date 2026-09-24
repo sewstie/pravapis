@@ -1,4 +1,4 @@
-// Apply the preference before the first paint; storage can be unavailable.
+// Applies the saved or system color theme before the page renders. Falls back to the system preference when storage is unavailable.
 try {
   const saved = localStorage.getItem('pravapis-theme');
   document.documentElement.dataset.theme = saved === 'dark' || saved === 'light'

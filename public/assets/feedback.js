@@ -1,3 +1,4 @@
+// Builds feedback drafts for users to review and submit on GitHub. Copies drafts locally without sending their contents or placing them in URLs.
 const COPY = {
   en: {
     feedbackTitle: 'Share feedback',
@@ -186,9 +187,6 @@ if (form) {
       `${c.description}:\n${$('feedback-details').value.trim()}`,
     ].filter(Boolean);
     const report = `${title}\n\n${fields.join('\n\n')}`;
-
-    // Never send reports or place their contents in a URL. The user reviews and
-    // explicitly submits the draft on GitHub after pasting it into the issue form.
     const issue = window.open('https://github.com/sewstie/pravapis/issues/new', '_blank');
     if (issue) issue.opener = null;
     draft.value = report;

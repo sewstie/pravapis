@@ -1,4 +1,4 @@
-// A worker keeps conversion off the main thread. No submitted text leaves the browser.
+// Runs conversions in a browser worker and manages request cancellation. Submitted text stays on the device.
 export function createEngineClient() {
   let worker = null, pending = null, sequence = 0;
   function cancel() {
