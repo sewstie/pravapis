@@ -34,6 +34,11 @@ It includes the proper-name dictionary. The package omits the Python engine's st
 table, so several context-sensitive `не` / `без` → `ня` / `бяз` forms can differ.
 This is documented in the interface and in `js/scripts/known-gaps.json`.
 
+The bilingual feedback form drafts bug reports, incorrect spellings, and proposals.
+It copies the report locally and opens GitHub Issues without putting report text in a
+URL or sending anything automatically. The reporter reviews and pastes the report;
+GitHub issues are public when submitted.
+
 The build includes the code and data license index and the GrammarDB morphology data
 attribution under `public/assets/licenses/`. Code is MIT; data carries source-specific
 licenses. The social preview can be regenerated with `npm run social --prefix website`

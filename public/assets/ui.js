@@ -1,4 +1,5 @@
 import { initConverter } from './converter.js';
+import { mountFeedback } from './feedback.js';
 
 let converter = initConverter();
 let navigation = 0;
@@ -35,6 +36,7 @@ async function switchLanguage(url, push) {
     if (push) history.pushState(null, '', url);
     activeURL = new URL(url, location.href).pathname;
     converter = initConverter(saved);
+    mountFeedback();
     initTheme();
     const current = document.querySelector('[data-language][aria-current="page"]');
     current?.focus({ preventScroll: true });

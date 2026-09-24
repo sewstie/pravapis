@@ -23,6 +23,15 @@ await cp(new URL('../data/morphology/SOURCE', import.meta.url), new URL('../publ
 const output = new URL('../.vercel/output/', import.meta.url);
 await mkdir(new URL('static/', output), { recursive: true });
 await cp(new URL('../public/', import.meta.url), new URL('static/', output), { recursive: true });
+// Strip the retired attribution labels in the actual deployable HTML as well as the
+// enhanced footer, so previews and no-JavaScript visitors see the clean version.
+for (const path of ['index.html', 'en/index.html', 'developers/index.html']) {
+  const target = new URL(`static/${path}`, output);
+  let html = await readFile(target, 'utf8');
+  html = html.replace(/<span>(?:By Vladislav Hushcha|Аўтар: Уладзіслаў Гушча)<\/span>/gu, '');
+  html = html.replace(/<a href="https:\/\/github\.com\/sewstie\/pravapis\/blob\/main\/data\/LICENSE">(?:Data: source-specific licenses|Даныя: ліцэнзіі крыніц)<\/a>/gu, '');
+  await writeFile(target, html);
+}
 const preview = process.env.VERCEL_ENV === 'preview';
 if (preview) {
   for (const path of ['index.html', 'en/index.html', 'developers/index.html']) {

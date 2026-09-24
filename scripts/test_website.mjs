@@ -42,6 +42,7 @@ try {
   await page.goBack();
   await page.waitForFunction(() => document.documentElement.lang === 'be');
   check((await input.inputValue()).includes('🎉 Снег'), 'Back navigation retains input');
+  check(await page.locator('#feedback h2').textContent() === 'Пакінуць водгук', 'Belarusian feedback form');
   await page.goForward();
   await page.waitForFunction(() => document.documentElement.lang === 'en');
   await mode.selectOption('narkamauka');
@@ -121,6 +122,28 @@ try {
   const api = await page.request.post(origin + '/api/convert', { data: { text: 'Снег' } });
   check([404, 405].includes(api.status()), 'Removed Python API stays absent');
   await page.goto(origin + '/en/');
+  check(await page.locator('.footer-left span').count() === 0, 'Author attribution removed from footer');
+  check(await page.locator('.footer-links a[href*="/data/LICENSE"]').count() === 0, 'Data licence removed from footer');
+  const feedback = page.locator('#feedback-form');
+  check(await feedback.count() === 1, 'Feedback form appears');
+  await page.locator('#feedback-kind').selectOption('word');
+  check(await page.locator('#feedback-original').evaluate(el => el.required), 'Word reports require the original spelling');
+  check(await page.locator('#feedback-suggestion').evaluate(el => el.required), 'Word reports require a suggestion');
+  await page.locator('#feedback-summary').fill('Wrong spelling');
+  await page.locator('#feedback-original').fill('снег');
+  await page.locator('#feedback-suggestion').fill('сьнег');
+  await page.locator('#feedback-details').fill('This form stays local until I review the public GitHub draft.');
+  await page.evaluate(() => {
+    window.feedbackTarget = null;
+    window.open = url => { window.feedbackTarget = url; return { opener: window }; };
+  });
+  await feedback.locator('[type=submit]').click();
+  await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('draft is copied'));
+  check((await page.evaluate(() => navigator.clipboard.readText())).includes('снег'), 'Feedback draft copied for review');
+  check(await page.evaluate(() => window.feedbackTarget) === 'https://github.com/sewstie/pravapis/issues/new', 'Feedback opens a clean issue URL with no text');
+  await page.locator('#feedback-kind').selectOption('proposal');
+  check(await page.locator('#feedback-words').isHidden(), 'Spelling fields are hidden for proposals');
+  check(!(await page.locator('#feedback-original').evaluate(el => el.required)), 'Proposal does not require spelling fields');
   await page.locator('#example').click();
   await input.press('Control+Enter');
   await page.waitForFunction(() => document.querySelector('#output').textContent.includes('Сьнег'));
