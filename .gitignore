@@ -20,7 +20,39 @@ eval.json
 data/reference/*
 !data/reference/README.md
 a human reviewer.md
-.claude
+# Local AI assistant files (case-insensitive names, at any directory level)
+*[Cc][Ll][Aa][Uu][Dd][Ee]*
+*[Oo][Pp][Ee][Nn][Aa][Ii]*
+.codex/
+.agents/
+/docs/superpowers/
+# openapi.json is the application's API schema, not an OpenAI file; keep it tracked.
+
+# Local environments and deployment configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.vercel/
+
+# Editor files, OS metadata, and logs
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+*.log
+.coverage.*
+
+# Local npm artifacts; the real lockfile is js/package-lock.json
+/package-lock.json
+node_modules/
+*.tsbuildinfo
+*.tgz
 
 # TypeScript port (js/scripts/build-data.ts): generated from data/, rebuilt every run
 js/node_modules/
