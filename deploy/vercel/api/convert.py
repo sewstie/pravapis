@@ -1,6 +1,6 @@
 """Vendored variant of the /api/convert function (for embedding in another repo).
 
-The standalone deployment uses api/convert.py at the pravapis repo root. This copy
+The optional standalone adapter lives in deploy/vercel/standalone/convert.py. This copy
 is produced by scripts/export_vercel.py for a host project: it imports the
 converter from api/_pravapis/ (leading underscore: not a function). Request
 handling, validation and CORS live in pravapis.webapi, shared by both.

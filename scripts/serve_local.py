@@ -1,4 +1,4 @@
-"""Run the Vercel deployment locally: public/ at / and api/convert.py at /api/convert.
+"""Legacy Python API development server; the website uses serve_website.mjs instead.
 
     python scripts/serve_local.py [--port 3000]
 
@@ -21,7 +21,9 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def load_function() -> Any:
-    spec = importlib.util.spec_from_file_location("convert_fn", ROOT / "api" / "convert.py")
+    spec = importlib.util.spec_from_file_location(
+        "convert_fn", ROOT / "deploy" / "vercel" / "standalone" / "convert.py"
+    )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

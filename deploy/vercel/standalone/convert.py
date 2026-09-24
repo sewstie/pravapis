@@ -1,6 +1,6 @@
-"""Vercel Python serverless function: /api/convert (POST, OPTIONS).
+"""Optional Python HTTP adapter (not deployed by the static website).
 
-Deployed straight from this repository: the package is imported from src/, and the
+For separate Python deployments: the package is imported from src/, and the
 converter is loaded whole from data/pravapis-<hash>.bin — one pickle.load, no YAML or
 TSV parsing at cold start or on any request. That file is built by
 `pravapis build-artifact` from exactly the sources data/MANIFEST lists (see
@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 

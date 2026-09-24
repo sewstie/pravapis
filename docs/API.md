@@ -1,5 +1,10 @@
 # The pravapis conversion contract
 
+The Pravapis website runs the JavaScript package locally in the browser. It no longer
+deploys or calls `/api/convert`. References to that endpoint below describe the optional
+Python adapter in `deploy/vercel/standalone/convert.py` and exported integrations;
+the Python library and FastAPI service contracts remain unchanged.
+
 **This document is normative.** Every conversion endpoint, in every implementation,
 returns the shape below. A port is not "mostly compatible" — it either returns this or
 it is a different API wearing the same name.

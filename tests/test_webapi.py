@@ -1,4 +1,4 @@
-"""The standalone Vercel function: api/convert.py over pravapis.webapi."""
+"""The optional standalone Python adapter over pravapis.webapi."""
 
 from __future__ import annotations
 
@@ -18,11 +18,12 @@ from pravapis.webapi import ApiError, convert_payload, cors_headers, handle
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
+STANDALONE = ROOT / "deploy" / "vercel" / "standalone"
 
 
 @pytest.fixture(scope="module")
 def built_artifact() -> Path:
-    """api/convert.py now loads data/pravapis-<hash>.bin at import — build it once for
+    """The standalone adapter loads data/pravapis-<hash>.bin at import — build it once for
     the subprocess test below rather than requiring a committed (gitignored) artifact."""
     existing = DATA / artifact_filename(compute_data_hash(DATA))
     if existing.is_file():
@@ -182,9 +183,9 @@ print(json.dumps(out, ensure_ascii=False))
 
 
 def test_root_function_over_http(built_artifact: Path) -> None:
-    del built_artifact  # exists on disk; api/convert.py finds it by globbing data/
+    del built_artifact  # exists on disk; the adapter finds it by globbing data/
     proc = subprocess.run(
-        [sys.executable, "-c", DRIVER, str(ROOT / "api" / "convert.py")],
+        [sys.executable, "-c", DRIVER, str(STANDALONE / "convert.py")],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -208,18 +209,17 @@ def test_root_function_over_http(built_artifact: Path) -> None:
     assert r["heavy"] == []
 
 
-def test_vercel_json_excludes_dev_folders() -> None:
+def test_website_has_no_python_function() -> None:
     cfg = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
-    assert cfg["outputDirectory"] == "public"
-    exclude = cfg["functions"]["api/convert.py"]["excludeFiles"]
-    for folder in ("tests", "benchmarks", "scripts", "data/eval"):
-        assert folder in exclude
+    assert "functions" not in cfg
+    assert cfg["buildCommand"] == "npm run build --prefix website"
+    assert not (ROOT / "api" / "convert.py").exists()
 
 
 def test_requirements_match_runtime_imports() -> None:
     reqs = {
         line.split("==")[0].lower()
-        for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        for line in (STANDALONE / "requirements.txt").read_text(encoding="utf-8").splitlines()
         if line and not line.startswith("#")
     }
     assert reqs == {"regex", "marisa-trie", "pyyaml", "pydantic"}

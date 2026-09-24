@@ -1,187 +1,26 @@
 <!doctype html>
-<html lang="be">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pravapis — Наркамаўка ↔ Тарашкевіца</title>
-<meta name="description" content="Bidirectional Belarusian orthography converter: Narkamaŭka ↔ Taraškievica.">
-<style>
-  :root {
-    --bg: #f7f6f3;
-    --panel: #ffffff;
-    --ink: #1d1d1b;
-    --muted: #6b6a64;
-    --line: #dedbd3;
-    --accent: #a1271f;
-    --accent-ink: #ffffff;
-    --focus: #2f5fa7;
-    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #151514;
-      --panel: #1f1f1d;
-      --ink: #eceae4;
-      --muted: #a3a19a;
-      --line: #3a3935;
-      --accent: #e0655a;
-      --accent-ink: #151514;
-      --focus: #7fa6e0;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font: 16px/1.5 var(--sans);
-  }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
-  h1 { margin: 0 0 24px; font-size: 1.5rem; letter-spacing: -0.01em; font-weight: 600; }
+<html lang="be"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pravapis — канвертар правапісу: наркамаўка ↔ тарашкевіца</title><meta name="description" content="Канвертар беларускага правапісу: наркамаўка ↔ тарашкевіца. Транслітарацыя ў лацінку, прагляд змен і адкрыты пакет для распрацоўшчыкаў."><link rel="canonical" href="https://pravapis.vercel.app/"><link rel="alternate" hreflang="be" href="https://pravapis.vercel.app/"><link rel="alternate" hreflang="en" href="https://pravapis.vercel.app/en/"><link rel="alternate" hreflang="x-default" href="https://pravapis.vercel.app/">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Pravapis"><meta property="og:title" content="Pravapis — канвертар правапісу: наркамаўка ↔ тарашкевіца"><meta property="og:description" content="Канвертар беларускага правапісу: наркамаўка ↔ тарашкевіца. Транслітарацыя ў лацінку, прагляд змен і адкрыты пакет для распрацоўшчыкаў."><meta property="og:url" content="https://pravapis.vercel.app/"><meta property="og:locale" content="be_BY">
+<meta property="og:image" content="https://pravapis.vercel.app/assets/social.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Pravapis: Снег → Сьнег"><meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F7F6F2"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/styles.css"><script src="/assets/theme.js"></script><script type="module" src="/assets/ui.js"></script></head><body><a class="skip" href="#main">Перайсці да канвертара</a><div class="container"><header class="header"><a class="wordmark" href="/" aria-label="Pravapis"><span class="brand-icon" aria-hidden="true">BY</span>pravapis</a>
+<nav aria-label="Галоўная навігацыя"><a href="#converter">Канвертар</a><a href="#how-it-works">Як гэта працуе</a><a href="/developers/">Распрацоўшчыкам</a><a class="github-nav" href="https://github.com/sewstie/pravapis">GitHub ↗</a></nav>
+<div class="preferences"><div class="language"><a href="/" lang="be" hreflang="be" aria-current="page" data-language>БЕЛ</a><a href="/en/" lang="en" hreflang="en"  data-language>EN</a></div><button class="icon-button" id="theme" aria-label="Змяніць тэму" title="Змяніць тэму"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></svg></button></div></header>
+<main id="main"><section class="intro"><div><p class="eyebrow">Бліжэй да вашых слоў</p><h1>Беларускія словы.<br><span>Ваш выбар правапісу.</span></h1><p>Pravapis — канвертар беларускага правапісу: наркамаўка ↔ тарашкевіца. Таксама падтрымлівае транслітарацыю беларускай мовы.</p></div><div class="specimen" aria-hidden="true"><small>АДНА МОВА. ВАШ ВЫБАР.</small><div>Снег <span>→</span> Сьнег</div></div></section>
+<section class="converter" id="converter" aria-label="Канвертар беларускага правапісу"><noscript><p class="no-js">Уключыце JavaScript, каб карыстацца канвертарам. Прыклады і дакументацыя ніжэй даступныя без JavaScript.</p></noscript>
+<div class="tool-top"><div class="tool-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16m-4-4 4 4-4 4M20 16H4m4-4-4 4 4 4"/></svg>Канвертар беларускага правапісу</div><div class="mode-control"><label for="source">З</label><select id="source" aria-describedby="mode-note"><option value="narkamauka" selected>Наркамаўка</option><option value="taraskievica">Тарашкевіца</option></select><label for="mode">У</label><select id="mode" aria-describedby="mode-note"><option value="narkamauka">Наркамаўка</option><option value="taraskievica" selected>Тарашкевіца</option></select><label class="check"><input type="checkbox" id="latin-output" aria-describedby="mode-note">Лацінкай</label></div></div>
+<div class="panes"><div class="pane"><div class="pane-head"><div class="pane-heading"><label for="input">Уваход · Зыходны правапіс</label><strong id="source-name">Наркамаўка</strong></div><button class="text-button" id="example">Паспрабаваць прыклад ↗</button></div>
+<textarea id="input" lang="be" spellcheck="false" placeholder="Напішыце або ўстаўце беларускі тэкст…" aria-describedby="counter mode-note"></textarea><div class="pane-bottom"><span class="counter" id="counter">0 / 50,000</span><button class="text-button" id="clear">Ачысціць ×</button></div></div>
+<div class="pane"><div class="pane-head"><div class="pane-heading"><span id="output-label">Вынік · Мэтавы правапіс</span><strong id="target-name">Тарашкевіца</strong></div><span class="pill" id="output-badge">2005</span></div>
+<div class="output" id="output" role="region" aria-labelledby="output-label target-name" tabindex="0" lang="be" data-placeholder="Тут з’явіцца пераўтвораны тэкст…"></div><div class="pane-bottom"><label class="check"><input type="checkbox" id="show-changes" checked>Паказаць змены</label><button class="text-button" id="copy" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></svg>Скапіяваць вынік</button></div></div></div>
+<p class="mode-note" id="mode-note">Класічны правапіс паводле кадыфікацыі 2005 года.</p><div class="convert-row"><button class="primary" id="convert">Пераўтварыць<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button><span class="shortcut"><kbd>Ctrl / ⌘ + Enter</kbd></span><span class="privacy">Пераўтварэнне адбываецца ў браўзеры. Ваш тэкст застаецца на гэтай прыладзе.</span></div>
+<p class="status" id="status" role="status" aria-live="polite" aria-atomic="true">Усё гатова да працы.</p><button class="text-button" id="use-result" hidden>Выкарыстаць вынік як уваход <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button>
+<details class="change-details" id="change-details" hidden><summary>Прагледзець змены <span id="change-count"></span></summary><ul class="change-list" id="change-list"></ul></details></section>
+<section class="section" id="how-it-works"><div class="section-heading"><h2>Як гэта працуе</h2><p>Некалькі крокаў да звыклага правапісу.</p></div><div class="steps"><article class="step"><span class="step-number">01</span><h3>Словы і правілы</h3><p>Рухавік знаходзіць слоўнікавыя формы і прымяняе правілы беларускага правапісу да вашага тэксту.</p><span class="example-line" lang="be">план <em>→</em> плян</span></article><article class="step"><span class="step-number">02</span><h3>Тая самая мова</h3><p>Выберыце афіцыйны ці класічны правапіс або лацінку. Вашы словы застаюцца беларускімі.</p><span class="example-line" lang="be">сьнег <em>→</em> śnieh</span></article><article class="step"><span class="step-number">03</span><h3>Бачныя змены</h3><p>Прагледзьце вылучаныя словы і адпаведныя правілы ці слоўнікавыя звесткі. Праверце вынік перад выкарыстаннем.</p><span class="example-line" lang="be">снег <em>→</em> сьнег</span></article></div></section>
+<section class="developer-strip" id="developers"><div><p class="eyebrow">Для вашых праектаў</p><h2>Беларуская мова ў вашым праекце.</h2><p>Дадайце пераўтварэнне правапісу ў рэдактар, праграму ці сайт з адкрытым JavaScript-пакетам.</p><div class="links"><a href="/developers/">Дапаможнік распрацоўшчыка (EN) ↗</a><a href="https://www.npmjs.com/package/pravapis">Пакет на npm ↗</a></div></div><div class="code-box"><div class="install"><span aria-hidden="true">$</span><code>npm install pravapis</code></div><pre><code><span class="code-accent">import</span> { convert } <span class="code-accent">from</span> "pravapis";
 
-  .seg {
-    display: inline-flex; flex-wrap: wrap; gap: 3px; max-width: 100%;
-    border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--panel);
-  }
-  .seg input { position: absolute; opacity: 0; pointer-events: none; }
-  .seg label {
-    padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--muted);
-    font-size: 0.93rem; user-select: none; white-space: nowrap;
-  }
-  .seg input:checked + label { background: var(--ink); color: var(--bg); }
-  .seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
-  .note { min-height: 1.2em; margin: 10px 0 0; font-size: 0.9em; opacity: 0.75; }
-  @media (max-width: 720px) {
-    .panes { grid-template-columns: 1fr; }
-    /* The two direction labels do not fit side by side on a phone; give each its own row. */
-    .seg { display: flex; border-radius: 14px; }
-    .seg label { flex: 1 1 100%; text-align: center; }
-  }
-  textarea {
-    width: 100%; min-height: 300px; resize: vertical;
-    padding: 14px; border: 1px solid var(--line); border-radius: 10px;
-    background: var(--panel); color: var(--ink);
-    font: 1rem/1.6 var(--sans);
-  }
-  textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
-  textarea[readonly] { color: var(--muted); }
-
-  button {
-    background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 999px;
-    padding: 10px 26px; font: 600 1rem var(--sans); cursor: pointer;
-  }
-  button:disabled { opacity: 0.6; cursor: progress; }
-  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-  .error { margin-left: 14px; color: var(--accent); font-size: 0.93rem; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>pravapis</h1>
-
-  <div class="seg" role="radiogroup" aria-label="Кірунак">
-    <input type="radio" name="dir" id="dir-t" value="taraskievica" checked>
-    <label for="dir-t">Наркамаўка → Тарашкевіца</label>
-    <input type="radio" name="dir" id="dir-n" value="narkamauka">
-    <label for="dir-n">Тарашкевіца → Наркамаўка</label>
-    <input type="radio" name="dir" id="dir-l" value="lacinka">
-    <label for="dir-l">Лацінка</label>
-    <input type="radio" name="dir" id="dir-o" value="official">
-    <label for="dir-o">Афіцыйная лацінка</label>
-  </div>
-
-  <p class="note" id="note"></p>
-
-  <div class="panes">
-    <textarea id="input" spellcheck="false" aria-label="Тэкст" placeholder="Увядзіце тэкст…"></textarea>
-    <textarea id="output" readonly aria-label="Вынік" aria-live="polite"></textarea>
-  </div>
-
-  <div>
-    <button id="go" type="button">Перакласці</button>
-    <span class="error" id="error" role="alert"></span>
-  </div>
-</div>
-
-<script>
-(() => {
-  "use strict";
-
-  const MAX_CHARS = 50000;  // same limit as pravapis.webapi.MAX_CHARS
-
-  const $ = (id) => document.getElementById(id);
-  const input = $("input"), output = $("output"), go = $("go"), error = $("error");
-  const note = $("note");
-
-  // Łacinka is paired with Taraškievica and the official romanisation with Narkamaŭka:
-  // each shares that orthography's treatment of softness, so the API converts first.
-  // See data/TRANSLIT.md.
-  const SCRIPTS = {
-    lacinka: "Лацінка Тарашкевіча: спачатку тэкст пераводзіцца ў тарашкевіцу (сьнег → śnieh).",
-    official: "Афіцыйная трансьлітарацыя 2007: мяккасьць не пазначаецца (снег → snieh).",
-  };
-
-  const choice = () => document.querySelector('input[name="dir"]:checked').value;
-
-  function requestBody(text) {
-    const value = choice();
-    return SCRIPTS[value]
-      ? { text, script: value }
-      : { text, direction: value };
-  }
-
-  document.querySelectorAll('input[name="dir"]').forEach((r) =>
-    r.addEventListener("change", () => {
-      note.textContent = SCRIPTS[choice()] || "";
-      // Continuing from a Latin output would feed Latin back in, which this page does
-      // not read; only chain when staying in Cyrillic.
-      if (output.value && !SCRIPTS[choice()]) input.value = output.value;
-      if (input.value.trim()) convert(); else clear();
-    })
-  );
-  go.addEventListener("click", convert);
-  input.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); convert(); }
-  });
-
-  function clear() { output.value = ""; error.textContent = ""; }
-
-  function fail(message) { output.value = ""; error.textContent = message; }
-
-  async function convert() {
-    const text = input.value;
-    if (!text.trim()) { clear(); return; }
-    if (text.length > MAX_CHARS) {
-      fail(`Тэкст мае ${text.length} знакаў; максімум ${MAX_CHARS}.`);
-      return;
-    }
-    go.disabled = true;
-    error.textContent = "";
-    try {
-      const res = await fetch("/api/convert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody(text)),
-      });
-      const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      // The frozen contract (docs/API.md): the converted text is `text`, and
-      // `changes` carry start/end offsets into it. Those offsets are Unicode CODE
-      // POINTS, and JS strings are indexed in UTF-16 code units — identical for
-      // Cyrillic, one apart the moment the input holds an emoji. Nothing here slices
-      // by offset yet; anything that starts to must convert first. See codePointSlice
-      // in docs/API.md.
-      output.value = body.text;
-    } catch (err) {
-      fail(err.message);
-    } finally {
-      go.disabled = false;
-    }
-  }
-})();
-</script>
-</body>
-</html>
+const result = convert("Снег і план", {
+  to: "taraskievica"
+});
+<span class="code-comment">// → Сьнег і плян</span></code></pre></div></section>
+<section class="faq"><h2>Частыя пытанні</h2><div><details><summary>Гэта перакладчык?</summary><p>Не. Pravapis змяняе беларускі правапіс або пісьмо. Ён не перакладае з іншых моў і не правярае граматыку.</p></details><details><summary>Чым адрозніваюцца лацінка наркамаўкі і тарашкевіцы?</summary><p>Лацінка захоўвае выбраны правапіс: снег → snieh, сьнег → śnieh. Выберыце зыходны і мэтавы правапісы ды ўключыце «Лацінкай». Каб змяніць толькі пісьмо, выберыце аднолькавы правапіс у абодвух спісах.</p></details><details><summary>Якія рэжымы даступныя?</summary><p>Пераўтварайце наркамаўку ў тарашкевіцу і наадварот, з вынікам кірыліцай або лацінкай. Для транслітарацыі без змены правапісу пакіньце аднолькавы правапіс і ўключыце лацінку. Тарашкевіца адпавядае кадыфікацыі 2005 года.</p></details><details><summary>Ці кожнае слова будзе правільным?</summary><p>Слоўнік няпоўны. JavaScript-рухавік сайта не змяшчае табліцы націскаў Python-версіі, таму некаторыя формы не/без → ня/бяз могуць адрознівацца. Заўсёды правярайце вынік. Падрабязней пра <a href="https://github.com/sewstie/pravapis/blob/main/docs/ACCURACY.md">метады ацэнкі і вядомыя абмежаванні (EN)</a>.</p></details><details><summary>Што адбываецца з маім тэкстам?</summary><p>JavaScript-рухавік апрацоўвае тэкст у вашым браўзеры. Тэкст не адпраўляецца на сервер пераўтварэння і не запісваецца ў адрасы старонак, аналітыку ці сховішча браўзера. Налады тэмы захоўваюцца лакальна; пры змене мовы інтэрфейсу тэкст застаецца ў памяці.</p></details></div></section></main><footer class="footer"><div class="footer-left"><a class="wordmark" href="/"><span class="brand-icon" aria-hidden="true">BY</span>pravapis</a><span>Аўтар: Уладзіслаў Гушча</span></div><div class="footer-links"><a href="https://github.com/sewstie/pravapis">GitHub ↗</a><a href="https://www.npmjs.com/package/pravapis">npm ↗</a><a href="https://github.com/sewstie/pravapis/blob/main/LICENSE">Код: MIT</a><a href="https://github.com/sewstie/pravapis/blob/main/data/LICENSE">Даныя: ліцэнзіі крыніц</a></div></footer></div></body></html>
