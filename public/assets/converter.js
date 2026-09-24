@@ -15,14 +15,6 @@ const COPY = {
     languageFailed: 'Could not switch languages. Your text is preserved; please try again.',
     cleared: 'Input and result cleared.', dictionary: 'Dictionary', rule: 'Spelling rule',
     noChanges: 'No orthographic changes reported.', noHighlights: 'This script mode does not return word-level change data.',
-    notes: {
-      taraskievica: 'Classical orthography follows the 2005 codification.',
-      narkamauka: 'Converts classical orthography into official Belarusian spelling.',
-      lacinka: 'Converts to Taraškievica first, then transliterates into Łacinka. Not a script-only change.',
-      official: 'Converts to Narkamaŭka first, then applies the 2007 official romanisation.',
-      'lacinka-only': 'Script only: Cyrillic → Łacinka, without an orthography conversion step.',
-      'official-only': 'Script only: Cyrillic → 2007 official romanisation, without an orthography conversion step.',
-    },
   },
   be: {
     n: 'Наркамаўка', t: 'Тарашкевіца', c: 'Беларуская кірыліца', l: 'Лацінка', o: 'Афіцыйная транслітарацыя',
@@ -37,14 +29,6 @@ const COPY = {
     languageFailed: 'Не ўдалося змяніць мову. Ваш тэкст захаваны; паспрабуйце яшчэ раз.',
     cleared: 'Уваход і вынік ачышчаны.', dictionary: 'Слоўнік', rule: 'Правіла правапісу',
     noChanges: 'Змен правапісу не выяўлена.', noHighlights: 'Гэты рэжым транслітарацыі не вяртае звестак пра змены асобных слоў.',
-    notes: {
-      taraskievica: 'Класічны правапіс паводле кадыфікацыі 2005 года.',
-      narkamauka: 'Пераўтварае класічны правапіс у афіцыйны беларускі правапіс.',
-      lacinka: 'Спачатку пераўтварае ў тарашкевіцу, потым — у лацінку. Гэта не толькі змена пісьма.',
-      official: 'Спачатку пераўтварае ў наркамаўку, потым прымяняе афіцыйную транслітарацыю 2007 года.',
-      'lacinka-only': 'Толькі пісьмо: кірыліца → лацінка, без пераўтварэння правапісу.',
-      'official-only': 'Толькі пісьмо: кірыліца → афіцыйная транслітарацыя 2007 года, без пераўтварэння правапісу.',
-    },
   },
 };
 
@@ -69,7 +53,7 @@ export function initConverter(saved = {}) {
   if (!$('input')) return null;
   const lang = document.documentElement.lang;
   const c = COPY[lang] || COPY.en;
-  const input = $('input'), mode = $('mode'), output = $('output');
+  const input = $('input'), mode = $('mode'), source = $('source'), latin = $('latin-output'), output = $('output');
   let result = saved.result || null;
   let stale = saved.stale || false;
   let resultMode = saved.resultMode || 'taraskievica';
@@ -78,6 +62,8 @@ export function initConverter(saved = {}) {
   let requestId = 0, busy = false;
   input.value = saved.input || '';
   mode.value = saved.mode || 'taraskievica';
+  source.value = saved.source || 'narkamauka';
+  latin.checked = saved.latin ?? false;
   $('show-changes').checked = saved.showChanges ?? true;
 
   function status(key, error = false) {
@@ -91,15 +77,22 @@ export function initConverter(saved = {}) {
     $('counter').classList.toggle('over-limit', length > MAX_CHARS);
     input.setAttribute('aria-invalid', String(length > MAX_CHARS));
   }
+  function selectedMode() {
+    if (source.value === mode.value) return latin.checked ? 'lacinka-only' : 'unchanged';
+    return latin.checked ? (mode.value === 'taraskievica' ? 'lacinka' : 'narkamauka-latin') : mode.value;
+  }
   function labels() {
-    const value = mode.value;
-    $('source-name').textContent = value === 'taraskievica' ? c.n : value === 'narkamauka' ? c.t : c.c;
-    $('target-name').textContent = value === 'taraskievica' ? c.t : value === 'narkamauka' ? c.n : value.startsWith('lacinka') ? c.l : c.o;
-    $('mode-note').textContent = c.notes[value];
-    $('output-badge').textContent = value === 'taraskievica' ? '2005' : value === 'narkamauka' ? 'Аа' : 'Aa';
-    const script = value !== 'taraskievica' && value !== 'narkamauka';
-    $('show-changes').disabled = script;
-    $('show-changes').title = script ? c.noHighlights : '';
+    const name = value => value === 'taraskievica' ? c.t : c.n;
+    const scriptName = latin.checked ? c.l : (lang === 'be' ? 'кірыліца' : 'Cyrillic');
+    $('source-name').textContent = `${name(source.value)} · ${lang === 'be' ? 'кірыліца' : 'Cyrillic'}`;
+    $('target-name').textContent = `${name(mode.value)} · ${scriptName}`;
+    const same = source.value === mode.value;
+    $('mode-note').textContent = lang === 'be'
+      ? (same ? 'Правапіс захоўваецца.' : `Правапіс: ${name(source.value)} → ${name(mode.value)}.`) + (latin.checked ? ' Вынік лацінкай: снег → snieh, сьнег → śnieh.' : 'Вынік кірыліцай. Уключыце лацінку пры патрэбе.')
+      : (same ? 'Orthography stays the same.' : `Spelling: ${name(source.value)} → ${name(mode.value)}.`) + (latin.checked ? ' Latin output uses Łacinka: снег → snieh, сьнег → śnieh.' : 'Output stays in Cyrillic. Enable Latin output if needed.');
+    $('output-badge').textContent = latin.checked ? 'Aa' : 'Аа';
+    $('show-changes').disabled = latin.checked;
+    $('show-changes').title = latin.checked ? c.noHighlights : '';
   }
   function render() {
     output.replaceChildren();
@@ -111,7 +104,7 @@ export function initConverter(saved = {}) {
     $('change-details').hidden = true;
     if (!result) return;
     const changes = Array.isArray(result.changes) ? result.changes : [];
-    output.lang = resultMode === 'taraskievica' || resultMode === 'narkamauka' ? 'be' : 'be-Latn';
+    output.lang = resultMode === 'taraskievica' || resultMode === 'narkamauka' || resultMode === 'unchanged' ? 'be' : 'be-Latn';
     if ($('show-changes').checked && !stale) {
       for (const segment of changeSegments(result.text, changes)) {
         if (!segment.change) output.append(document.createTextNode(segment.text));
@@ -157,7 +150,7 @@ export function initConverter(saved = {}) {
     if (!text.trim()) { status('empty', true); input.focus(); return; }
     if (Array.from(text).length > MAX_CHARS) { status('limit', true); input.focus(); return; }
     const id = requestId;
-    const selectedMode = mode.value;
+    const selected = selectedMode();
     let timedOut = false;
     const timeout = setTimeout(() => { timedOut = true; engine.cancel(); }, 20000);
     busy = true;
@@ -165,13 +158,13 @@ export function initConverter(saved = {}) {
     output.setAttribute('aria-busy', 'true');
     status('loading');
     try {
-      const body = await engine.run(text, selectedMode);
+      const body = await engine.run(text, selected);
       if (id !== requestId) return;
-      result = body; stale = false; resultMode = selectedMode;
+      result = body; stale = false; resultMode = selected;
       render();
       status('success');
       if (!Array.isArray(body.changes)) $('status').textContent += ` ${c.noHighlights}`;
-      else if (!body.changes.length) $('status').textContent += ` ${selectedMode === 'taraskievica' || selectedMode === 'narkamauka' ? c.noChanges : c.noHighlights}`;
+      else if (!body.changes.length) $('status').textContent += ` ${!latin.checked ? c.noChanges : c.noHighlights}`;
     } catch (error) {
       if (id !== requestId) return;
       status(timedOut ? 'timeout' : 'engine', true);
@@ -186,6 +179,8 @@ export function initConverter(saved = {}) {
   }
   input.addEventListener('input', changed);
   mode.addEventListener('change', changed);
+  source.addEventListener('change', changed);
+  latin.addEventListener('change', changed);
   input.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); convert(); }
   });
@@ -197,7 +192,7 @@ export function initConverter(saved = {}) {
   });
   $('example').addEventListener('click', () => {
     // Insert at the selection rather than silently overwrite the user's draft.
-    const example = mode.value === 'narkamauka' ? 'Сьнег і плян сыстэмы.' : 'Снег і план сістэмы.';
+    const example = source.value === 'taraskievica' ? 'Сьнег і плян сыстэмы.' : 'Снег і план сістэмы.';
     input.setRangeText((input.value ? '\n' : '') + example, input.selectionStart, input.selectionEnd, 'end');
     changed(); input.focus();
   });
@@ -218,7 +213,7 @@ export function initConverter(saved = {}) {
   });
   count(); labels(); render(); status(statusKey);
   return {
-    snapshot: () => ({ input: input.value, mode: mode.value, result, resultMode, stale, showChanges: $('show-changes').checked, statusKey: busy ? (stale ? 'outdated' : 'ready') : statusKey }),
+    snapshot: () => ({ input: input.value, mode: mode.value, source: source.value, latin: latin.checked, result, resultMode, stale, showChanges: $('show-changes').checked, statusKey: busy ? (stale ? 'outdated' : 'ready') : statusKey }),
     dispose: () => { stop(); engine.dispose(); },
     languageFailed: () => status('languageFailed', true),
   };

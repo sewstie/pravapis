@@ -52,18 +52,35 @@ try {
   check((await input.inputValue()).includes('🎉 Снег'), 'Mode change preserves input');
   check(await output.evaluate(el => el.classList.contains('outdated')), 'Mode marks output stale');
   check(await page.locator('#copy').isDisabled(), 'Stale output cannot be copied as current');
-  const samples = {
-    taraskievica: ['Снег і план', 'Сьнег і плян'],
-    narkamauka: ['Сьнег і плян', 'Снег і план'],
-    lacinka: ['Снег', 'Śnieh'],
-    official: ['Сьнег', 'Snieh'],
-    'lacinka-only': ['Снег', 'Snieh'],
-    'official-only': ['Снег', 'Snieh'],
-  };
-  for (const [name, [source, expected]] of Object.entries(samples)) {
-    await mode.selectOption(name); await input.fill(source); await convert();
-    check(await output.textContent() === expected, `Browser engine mode ${name}`);
+  const samples = [
+    ['narkamauka', 'taraskievica', false, 'Снег і план', 'Сьнег і плян'],
+    ['taraskievica', 'narkamauka', false, 'Сьнег і плян', 'Снег і план'],
+    ['narkamauka', 'taraskievica', true, 'Снег і план', 'Śnieh i plan'],
+    ['taraskievica', 'narkamauka', true, 'Сьнег і плян', 'Snieh i płan'],
+    ['narkamauka', 'narkamauka', true, 'Снег і план', 'Snieh i płan'],
+    ['taraskievica', 'taraskievica', true, 'Сьнег і плян', 'Śnieh i plan'],
+    ['narkamauka', 'narkamauka', false, 'Снег і план', 'Снег і план'],
+    ['taraskievica', 'taraskievica', false, 'Сьнег і плян', 'Сьнег і плян'],
+  ];
+  for (const [from, to, latin, source, expected] of samples) {
+    await page.locator('#source').selectOption(from);
+    await mode.selectOption(to);
+    await page.locator('#latin-output').setChecked(latin);
+    await input.fill(source); await convert();
+    check(await output.textContent() === expected, `Browser conversion ${from} → ${to}, Latin ${latin}: ${await output.textContent()}`);
   }
+  await page.locator('#latin-output').check();
+  check(await page.locator('#copy').isDisabled(), 'Latin toggle invalidates result');
+  await convert();
+  await page.locator('[data-language][lang=be]').click();
+  await page.waitForURL(origin + '/');
+  check(await page.locator('#latin-output').isChecked() && await page.locator('#source').inputValue() === 'taraskievica', 'Language switch retains orthography and Latin choice');
+  check(await output.textContent() === 'Śnieh i plan', 'Language switch retains Latin result');
+  await page.locator('[data-language][lang=en]').click();
+  await page.waitForURL('**/en/');
+  await page.locator('#source').selectOption('narkamauka');
+  await page.locator('#latin-output').uncheck();
+  await convert(); // Load the new language page's worker before going offline.
   await context.setOffline(true);
   await mode.selectOption('taraskievica'); await input.fill('Снег і план'); await convert();
   check(await output.textContent() === 'Сьнег і плян', 'Conversion works offline after engine load');

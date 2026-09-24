@@ -4,6 +4,8 @@ import { transliterate } from 'pravapis/translit';
 
 export function convertText(text: string, mode: string) {
   if (typeof text !== 'string' || Array.from(text).length > 50000) throw new Error('limit');
+  if (mode === 'unchanged') return { text, changes: [] };
+  if (mode === 'narkamauka-latin') return { text: transliterate(convert(text, { to: 'narkamauka' }).text, 'lacinka') };
   if (mode === 'taraskievica' || mode === 'narkamauka') return convert(text, { to: mode });
   if (!['lacinka', 'official', 'lacinka-only', 'official-only'].includes(mode)) throw new Error('mode');
   const script = mode.startsWith('lacinka') ? 'lacinka' : 'official';
