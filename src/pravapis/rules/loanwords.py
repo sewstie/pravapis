@@ -49,8 +49,9 @@ _SOFT_L_VOWEL: Final[dict[str, str]] = {"а": "я", "о": "ё", "у": "ю"}
 _ALREADY_SOFT: Final[frozenset[str]] = frozenset("еёіюя")
 
 # --- і → ы (Збор 2005 §67) -------------------------------------------------------------
-#: hard consonants after which і becomes ы in Greco-Latin stems
-_Y_TRIGGERS: Final[frozenset[str]] = frozenset("дтзсцжшчр")
+# Scan only a stem licensed for the i alternation, never the whole input text.
+# ф is not a trigger: фізі- becomes фізы-, keeping the initial фі intact.
+_I_TO_Y_RE: Final[regex.Pattern[str]] = regex.compile(r"([дтзсцжшчр])і")
 
 # --- е → э (Збор 2005 §11б) ------------------------------------------------------------
 #: §11б: "пасьля зычных, акрамя л і заднеязычных (г (ґ), к, х)"
@@ -109,15 +110,16 @@ def apply_l_palatalization(word: str, match: StemMatch) -> str:
 
 # --- і → ы -----------------------------------------------------------------------------
 def i_to_y(stem: str) -> str:
-    """і → ы after a hard dental or husher."""
-    return "".join(
-        "ы" if ch == "і" and i > 0 and stem[i - 1] in _Y_TRIGGERS else ch
-        for i, ch in enumerate(stem)
-    )
+    """і → ы within an already whitelisted loan stem; use apply_i_to_y for words."""
+    return _I_TO_Y_RE.sub(r"\1ы", stem)
 
 
 def apply_i_to_y(word: str, match: StemMatch) -> str:
-    """сістэма → сыстэма, прэзідэнт → прэзыдэнт; сіла → сіла."""
+    """Rewrite only a loan stem explicitly licensed for i by the stem whitelist.
+
+    Native entries, loans licensed only for other alternations, and suffixes
+    outside the matched span keep their і.
+    """
     if not match.allows("i"):
         return word
     span = _span(word, match)

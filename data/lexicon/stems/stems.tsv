@@ -124,6 +124,9 @@
 -медычн	loan	e	Збор 2005 §11б	cited
 -іспанск	loan	-	Збор 2005 §50	cited	гішпанск
 філа	loan	l	Збор 2005 §55.1	cited
+# The longer stem takes priority over філа- and preserves the lexical с → з
+# in inflected forms too. Reverse entries are derived from this explicit target.
+філасоф	loan	-	data/lexicon/loanwords.tsv: філасофія → філязофія	reviewed	філязоф
 # Only one stem matches a word — the longest — so a compound carrying two changes
 # needs its own entry: філалагічны takes both the філя- and the -лягічн-.
 філалагічн	loan	l	Збор 2005 §50, §55.1	cited

@@ -12,6 +12,10 @@ export default defineConfig({
   sourcemap: false,
   clean: true,
   target: "es2022",
+  // Keep embedded Cyrillic data as UTF-8 instead of expanding it to \uXXXX escapes.
+  esbuildOptions(options) {
+    options.charset = "utf8";
+  },
   outDir: "dist",
   // core.json/names.json/translit.json/chars.json are JSON *modules*, imported with
   // `with { type: "json" }` — esbuild inlines them into the bundle at build time, so

@@ -3,13 +3,8 @@
 //
 // This is a build-time-only bridge: the shipped package never runs Python, and CI
 // already has `uv sync` done in the same job before `npm run build-data` runs (see
-// .github/workflows/ci.yml). Used for morphology/ment_lemmas.marisa (116 keys) — small
-// enough to embed directly. NOT used for stress/*.marisa (207k + 26k keys): embedding
-// that much data would defeat the point of measuring this package's gzipped size, and
-// pravapis.rules.morphology.is_first_syllable_stressed already has a documented,
-// first-class fallback for "no stress table" (`stress: StressTable | None = None`) —
-// this build takes that path deliberately, not as a shortcut. See js/src/rules/
-// morphology.ts's module comment for the resulting behavioural gap.
+// .github/workflows/ci.yml). Used for morphology/ment_lemmas.marisa and the GrammarDB
+// stress tables. Stress keys are front-coded before embedding (see stress.ts).
 
 import { execFileSync } from "node:child_process";
 

@@ -5,6 +5,7 @@
 import type { RuleJson } from "../../scripts/lib/types.js";
 import type { Orthography } from "../types.js";
 import { StemIndex, type StemMatch } from "../lexicon/stem-index.js";
+import { replaceSequentially, type Replacement } from "./replacements.js";
 import {
   applyEToEh,
   applyEuPrefix,
@@ -49,7 +50,7 @@ const FUNCTIONS: ReadonlyMap<string, RuleFunction> = new Map<string, RuleFunctio
 ]);
 
 interface CompiledRule extends RuleJson {
-  compiled: RegExp | null;
+  replacements: readonly Replacement[];
 }
 
 export class RuleEngine {
@@ -69,7 +70,9 @@ export class RuleEngine {
     this.stems = stems;
     this.rules = rules.map((r) => ({
       ...r,
-      compiled: r.pattern !== undefined ? new RegExp(r.pattern, "gu") : null,
+      replacements: r.pattern !== undefined
+        ? [[new RegExp(r.pattern, "gu"), r.replacement ?? ""] as const]
+        : [],
     }));
     const byId = new Map<string, CompiledRule>();
     for (const r of this.rules) byId.set(r.id, r);
@@ -122,14 +125,7 @@ export class RuleEngine {
       if (!fn) throw new Error(`rule ${rule.id}: no JS implementation registered for ${rule.function}`);
       return fn(word, match);
     }
-    const re = rule.compiled!;
-    if (!rule.repeat) return word.replace(re, rule.replacement ?? "");
-    for (let i = 0; i < MAX_REPEAT; i++) {
-      const next = word.replace(re, rule.replacement ?? "");
-      if (next === word) break;
-      word = next;
-    }
-    return word;
+    return replaceSequentially(word, rule.replacements, rule.repeat ? MAX_REPEAT : 1);
   }
 
   /** Apply every rule for `direction` and record the ones that changed the word. */

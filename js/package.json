@@ -79,7 +79,7 @@
     "build-data": "tsx scripts/build-data.ts",
     "build": "npm run build-data && tsup",
     "typecheck": "tsc --noEmit",
-    "test": "tsx scripts/test-conformance.ts",
+    "test": "tsx scripts/test-conformance.ts && tsx --test scripts/test-palatalization.ts scripts/test-loanword-vowels.ts scripts/test-stress.ts scripts/test-orthography-lacinka.ts",
     "prepack": "npm run build"
   },
   "devDependencies": {

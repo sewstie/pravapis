@@ -53,6 +53,24 @@ console.log(transliterate("Biełaruś", "lacinka", { reverse: true })); // "Бе
 The script option is `"lacinka"` or `"official"` (the 2007 romanisation scheme).
 Transliteration changes the script; use `convert` separately to change orthography.
 
+For traditional Łacinka, convert the orthography first so assimilative soft signs
+are present before transliteration. Reverse the steps when returning to Narkamaŭka:
+
+```js
+import { convert } from "pravapis";
+import { transliterate } from "pravapis/translit";
+
+const classical = convert("Свет, снег, спеў, звяруга", { to: "taraskievica" }).text;
+// "Сьвет, сьнег, сьпеў, зьвяруга"
+const latin = transliterate(classical, "lacinka");
+const cyrillic = transliterate(latin, "lacinka", { reverse: true });
+console.log(convert(cyrillic, { to: "narkamauka" }).text);
+// "Свет, снег, спеў, звяруга"
+```
+
+Assimilation uses sequential regex replacements with no runtime dependencies.
+The reverse rules remove assimilative signs while preserving lexical soft signs.
+
 ## Па-беларуску
 
 **pravapis** — канвертар беларускага правапісу паміж наркамаўкай (афіцыйным
@@ -85,6 +103,17 @@ Conversion uses dictionaries and spelling rules. Coverage is incomplete, and
 output may need review. This package converts Belarusian spelling and script;
 it does not translate between languages.
 
+The current source build passes all 1,007 shared conformance cases without waived
+failures. It includes the same GrammarDB first-syllable stress data as Python, so
+`не ведае → ня ведае` and similar contextual forms no longer rely only on a heuristic.
+The tables are stored in compact blocks; lookups decode at most 32 word forms.
+No runtime dependencies or network requests are needed, and `pravapis/translit`
+remains a separate entry point without the stress data.
+
+Shared Python/JavaScript tests cover `сь/зь/ць/дзь → ś/ź/ć/dź`, `плян → plan`,
+`клясыка → klasyka`, `лапа → łapa`, and `сыстэма → systema`, with capitalization and
+reverse conversion. Passing this corpus does not imply complete language coverage.
+
 - [Accuracy and known limitations](https://github.com/sewstie/pravapis/blob/main/docs/ACCURACY.md)
 - [API reference](https://github.com/sewstie/pravapis/blob/main/docs/API.md)
 - [Architecture](https://github.com/sewstie/pravapis/blob/main/docs/ARCHITECTURE.md)
@@ -96,3 +125,12 @@ it does not translate between languages.
 Code: [MIT](https://github.com/sewstie/pravapis/blob/main/LICENSE).
 Data licensing varies by source; see
 [data/LICENSE](https://github.com/sewstie/pravapis/blob/main/data/LICENSE).
+
+The embedded first-syllable stress tables derive from the
+[Belarusian Grammar Database (GrammarDB)](https://github.com/Belarus/GrammarDB)
+by Aleś Bułojčyk and Uładzimir Koščanka, under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+Stress marks were reduced to unambiguous first-syllable membership and encoded as
+shared-prefix blocks; this derived data retains the same license. Release and
+checksum details are recorded in
+[data/stress/SOURCE](https://github.com/sewstie/pravapis/blob/main/data/stress/SOURCE).

@@ -28,6 +28,14 @@ const result = convert("Снег і план сістэмы", { to: "taraskievic
 console.log(result.text); // "Сьнег і плян сыстэмы"
 ```
 
+For traditional Łacinka, convert the orthography first, then transliterate:
+
+```js
+import { transliterate } from "pravapis/translit";
+
+console.log(transliterate(result.text, "lacinka")); // "Śnieh i plan systemy"
+```
+
 ```python
 from pravapis import convert
 
@@ -41,6 +49,11 @@ On held-out text, pravapis makes about three in four of the changes it should (7
 recall) and is right 96% of the time it does act (precision), on the direction it's
 tested most. See [docs/ACCURACY.md](docs/ACCURACY.md) for the full breakdown —
 per-alternation numbers, confidence intervals, and what's still missing.
+
+The current JavaScript source build passes all 1,007 shared conformance cases,
+including stress-dependent `не → ня` forms. Python and JavaScript share regression
+examples for Cyrillic ↔ Łacinka round trips; conformance measures agreement on those
+cases, not accuracy on all Belarusian text.
 
 ## How it works
 

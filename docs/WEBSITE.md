@@ -30,9 +30,11 @@ deployments remain indexable. The Python Vercel adapter was moved to
 the JavaScript website.
 
 The website pins `pravapis` 0.1.1, verified against the current published package.
-It includes the proper-name dictionary. The package omits the Python engine's stress
-table, so several context-sensitive `не` / `без` → `ня` / `бяз` forms can differ.
-This is documented in the interface and in `js/scripts/known-gaps.json`.
+It includes the proper-name dictionary. That pinned release omits the Python engine's
+stress table, so several context-sensitive `не` / `без` → `ня` / `бяз` forms can differ,
+as documented in the interface. The current local `js/` source includes compact
+GrammarDB stress tables and has no conformance gaps; the website will receive that
+behavior when its package dependency and browser bundle are updated.
 
 The bilingual feedback form drafts bug reports, incorrect spellings, and proposals.
 It copies the report locally and opens GitHub Issues without putting report text in a

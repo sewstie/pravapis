@@ -5,6 +5,8 @@
 // per-word conversion itself always goes through the (already JS-portable, per
 // scripts/lint_patterns.py) YAML rules, never this module directly.
 
+import { replaceSequentially, type Replacement } from "./replacements.js";
+
 export const SOFT_VOWELS = "еёіюя";
 export const SOFTENERS = SOFT_VOWELS + "ь";
 
@@ -29,37 +31,30 @@ const UNASSIM_TS_DZ_RE = new RegExp(`(дз|ц)ь(?=в[${SOFTENERS}])`, "gu");
 const UNGEM_RE = new RegExp(`(дз|[нлзсц])ь(?=\\1[${SOFTENERS}])`, "gu");
 const UNAPOS_RE = new RegExp(`([зс])ь(?=[${SOFT_VOWELS}])`, "gu");
 
-const MAX_PASSES = 8;
+const FORWARD_STEPS: readonly Replacement[] = [
+  [APOS_RE, "$1ь"],
+  [GEM_DZ_RE, "дзь"],
+  [GEM_RE, "$1ь"],
+  [ASSIM_TS_DZ_RE, "$1ь"],
+  [ASSIM_RE, "$1ь"],
+];
 
-function fixpoint(word: string, steps: Array<[RegExp, string]>): string {
-  for (let i = 0; i < MAX_PASSES; i++) {
-    const before = word;
-    for (const [pattern, repl] of steps) {
-      word = word.replace(pattern, repl);
-    }
-    if (word === before) return word;
-  }
-  return word;
-}
+// Remove assimilation before geminate signs: otherwise the soft trigger to the
+// right can disappear before its dependent sign is removed (зьльлю → зллю).
+const REVERSE_STEPS: readonly Replacement[] = [
+  [UNGEM_DZ_RE, "д"],
+  [UNASSIM_RE, "$1"],
+  [UNASSIM_TS_DZ_RE, "$1"],
+  [UNGEM_RE, "$1"],
+];
 
 /** снег → сьнег, свіння → сьвіньня, з'ява → зьява, суддзя → судзьдзя. */
 export function markAssimilativeSoftness(word: string): string {
-  return fixpoint(word, [
-    [APOS_RE, "$1ь"],
-    [GEM_DZ_RE, "дзь"],
-    [GEM_RE, "$1ь"],
-    [ASSIM_TS_DZ_RE, "$1ь"],
-    [ASSIM_RE, "$1ь"],
-  ]);
+  return replaceSequentially(word, FORWARD_STEPS);
 }
 
 /** сьнег → снег, сьвіньня → свіння, зьява → з'ява, судзьдзя → суддзя. */
 export function unmarkAssimilativeSoftness(word: string, canonicalApostrophe: string): string {
-  word = fixpoint(word, [
-    [UNGEM_DZ_RE, "д"],
-    [UNASSIM_RE, "$1"],
-    [UNASSIM_TS_DZ_RE, "$1"],
-    [UNGEM_RE, "$1"],
-  ]);
+  word = replaceSequentially(word, REVERSE_STEPS);
   return word.replace(UNAPOS_RE, `$1${canonicalApostrophe}`);
 }
