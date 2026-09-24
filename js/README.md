@@ -1,10 +1,15 @@
-# pravapis
+# Pravapis — Belarusian orthography converter
 
-Belarusian orthography conversion between **Narkamaŭka** (official spelling) and
-**Taraškievica** (classical spelling), plus Cyrillic ↔ **Łacinka** transliteration.
+Belarusian orthography conversion between **official orthography (Narkamaŭka)** and
+**classical orthography (Taraškievica)**, following the 2005 classical spelling
+codification, plus Cyrillic ↔ **Łacinka** transliteration.
 For JavaScript and TypeScript, with ESM and CommonJS exports.
 
-**Па-беларуску:** [апісанне і прыклады](#па-беларуску).
+[npm](https://www.npmjs.com/package/pravapis) · [Documentation](https://github.com/sewstie/pravapis/blob/main/docs/API.md) · [Па-беларуску](#па-беларуску)
+
+[![npm version](https://img.shields.io/npm/v/pravapis)](https://www.npmjs.com/package/pravapis)
+[![CI status](https://github.com/sewstie/pravapis/actions/workflows/ci.yml/badge.svg)](https://github.com/sewstie/pravapis/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/sewstie/pravapis/blob/main/LICENSE)
 
 ## Install
 
