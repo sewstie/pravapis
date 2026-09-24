@@ -1,4 +1,4 @@
-// `npm run social --prefix website`; uses the pinned local Playwright browser.
+// Generates the website social-sharing image with Playwright. Saves the image to public/assets/social.png.
 import { chromium } from '../website/node_modules/playwright/index.mjs';
 import { fileURLToPath } from 'node:url';
 

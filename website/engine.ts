@@ -1,4 +1,4 @@
-// Same JavaScript engine as the npm package, including its proper-name dictionary.
+// Converts orthography and transliterates text with the published Pravapis package. Returns word-level change data only for Cyrillic results.
 import { convert } from 'pravapis/names';
 import { transliterate } from 'pravapis/translit';
 
@@ -11,7 +11,6 @@ export function convertText(text: string, mode: string) {
   const script = mode.startsWith('lacinka') ? 'lacinka' : 'official';
   const direction = script === 'lacinka' ? 'taraskievica' : 'narkamauka';
   const source = mode.endsWith('-only') ? text : convert(text, { to: direction }).text;
-  // Orthographic spans do not describe the transliterated output. Do not reuse them.
   const engineScript = script === 'official' ? 'official2007' : script;
   return { text: transliterate(source, engineScript), script, direction: mode.endsWith('-only') ? null : direction };
 }

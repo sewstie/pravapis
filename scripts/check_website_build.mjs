@@ -1,3 +1,4 @@
+// Checks built pages and Vercel routes for the expected indexing, footer, and API behavior. Pass preview to validate a preview build.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 

@@ -1,3 +1,4 @@
+// Manages orthography and Latin output controls, conversion results, and clipboard actions. Keeps text in memory and tracks changes using Unicode code points.
 import { createEngineClient } from './engine-client.js';
 
 const MAX_CHARS = 50000;
@@ -31,8 +32,6 @@ const COPY = {
     noChanges: 'Змен правапісу не выяўлена.', noHighlights: 'Гэты рэжым транслітарацыі не вяртае звестак пра змены асобных слоў.',
   },
 };
-
-// The engine's change offsets and this interface's limit count Unicode code points.
 export function changeSegments(text, changes) {
   const points = Array.from(text);
   const segments = [];
@@ -191,7 +190,6 @@ export function initConverter(saved = {}) {
     changed(); status('cleared'); input.focus();
   });
   $('example').addEventListener('click', () => {
-    // Insert at the selection rather than silently overwrite the user's draft.
     const example = source.value === 'taraskievica' ? 'Сьнег і плян сыстэмы.' : 'Снег і план сістэмы.';
     input.setRangeText((input.value ? '\n' : '') + example, input.selectionStart, input.selectionEnd, 'end');
     changed(); input.focus();
