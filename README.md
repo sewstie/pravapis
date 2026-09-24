@@ -3,7 +3,7 @@
 Converts Belarusian text between **Narkamaŭka** (the standard spelling) and
 **Taraškievica** (the pre-1933 spelling, still used today by some diaspora media and
 independent publishers), and transliterates between Cyrillic and the Łacinka Latin
-script. Available as a Python package, an npm package, and a hosted API.
+script. Available as a Python package, an npm package, and a browser-based website.
 
 ```
 Снег і план сістэмы → Сьнег і плян сыстэмы
@@ -53,6 +53,8 @@ native words that merely look similar. See [docs/ARCHITECTURE.md](docs/ARCHITECT
 for the full design.
 
 ## Learn more
+
+- [Website development](docs/WEBSITE.md) — the bilingual static site, JavaScript worker, and Vercel build
 
 - [Full API reference](docs/API.md) — the response contract, the Python library, the CLI, the HTTP API
 - [docs/ACCURACY.md](docs/ACCURACY.md) — recall, precision, and known gaps, measured

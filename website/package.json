@@ -1,0 +1,18 @@
+{
+  "name": "pravapis-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../scripts/build_website.mjs",
+    "dev": "node ../scripts/serve_website.mjs",
+    "test": "node ../scripts/test_website.mjs",
+    "social": "node ../scripts/generate_social.mjs"
+  },
+  "dependencies": {
+    "esbuild": "0.28.2",
+    "pravapis": "0.1.1"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}

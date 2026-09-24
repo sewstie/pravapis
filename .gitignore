@@ -50,6 +50,9 @@ Desktop.ini
 
 # Local npm artifacts; the real lockfile is js/package-lock.json
 /package-lock.json
+/.website-tools/
+/public/assets/engine-worker.js
+/public/assets/licenses/
 node_modules/
 *.tsbuildinfo
 *.tgz

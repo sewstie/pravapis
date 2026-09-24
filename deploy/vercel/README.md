@@ -1,10 +1,15 @@
 # Deploying pravapis as `/api/convert` in the Paznaj Next.js app
 
+This is an optional Python integration for other applications. The Pravapis website
+now runs the JavaScript package in the browser and deploys as static files; see
+[the website guide](../../docs/WEBSITE.md). The former root Python function is retained
+at `deploy/vercel/standalone/convert.py` for separate API development and tests.
+
 One Vercel project, one domain: a Python serverless function sits next to the Next.js
 app. No separate service, no CORS.
 
 This exporter still vendors raw YAML/TSV sources and builds the `Converter` at cold
-start, unlike this repo's own `/api/convert` (README, "Precompiled artifact"), which
+start, unlike the optional standalone adapter, which
 now loads a single precompiled `data/pravapis-<hash>.bin`. Porting this export to the
 same artifact has not been done — it is a real follow-up, not a design choice.
 

@@ -1,4 +1,4 @@
-# Runtime dependencies for the Vercel function (api/convert.py), Python 3.12.
+# Runtime dependencies for the optional Python HTTP adapter, Python 3.12.
 # Lexicon + rules + stress table only: no FastAPI, no scikit-learn, no BelVoice.
 # Development dependencies live in pyproject.toml / uv.lock.
 regex==2026.9.10
