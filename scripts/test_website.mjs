@@ -26,6 +26,8 @@ async function convert() {
 try {
   await page.goto(origin);
   check(await page.locator('html').getAttribute('lang') === 'be', 'Belarusian default');
+  check(await page.locator('.brand-icon').first().textContent() === 'BY', 'BY brand mark');
+  check((await page.locator('.faq').textContent()).includes('Чым адрозніваюцца лацінка'), 'Belarusian Latin-script explanation');
   await input.fill('🎉 Снег і план сістэмы. <img src=x onerror=alert(1)>');
   await convert();
   check((await output.textContent()).startsWith('🎉 Сьнег і плян сыстэмы.'), 'Real orthography conversion');
@@ -39,6 +41,7 @@ try {
   check((await input.inputValue()).includes('🎉 Снег'), 'Input survives language switch');
   check((await output.textContent()).includes('Сьнег'), 'Result survives language switch');
   check((await page.title()).includes('Belarusian Orthography'), 'Language metadata');
+  check((await page.locator('.faq').textContent()).includes('What is the difference between Łacinka'), 'English Latin-script explanation');
   await page.goBack();
   await page.waitForFunction(() => document.documentElement.lang === 'be');
   check((await input.inputValue()).includes('🎉 Снег'), 'Back navigation retains input');
@@ -122,7 +125,7 @@ try {
   const api = await page.request.post(origin + '/api/convert', { data: { text: 'Снег' } });
   check([404, 405].includes(api.status()), 'Removed Python API stays absent');
   await page.goto(origin + '/en/');
-  check(await page.locator('.footer-left span').count() === 0, 'Author attribution removed from footer');
+  check(await page.locator('.footer-left > span:not(.brand-icon)').count() === 0, 'Author attribution removed from footer');
   check(await page.locator('.footer-links a[href*="/data/LICENSE"]').count() === 0, 'Data licence removed from footer');
   const feedback = page.locator('#feedback-form');
   check(await feedback.count() === 1, 'Feedback form appears');

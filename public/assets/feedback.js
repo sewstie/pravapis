@@ -145,7 +145,7 @@ export function mountFeedback() {
 
   const footer = document.querySelector('.footer');
   const footerLinks = document.querySelector('.footer-links');
-  document.querySelector('.footer-left span')?.remove();
+  document.querySelector('.footer-left > span')?.remove();
   document.querySelectorAll('.footer-links a[href*="/data/LICENSE"]').forEach(link => link.remove());
   if (footerLinks) {
     const link = document.createElement('a');
