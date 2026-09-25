@@ -82,6 +82,9 @@ rules:
       positive:
         - { input: "снег", expected: "сьнег" }
         - { input: "свет", expected: "сьвет" }
+        - { input: "сцяг", expected: "сьцяг" }
+        - { input: "сцяга", expected: "сьцяга" }
+        - { input: "сцягам", expected: "сьцягам" }
         - { input: "песня", expected: "песьня" }
         - { input: "свіння", expected: "сьвіння" }
         - { input: "косць", expected: "косьць" }
@@ -165,6 +168,9 @@ rules:
         - { input: "сьвет", expected: "свет" }
         - { input: "сьвіньня", expected: "свіньня" }
         - { input: "косьць", expected: "косць" }
+        - { input: "сьцяг", expected: "сцяг" }
+        - { input: "сьцяга", expected: "сцяга" }
+        - { input: "сьцягам", expected: "сцягам" }
         - { input: "расьсьцілаць", expected: "рассцілаць" }
       negative:
         - { input: "пісьмо", expected: "пісьмо" }

@@ -46,6 +46,7 @@ import { readTranslitFile } from "./lib/translit.js";
 import { readAlphabetFile, readApostrophesFile, readHomoglyphsFile } from "./lib/chars.js";
 import { makeSanitizer } from "./lib/sanitize.js";
 import { readMarisaTrieKeys } from "./lib/marisa-bridge.js";
+import { encodeStressWords } from "./lib/stress.js";
 import type {
   AlphabetData,
   ApostrophesData,
@@ -87,6 +88,7 @@ async function main(): Promise<number> {
   let caseForms: Record<string, { genitive: string; dativeLocative: string }> = {};
   let functionWords: CoreData["functionWords"] = [];
   let mentLemmas: string[] = [];
+  const stress = { common: [] as string[], proper: [] as string[] };
   const translitSchemes: Record<string, TranslitScheme> = {};
 
   // Pass 1: the chars/*.tsv tables, needed to build a sanitize() before anything else
@@ -129,7 +131,12 @@ async function main(): Promise<number> {
       mentLemmas = readMarisaTrieKeys(entry.absPath);
       continue;
     }
-    if (isBinary(rel)) continue; // stress/*.marisa: hashed only, not decoded — see marisa-bridge.ts
+    if (rel === "stress/first_stressed.marisa" || rel === "stress/proper_first_stressed.marisa") {
+      const key = rel === "stress/first_stressed.marisa" ? "common" : "proper";
+      stress[key] = encodeStressWords(readMarisaTrieKeys(entry.absPath));
+      continue;
+    }
+    if (isBinary(rel)) continue;
 
     const raw = await readFile(entry.absPath, "utf-8");
 
@@ -196,6 +203,7 @@ async function main(): Promise<number> {
     caseForms,
     functionWords,
     mentLemmas,
+    stress,
   };
   const names: NamesData = {
     schema: "tag:pravapis,2026:schema:js-names:1",

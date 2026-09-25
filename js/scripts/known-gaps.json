@@ -1,13 +1,4 @@
 {
-  "reason": "This port has no stress table (data/stress/*.marisa, ~233k word forms — decoding it would dominate this package's gzipped size; see js/src/rules/morphology.ts's module comment). Every case below is jakanne (не/без -> ня/бяз) that needs GrammarDB's word stress to know the *next* word is stressed on its first syllable; the fallback both sides share (a stressed_initial_u stem, a monosyllable, or a word starting with ё) is exact for everything else. This is a known, deliberate, documented gap, not a bug — the same discipline conformance/known_failures.jsonl applies on the Python side.",
-  "caseIds": [
-    "gold/0017",
-    "gold/0066",
-    "gold/0067",
-    "gold/0162",
-    "gold/0225",
-    "gold/0339",
-    "gold/0462",
-    "gold/0573"
-  ]
+  "reason": "No outstanding JavaScript conformance gaps. GrammarDB first-syllable stress is included as compact exact lookup blocks generated from the same tables as Python.",
+  "caseIds": []
 }

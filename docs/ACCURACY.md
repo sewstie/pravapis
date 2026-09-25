@@ -5,6 +5,44 @@ measured, on what text, against what baseline, and what is still missing. Number
 are pulled from `data/eval/baseline.json` and the commands shown; if this file and that
 one ever disagree, the JSON is right and this file is stale.
 
+## Loanword and assimilation safeguards
+
+Loanword vowel changes run only inside known stems that explicitly license the
+alternation. This covers `план → плян`, `класіка → клясыка`, `логіка → лёгіка`,
+`сістэма → сыстэма`, and `фізіка → фізыка`, including inflections and capitalization.
+The longer `філасоф- → філязоф-` entry also covers forms such as `філасофіі`.
+Reverse loanword mappings are derived from the same inventory. Native words such as
+`плаваць`, `лапа`, `лыжка`, `сіла`, and `зіма` are protected; `крытыка` stays unchanged.
+Unlisted stems are not automatically classified as loans, and suffixes outside the
+matched span are not rewritten.
+
+Native `сцяг ↔ сьцяг` uses the assimilative-softness rules, as do `свет ↔ сьвет`,
+`снег ↔ сьнег`, `спеў ↔ сьпеў`, and `звяруга ↔ зьвяруга`. The JavaScript engine uses
+sequential regex replacements without runtime dependencies. It preserves the
+traditional restrictions on velars and on ц/дз, and the reverse pipeline retains
+lexical soft signs. Convert orthography before transliterating to Łacinka; see the
+[JavaScript example](../js/README.md#transliterate).
+
+These cases have regression coverage in Python and JavaScript; they do not constitute
+a new accuracy measurement. The evaluation reference for `філязофіі` was corrected
+from `філазофіі` to `філасофіі`, and the conformance corpus was regenerated.
+
+## JavaScript conformance and Łacinka
+
+The JavaScript source build passes **1,007/1,007** shared conformance cases with no
+waived failures. The eight former failures were stress-dependent `не → ня` changes,
+not escaping or transliteration errors. Both engines now use the same GrammarDB
+first-syllable stress tables, including capitalized proper names and hyphenated
+forms. JavaScript stores them as exact shared-prefix blocks, decoding at most 32
+words per lookup; it adds no runtime dependencies.
+
+The shared fixture `tests/fixtures/orthography_lacinka.json` verifies the complete
+Narkamaŭka → Taraškievica → Łacinka → Taraškievica → Narkamaŭka path in both languages,
+including `сь/зь/ць/дзь → ś/ź/ć/dź`, `плян → plan`, `клясыка → klasyka`,
+`лапа → łapa`, and `сыстэма → systema`. Capitalization is checked in both directions.
+These conformance and regression results are separate from the corpus accuracy
+measurements below. The website's pinned published package may lag the source build.
+
 ## Results
 
 Measured with `pravapis eval data/eval/gold.tsv --trusted` and `pravapis bench --size 10mb` on

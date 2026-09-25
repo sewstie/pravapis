@@ -210,8 +210,8 @@ Two decisions worth stating:
 - **Cases the reference implementation does not pass go to
   `known_failures.jsonl`**, not into the contract. Putting them in `cases.jsonl` would
   make it unpassable; dropping them would hide known gaps behind a green check. The npm
-  package documents its own, narrower set of known gaps (no GrammarDB stress table) in
-  `js/scripts/known-gaps.json`.
+  package tracks its own exceptions in `js/scripts/known-gaps.json`; that list is now
+  empty because its GrammarDB stress lookup matches the Python implementation.
 
 ## Serverless deployment (Vercel)
 
@@ -330,9 +330,17 @@ lexicon, transliterator), reading the same `data/` files through a build step
 and validates every file against the same JSON Schemas. It has no runtime dependencies
 and ships three entry points — `.` (conversion), `./translit`, `./names` (the proper-noun
 table, loaded lazily since most conversions never touch one) — each built as ESM and
-CJS with bundled `.d.ts`. `npm test` runs `conformance/cases.jsonl` against it; the one
-documented gap is the missing GrammarDB stress table (~680KB gzipped were it included),
-tracked case-by-case in `js/scripts/known-gaps.json` rather than silently accepted.
+CJS with bundled `.d.ts`. `npm test` passes all 1,007 cases in `conformance/cases.jsonl`
+without waived failures, plus dedicated stress, loanword, assimilation, and Łacinka
+round-trip tests.
+
+The build decodes both GrammarDB stress tries through a Python-only build bridge,
+then stores sorted blocks of 32 words using shared-prefix lengths and suffixes.
+Runtime lookup binary-searches block heads and decodes only the matching block,
+without expanding the entire vocabulary. Common-word lookup is case-insensitive;
+proper-name lookup and hyphenated forms follow Python's `StressTable`. The tables
+remain outside the standalone `./translit` bundle. See `js/README.md` for data
+attribution and the conversion-before-transliteration example.
 
 ## Layout
 

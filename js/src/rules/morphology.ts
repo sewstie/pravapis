@@ -1,21 +1,13 @@
 // Context-dependent clitics (Збор правілаў 2005, §3 and §29) and the §18/§15 п.4
 // Ў <-> У cross-word rule. Mirrors src/pravapis/rules/morphology.py.
 //
-// KNOWN GAP: this build has no stress table. Python's `is_first_syllable_stressed`
-// reads GrammarDB stress marks when `stress` is given, and this port never gives one —
-// data/stress/*.marisa together hold ~233k word forms, decoding them would dominate
-// this package's size, and "no stress table" is a first-class, already-supported
-// configuration on the Python side (`stress: StressTable | None = None`), not a
-// shortcut invented for this port. The fallback path both sides share — a
-// `stressed_initial_u` stem, a monosyllable, or a word starting with ё counts as
-// first-stressed; nothing else does — is exact for §18's own listed exceptions and for
-// jakanne on any monosyllabic next word, and under-converts (leaves у as у, or skips
-// jakanne) on a polysyllabic word the table would have known was stressed elsewhere.
-// See conformance/known_failures.jsonl for cases this affects.
+// GrammarDB first-syllable stress is shared with Python. Unknown forms retain the
+// same conservative fallback: monosyllables or a first vowel ё count as stressed.
 
 import { SOFTENERS, SOFT_TRIGGERS, SOFT_VOWELS } from "./palatalization.js";
 import type { FunctionWords } from "./function-words.js";
 import type { Orthography } from "../types.js";
+import type { StressTable } from "../stress.js";
 
 export const VOWELS = new Set(["а", "е", "ё", "і", "о", "у", "ы", "э", "ю", "я"]);
 
@@ -39,10 +31,10 @@ export function syllableCount(word: string): number {
   return n;
 }
 
-/** Is `word` stressed on its first syllable? See the module-level KNOWN GAP note: this
- * never receives a real stress table, matching Python's documented no-table fallback. */
-export function isFirstSyllableStressed(word: string, words: FunctionWords): boolean {
+/** Is `word` stressed on its first syllable? Clitics are never stressed. */
+export function isFirstSyllableStressed(word: string, words: FunctionWords, stress?: StressTable): boolean {
   if (words.clitics.has(word.toLowerCase())) return false;
+  if (stress?.isFirstStressed(word)) return true;
   const lw = word.toLowerCase();
   if (syllableCount(lw) === 1) return true;
   for (const c of lw) {
@@ -51,7 +43,7 @@ export function isFirstSyllableStressed(word: string, words: FunctionWords): boo
   return false;
 }
 
-function onePartUToW(word: string, previous: string, words: FunctionWords): string | null {
+function onePartUToW(word: string, previous: string, words: FunctionWords, stress?: StressTable): string | null {
   if (!word.startsWith("У") || !previous) return null;
   if (!VOWELS.has(previous[previous.length - 1]!.toLowerCase())) return null;
   if (word.length === 1) return null; // "У." — the abbreviated given name
@@ -59,17 +51,17 @@ function onePartUToW(word: string, previous: string, words: FunctionWords): stri
   if (words.stressedInitialU.length > 0 && words.hasStressedInitialUPrefix(word.toLowerCase())) {
     return null;
   }
-  if (isFirstSyllableStressed(word, words)) return null;
+  if (isFirstSyllableStressed(word, words, stress)) return null;
   return "Ў" + word.slice(1);
 }
 
-function hyphenatedUToW(word: string, previous: string, words: FunctionWords): string | null {
+function hyphenatedUToW(word: string, previous: string, words: FunctionWords, stress?: StressTable): string | null {
   const parts = word.split("-");
   const out = [...parts];
   let context = previous;
   let didChange = false;
   for (let i = 0; i < parts.length; i++) {
-    const next = onePartUToW(parts[i]!, context, words);
+    const next = onePartUToW(parts[i]!, context, words, stress);
     if (next !== null) {
       out[i] = next;
       didChange = true;
@@ -82,9 +74,9 @@ function hyphenatedUToW(word: string, previous: string, words: FunctionWords): s
 /** Збор 2005, §18: after a vowel, an unstressed initial У becomes Ў. Only capitalised
  * words; three exceptions (stressed у, the abbreviated "У." name, an initial
  * abbreviation); a hyphen is transparent (§18 Заўвага). */
-export function initialUToW(word: string, previousOutput: string, words: FunctionWords): string | null {
-  if (word.includes("-")) return hyphenatedUToW(word, previousOutput, words);
-  return onePartUToW(word, previousOutput, words);
+export function initialUToW(word: string, previousOutput: string, words: FunctionWords, stress?: StressTable): string | null {
+  if (word.includes("-")) return hyphenatedUToW(word, previousOutput, words, stress);
+  return onePartUToW(word, previousOutput, words, stress);
 }
 
 /** Правілы 2008, §15 п.4: a proper name never starts with Ў in Narkamaŭka. Categorical
@@ -108,8 +100,8 @@ function softOnset(word: string): boolean {
 }
 
 /** §29 Заўвага А: an unstressed initial і develops no [й], so з/без/праз stay hard. */
-function unstressedInitialI(word: string, words: FunctionWords): boolean {
-  return word.slice(0, 1).toLowerCase() === "і" && !isFirstSyllableStressed(word, words);
+function unstressedInitialI(word: string, words: FunctionWords, stress?: StressTable): boolean {
+  return word.slice(0, 1).toLowerCase() === "і" && !isFirstSyllableStressed(word, words, stress);
 }
 
 /** Rewrite a clitic given the word that follows it; null when no rule applies. Input
@@ -120,7 +112,8 @@ export function convertParticle(
   nextWord: string | null,
   direction: Orthography,
   nextTarget: string | null,
-  words: FunctionWords
+  words: FunctionWords,
+  stress?: StressTable
 ): string | null {
   if (direction === "narkamauka") {
     return words.particlesT2n.get(word) ?? null;
@@ -130,7 +123,7 @@ export function convertParticle(
   if (
     words.particlesN2t.has(word) &&
     nextWord !== null &&
-    isFirstSyllableStressed(nextWord, words)
+    isFirstSyllableStressed(nextWord, words, stress)
   ) {
     result = words.particlesN2t.get(word)!;
   }
@@ -141,7 +134,7 @@ export function convertParticle(
     nextWord !== null &&
     onsetForm !== null &&
     softOnset(onsetForm.toLowerCase()) &&
-    !unstressedInitialI(nextWord, words)
+    !unstressedInitialI(nextWord, words, stress)
   ) {
     result = base + "ь";
   }

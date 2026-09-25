@@ -14,5 +14,8 @@
   },
   "devDependencies": {
     "playwright": "1.58.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

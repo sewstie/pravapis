@@ -74,6 +74,12 @@ export interface DirectedPairs {
   t2n: Record<string, string>;
 }
 
+export interface StressData {
+  /** Sorted blocks of front-coded words; see scripts/lib/stress.ts. */
+  common: string[];
+  proper: string[];
+}
+
 export interface CoreData {
   schema: "tag:pravapis,2026:schema:js-core:1";
   dataVersion: string;
@@ -87,10 +93,10 @@ export interface CoreData {
   /** narkamauka -> {genitive, dativeLocative} (data/lexicon/case/ambiguous.tsv). */
   caseForms: Record<string, CaseFormsRow>;
   functionWords: FunctionWordRow[];
-  /** Lemmas of the -мент/-мэнт alternation (morphology/ment_lemmas.marisa, decoded at
-   * build time — see lib/marisa-bridge.ts). Small (116 keys), unlike the stress
-   * tables, which this build does not decode; see js/src/rules/morphology.ts. */
+  /** Lemmas of the -мент/-мэнт alternation, decoded at build time. */
   mentLemmas: string[];
+  /** Optional for callers constructing older core data; generated builds include it. */
+  stress?: StressData;
 }
 
 export interface NamesData {

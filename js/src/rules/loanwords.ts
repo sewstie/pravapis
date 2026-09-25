@@ -10,7 +10,9 @@ import { spansStill, allows } from "../lexicon/stem-index.js";
 
 const SOFT_L_VOWEL: Readonly<Record<string, string>> = { а: "я", о: "ё", у: "ю" };
 const ALREADY_SOFT = new Set(["е", "ё", "і", "ю", "я"]);
-const Y_TRIGGERS = new Set(["д", "т", "з", "с", "ц", "ж", "ш", "ч", "р"]);
+// Applied only inside a stem licensed for i by core.stems. ф is deliberately
+// absent: фізі- becomes фізы-, keeping the initial фі intact.
+const I_TO_Y_RE = /([дтзсцжшчр])і/gu;
 const E_BLOCKERS = new Set(["л", "г", "ґ", "к", "х"]);
 const CONSONANTS = new Set([
   "б", "в", "г", "ґ", "д", "ж", "з", "й", "к", "л", "м", "н", "п", "р", "с", "т", "ў", "ф",
@@ -56,13 +58,13 @@ export function applyLPalatalization(word: string, match: StemMatch): string {
   return before + palatalizeL(stem, after) + after;
 }
 
-/** і -> ы after a hard dental or husher. */
+/** і -> ы within an already whitelisted stem; use applyIToY for words. */
 export function iToY(stem: string): string {
-  return [...stem]
-    .map((ch, i) => (ch === "і" && i > 0 && Y_TRIGGERS.has(stem[i - 1]!) ? "ы" : ch))
-    .join("");
+  return stem.replace(I_TO_Y_RE, "$1ы");
 }
 
+/** Only a known loan stem explicitly licensed for i may change. Native entries,
+ * other loan alternations, and suffixes outside the matched span are isolated. */
 export function applyIToY(word: string, match: StemMatch): string {
   if (!allows(match, "i")) return word;
   const s = span(word, match);
