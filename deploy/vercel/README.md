@@ -1,9 +1,9 @@
 # Deploying pravapis as `/api/convert` in the Paznaj Next.js app
 
-This is an optional Python integration for other applications. The Pravapis website
-now runs the JavaScript package in the browser and deploys as static files; see
-[the website guide](../../docs/WEBSITE.md). The former root Python function is retained
-at `deploy/vercel/standalone/convert.py` for separate API development and tests.
+This is an optional Python integration for other applications. The [Pravapis website](https://pravapis.vercel.app/)
+runs the JavaScript package in the browser and deploys as static files. The former
+root Python function is retained at `deploy/vercel/standalone/convert.py` for
+separate API development and tests.
 
 One Vercel project, one domain: a Python serverless function sits next to the Next.js
 app. No separate service, no CORS.

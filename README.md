@@ -67,7 +67,7 @@ for the full design.
 
 ## Learn more
 
-- [Website development](docs/WEBSITE.md) — the bilingual static site, JavaScript worker, and Vercel build
+- [Website](https://pravapis.vercel.app/) — use the converter in your browser
 
 - [Full API reference](docs/API.md) — the response contract, the Python library, the CLI, the HTTP API
 - [docs/ACCURACY.md](docs/ACCURACY.md) — recall, precision, and known gaps, measured
