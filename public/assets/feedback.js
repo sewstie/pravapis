@@ -1,40 +1,34 @@
-// Builds feedback drafts for users to review and submit on GitHub. Copies drafts locally without sending their contents or placing them in URLs.
+// Sends website feedback to a private same-origin endpoint backed by Google Sheets.
 const COPY = {
   en: {
     feedbackTitle: 'Share feedback',
     feedbackIntro: 'Found a bug, an incorrect spelling, or something we could improve? Send us a report.',
     categories: { bug: 'A bug', word: 'An incorrect word or conversion', proposal: 'A proposal to improve Pravapis' },
     wordRequired: 'Enter the spelling you want reviewed in both fields.',
-    copied: 'Your draft is copied. Use its first line as the title, paste the rest into the description, then review and submit it yourself.',
-    copyFailed: 'GitHub is open. Clipboard access failed; select and copy your draft below, then paste and review it before submitting.',
-    popupFailed: 'Your draft is copied, but the browser blocked the GitHub tab. Open GitHub Issues and paste your report there.',
-    clipboard: 'Report draft to copy',
-    title: 'Pravapis website feedback',
+    sent: 'Thank you. Your report has been sent privately.',
+    failed: 'Your report could not be sent. Please try again later; your text is still here.',
+    sending: 'Sending…',
     kind: 'Feedback type', summary: 'Short summary', summaryHint: 'For example: “The word снег was not changed”',
     original: 'Word or spelling you entered', suggested: 'Suggested spelling',
     details: 'What happened, or what would you improve?',
     detailsHint: 'Add context that would help us understand or reproduce this.',
-    privacy: 'Reports are copied to your clipboard and opened as a GitHub issue draft. Nothing is sent automatically. GitHub issues are public when you submit them; remove personal or sensitive information.',
-    submit: 'Prepare report on GitHub',
-    reportType: 'Type', page: 'Page', word: 'Word entered', suggestedWord: 'Suggested spelling', description: 'Details',
+    privacy: 'Submitting sends this report and the page path to a private Google Sheet. Your converter text is not included unless you type it here. Do not include personal or sensitive information.',
+    submit: 'Send feedback',
   },
   be: {
     feedbackTitle: 'Пакінуць водгук',
     feedbackIntro: 'Знайшлі памылку, недакладнае напісанне або маеце прапанову? Напішыце нам.',
     categories: { bug: 'Памылка ў праграме', word: 'Памылковае слова ці пераўтварэнне', proposal: 'Прапанова палепшыць Pravapis' },
     wordRequired: 'Для праверкі ўвядзіце абодва варыянты напісання.',
-    copied: 'Чарнавік скапіяваны. Выкарыстайце першы радок як тэму, астатні тэкст устаўце ў апісанне, праверце і адпраўце самастойна.',
-    copyFailed: 'GitHub адкрыты. Не ўдалося скапіраваць тэкст; вылучыце чарнавік ніжэй, скапіруйце, устаўце і праверце яго перад адпраўкай.',
-    popupFailed: 'Чарнавік скапіяваны, але браўзер не адкрыў укладку GitHub. Адкрыйце GitHub Issues і ўстаўце паведамленне.',
-    clipboard: 'Чарнавік паведамлення',
-    title: 'Водгук пра сайт Pravapis',
+    sent: 'Дзякуй. Паведамленне адпраўлена прыватна.',
+    failed: 'Не ўдалося адправіць паведамленне. Паспрабуйце пазней; ваш тэкст застаўся ў форме.',
+    sending: 'Адпраўляем…',
     kind: 'Тып паведамлення', summary: 'Кароткая тэма', summaryHint: 'Напрыклад: «Слова снег не пераўтварылася»',
     original: 'Уведзенае слова ці правапіс', suggested: 'Прапанаваны варыянт',
     details: 'Што адбылося або што варта палепшыць?',
     detailsHint: 'Дадайце звесткі, якія дапамогуць разабрацца або паўтарыць праблему.',
-    privacy: 'Тэкст паведамлення капіюецца ў буфер абмену, а на GitHub адкрываецца чарнавік. Нічога не адпраўляецца аўтаматычна. Адпраўленыя паведамленні на GitHub будуць публічнымі; не ўключайце асабістыя ці адчувальныя звесткі.',
-    submit: 'Падрыхтаваць паведамленне на GitHub',
-    reportType: 'Тып паведамлення', page: 'Старонка', word: 'Уведзенае слова', suggestedWord: 'Прапанаваны варыянт', description: 'Падрабязнасці',
+    privacy: 'Пасля адпраўкі паведамленне і шлях старонкі трапяць у прыватную Google-табліцу. Тэкст з канвертара не перадаецца, калі вы самі не ўвядзеце яго тут. Не ўключайце асабістыя або адчувальныя звесткі.',
+    submit: 'Адправіць водгук',
   },
 };
 
@@ -104,7 +98,7 @@ export function mountFeedback() {
   originalLabel.htmlFor = 'feedback-original';
   originalLabel.textContent = c.original;
   const original = document.createElement('input');
-  original.type = 'text'; original.name = 'original'; original.autocomplete = 'off'; original.lang = 'be'; original.spellcheck = false;
+  original.type = 'text'; original.name = 'original'; original.autocomplete = 'off'; original.lang = 'be'; original.spellcheck = false; original.maxLength = 120;
   original.id = 'feedback-original';
   originalField.append(originalLabel, original);
   const suggestionField = document.createElement('div');
@@ -113,14 +107,14 @@ export function mountFeedback() {
   suggestionLabel.htmlFor = 'feedback-suggestion';
   suggestionLabel.textContent = c.suggested;
   const suggestion = document.createElement('input');
-  suggestion.type = 'text'; suggestion.name = 'suggestion'; suggestion.autocomplete = 'off'; suggestion.lang = 'be'; suggestion.spellcheck = false;
+  suggestion.type = 'text'; suggestion.name = 'suggestion'; suggestion.autocomplete = 'off'; suggestion.lang = 'be'; suggestion.spellcheck = false; suggestion.maxLength = 120;
   suggestion.id = 'feedback-suggestion';
   suggestionField.append(suggestionLabel, suggestion);
   words.append(originalField, suggestionField);
   form.append(words);
 
   const details = document.createElement('textarea');
-  details.name = 'details'; details.rows = 5; details.required = true;
+  details.name = 'details'; details.rows = 5; details.required = true; details.maxLength = 3000;
   addField(c.details, 'feedback-details', details, c.detailsHint);
   const privacy = document.createElement('p');
   privacy.className = 'feedback-privacy';
@@ -133,18 +127,9 @@ export function mountFeedback() {
   message.id = 'feedback-status'; message.className = 'status'; message.setAttribute('role', 'status');
   message.setAttribute('aria-live', 'polite');
   form.append(message);
-  const draftWrap = document.createElement('div');
-  draftWrap.className = 'feedback-field';
-  const draftLabel = document.createElement('label');
-  draftLabel.htmlFor = 'feedback-draft'; draftLabel.textContent = c.clipboard;
-  const draft = document.createElement('textarea');
-  draft.id = 'feedback-draft'; draft.readOnly = true; draft.rows = 7; draft.hidden = true;
-  draftWrap.append(draftLabel, draft);
-  form.append(draftWrap);
   section.append(form);
   main.append(section);
 
-  const footer = document.querySelector('.footer');
   const footerLinks = document.querySelector('.footer-links');
   document.querySelector('.footer-left > span')?.remove();
   document.querySelectorAll('.footer-links a[href*="/data/LICENSE"]').forEach(link => link.remove());
@@ -164,8 +149,8 @@ if (form) {
   const words = $('feedback-words');
   const original = $('feedback-original');
   const suggestion = $('feedback-suggestion');
-  const draft = $('feedback-draft');
   const message = $('feedback-status');
+  const submit = form.querySelector('[type=submit]');
 
   kind.addEventListener('change', () => {
     const needsWords = kind.value === 'word';
@@ -177,28 +162,35 @@ if (form) {
   form.addEventListener('submit', async event => {
     event.preventDefault();
     const c = COPY[document.documentElement.lang] || COPY.en;
-    const issueType = c.categories[kind.value];
-    const title = `[${issueType}] ${$('feedback-summary').value.trim()}`;
-    const path = `${location.origin}${location.pathname}`;
-    const fields = [
-      `${c.reportType}: ${issueType}`,
-      `${c.page}: ${path}`,
-      kind.value === 'word' ? `${c.word}: ${original.value.trim()}\n${c.suggestedWord}: ${suggestion.value.trim()}` : '',
-      `${c.description}:\n${$('feedback-details').value.trim()}`,
-    ].filter(Boolean);
-    const report = `${title}\n\n${fields.join('\n\n')}`;
-    const issue = window.open('https://github.com/sewstie/pravapis/issues/new', '_blank');
-    if (issue) issue.opener = null;
-    draft.value = report;
-    draft.hidden = false;
+    if (submit.disabled) return;
+    const report = {
+      kind: kind.value,
+      summary: $('feedback-summary').value.trim(),
+      original: kind.value === 'word' ? original.value.trim() : '',
+      suggestion: kind.value === 'word' ? suggestion.value.trim() : '',
+      details: $('feedback-details').value.trim(),
+      page: location.pathname,
+    };
+    submit.disabled = true;
+    submit.textContent = c.sending;
+    message.textContent = '';
     try {
-      await navigator.clipboard.writeText(report);
-      message.textContent = c.copied;
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(report),
+      });
+      if (!response.ok) throw new Error(`Feedback delivery failed (${response.status})`);
+      message.textContent = c.sent;
+      form.reset();
+      words.hidden = true;
+      original.required = false;
+      suggestion.required = false;
     } catch {
-      message.textContent = c.copyFailed;
-      draft.focus();
-      draft.select();
+      message.textContent = c.failed;
+    } finally {
+      submit.disabled = false;
+      submit.textContent = c.submit;
     }
-    if (!issue) message.textContent = c.popupFailed;
   });
 }

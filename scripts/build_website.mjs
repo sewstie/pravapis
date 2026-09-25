@@ -1,4 +1,4 @@
-// Bundles the browser engine and assembles the static Vercel deployment with license notices. Blocks API routes and disables indexing only for preview deployments.
+// Bundles the browser engine and assembles the Vercel deployment with a private feedback function.
 import { build } from '../website/node_modules/esbuild/lib/main.js';
 import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,12 @@ await cp(new URL('../data/morphology/README.md', import.meta.url), new URL('../p
 await cp(new URL('../data/morphology/SOURCE', import.meta.url), new URL('../public/assets/licenses/MORPHOLOGY-SOURCE.txt', import.meta.url));
 const output = new URL('../.vercel/output/', import.meta.url);
 await mkdir(new URL('static/', output), { recursive: true });
+const feedbackFunction = new URL('functions/api/feedback.func/', output);
+await mkdir(feedbackFunction, { recursive: true });
+await cp(new URL('../website/feedback-handler.cjs', import.meta.url), new URL('index.cjs', feedbackFunction));
+await writeFile(new URL('.vc-config.json', feedbackFunction), JSON.stringify({
+  runtime: 'nodejs22.x', handler: 'index.cjs', launcherType: 'Nodejs',
+}, null, 2) + '\n');
 await cp(new URL('../public/', import.meta.url), new URL('static/', output), { recursive: true });
 for (const path of ['index.html', 'en/index.html', 'developers/index.html']) {
   const target = new URL(`static/${path}`, output);
@@ -35,6 +41,7 @@ if (preview) {
   }
 }
 const routes = [
+  { src: '^/api/feedback/?$', dest: '/api/feedback' },
   { src: '^/api(?:/.*)?$', status: 404 },
   { src: '^/en/?$', dest: '/en/index.html' },
   { src: '^/developers/?$', dest: '/developers/index.html' },

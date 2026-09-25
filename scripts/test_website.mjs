@@ -149,15 +149,23 @@ try {
   await page.locator('#feedback-summary').fill('Wrong spelling');
   await page.locator('#feedback-original').fill('снег');
   await page.locator('#feedback-suggestion').fill('сьнег');
-  await page.locator('#feedback-details').fill('This form stays local until I review the public GitHub draft.');
-  await page.evaluate(() => {
-    window.feedbackTarget = null;
-    window.open = url => { window.feedbackTarget = url; return { opener: window }; };
+  await page.locator('#feedback-details').fill('Please review this spelling.');
+  let feedbackBody;
+  let failDelivery = true;
+  await page.route('**/api/feedback', async route => {
+    feedbackBody = route.request().postDataJSON();
+    await route.fulfill({ status: failDelivery ? 503 : 200, contentType: 'application/json', body: JSON.stringify({ ok: !failDelivery }) });
   });
   await feedback.locator('[type=submit]').click();
-  await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('draft is copied'));
-  check((await page.evaluate(() => navigator.clipboard.readText())).includes('снег'), 'Feedback draft copied for review');
-  check(await page.evaluate(() => window.feedbackTarget) === 'https://github.com/sewstie/pravapis/issues/new', 'Feedback opens a clean issue URL with no text');
+  await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('could not be sent'));
+  check(await page.locator('#feedback-summary').inputValue() === 'Wrong spelling', 'Failed submission preserves text');
+  check(feedbackBody.kind === 'word' && feedbackBody.original === 'снег' && feedbackBody.suggestion === 'сьнег', 'Only report fields are submitted');
+  check(feedbackBody.page === '/en/' && !JSON.stringify(feedbackBody).includes('🎉'), 'Converter text is excluded from feedback');
+  failDelivery = false;
+  await feedback.locator('[type=submit]').click();
+  await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('sent privately'));
+  check(await page.locator('#feedback-summary').inputValue() === '', 'Successful submission clears form');
+  check(await feedback.locator('[type=submit]').isEnabled(), 'Submit button re-enabled');
   await page.locator('#feedback-kind').selectOption('proposal');
   check(await page.locator('#feedback-words').isHidden(), 'Spelling fields are hidden for proposals');
   check(!(await page.locator('#feedback-original').evaluate(el => el.required)), 'Proposal does not require spelling fields');
@@ -173,7 +181,7 @@ try {
   await noJS.close();
   const segments = changeSegments('😀 Сьнег', [{ start: 2, end: 7, from: 'Снег', to: 'Сьнег' }]);
   check(segments[1].text === 'Сьнег', 'Code-point slicing unit boundary');
-  check(requests.every(request => request.method === 'GET' && !request.url.includes('/api/')), 'No API requests or submitted text over the network');
+  check(requests.every(request => request.method === 'GET' || (request.method === 'POST' && request.url.endsWith('/api/feedback'))), 'Only feedback uses the API');
   check(errors.length === 0, `No browser errors: ${errors.join(', ')}`);
   console.log(`${checks} website checks passed.`);
 } finally {
