@@ -1,4 +1,4 @@
-// Sends website feedback to a private same-origin endpoint backed by Google Sheets.
+// Sends website feedback directly through Web3Forms using its public access key.
 const COPY = {
   en: {
     feedbackTitle: 'Share feedback',
@@ -12,7 +12,7 @@ const COPY = {
     original: 'Word or spelling you entered', suggested: 'Suggested spelling',
     details: 'What happened, or what would you improve?',
     detailsHint: 'Add context that would help us understand or reproduce this.',
-    privacy: 'Submitting sends this report and the page path to a private Google Sheet. Your converter text is not included unless you type it here. Do not include personal or sensitive information.',
+    privacy: 'Submitting sends this report and the page path through Web3Forms to our email inbox. Your converter text is not included unless you type it here. Do not include personal or sensitive information.',
     submit: 'Send feedback',
   },
   be: {
@@ -27,7 +27,7 @@ const COPY = {
     original: 'Уведзенае слова ці правапіс', suggested: 'Прапанаваны варыянт',
     details: 'Што адбылося або што варта палепшыць?',
     detailsHint: 'Дадайце звесткі, якія дапамогуць разабрацца або паўтарыць праблему.',
-    privacy: 'Пасля адпраўкі паведамленне і шлях старонкі трапяць у прыватную Google-табліцу. Тэкст з канвертара не перадаецца, калі вы самі не ўвядзеце яго тут. Не ўключайце асабістыя або адчувальныя звесткі.',
+    privacy: 'Паведамленне і шлях старонкі будуць адпраўлены праз Web3Forms на нашу электронную пошту. Тэкст з канвертара не перадаецца, калі вы самі не ўвядзеце яго тут. Не ўключайце асабістыя або адчувальныя звесткі.',
     submit: 'Адправіць водгук',
   },
 };
@@ -49,6 +49,10 @@ export function mountFeedback() {
 
   const form = document.createElement('form');
   form.id = 'feedback-form';
+  const botcheck = document.createElement('input');
+  botcheck.type = 'checkbox'; botcheck.name = 'botcheck'; botcheck.hidden = true;
+  botcheck.tabIndex = -1; botcheck.autocomplete = 'off';
+  form.append(botcheck);
   const addField = (labelText, id, control, hintText = '') => {
     const wrap = document.createElement('div');
     wrap.className = 'feedback-field';
@@ -175,12 +179,25 @@ if (form) {
     submit.textContent = c.sending;
     message.textContent = '';
     try {
-      const response = await fetch('/api/feedback', {
+      const configResponse = await fetch('/assets/feedback-config.json', { signal: AbortSignal.timeout(10000) });
+      if (!configResponse.ok) throw new Error('Feedback configuration unavailable');
+      const { accessKey } = await configResponse.json();
+      if (typeof accessKey !== 'string' || !accessKey.trim()) throw new Error('Feedback is not configured');
+      const response = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(report),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          access_key: accessKey,
+          subject: `Pravapis feedback: ${report.kind}`,
+          from_name: 'Pravapis',
+          ...report,
+          botcheck: form.elements.botcheck.checked,
+        }),
+        signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) throw new Error(`Feedback delivery failed (${response.status})`);
+      const result = await response.json();
+      if (result.success !== true) throw new Error('Web3Forms did not confirm delivery');
       message.textContent = c.sent;
       form.reset();
       words.hidden = true;

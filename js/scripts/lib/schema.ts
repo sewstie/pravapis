@@ -14,9 +14,7 @@ export interface Problem {
 }
 
 // ajv ships as CJS; `ajv/dist/2020`'s type declarations don't resolve cleanly under
-// NodeNext's ESM interop, so load it the same way scripts/check_demo.mjs loads
-// Playwright — via createRequire — rather than fight the type resolution for a single
-// import.
+// NodeNext's ESM interop, so load it via createRequire.
 const require = createRequire(import.meta.url);
 const Ajv2020 = require("ajv/dist/2020.js") as new (opts?: Record<string, unknown>) => AjvInstance;
 

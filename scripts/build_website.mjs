@@ -1,6 +1,6 @@
-// Bundles the browser engine and assembles the Vercel deployment with a private feedback function.
+// Bundles the browser engine and assembles the static Vercel deployment.
 import { build } from '../website/node_modules/esbuild/lib/main.js';
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -17,14 +17,14 @@ await cp(new URL('../data/LICENSE', import.meta.url), new URL('../public/assets/
 await cp(new URL('../data/morphology/README.md', import.meta.url), new URL('../public/assets/licenses/MORPHOLOGY.txt', import.meta.url));
 await cp(new URL('../data/morphology/SOURCE', import.meta.url), new URL('../public/assets/licenses/MORPHOLOGY-SOURCE.txt', import.meta.url));
 const output = new URL('../.vercel/output/', import.meta.url);
+// Clear only this workspace's generated output, including the retired Sheets function.
+if (!fileURLToPath(output).startsWith(root)) throw new Error('Output must stay within the workspace');
+await rm(output, { recursive: true, force: true });
 await mkdir(new URL('static/', output), { recursive: true });
-const feedbackFunction = new URL('functions/api/feedback.func/', output);
-await mkdir(feedbackFunction, { recursive: true });
-await cp(new URL('../website/feedback-handler.cjs', import.meta.url), new URL('index.cjs', feedbackFunction));
-await writeFile(new URL('.vc-config.json', feedbackFunction), JSON.stringify({
-  runtime: 'nodejs22.x', handler: 'index.cjs', launcherType: 'Nodejs',
-}, null, 2) + '\n');
 await cp(new URL('../public/', import.meta.url), new URL('static/', output), { recursive: true });
+await writeFile(new URL('static/assets/feedback-config.json', output), JSON.stringify({
+  accessKey: (process.env.WEB3FORMS_ACCESS_KEY || '').trim(),
+}) + '\n');
 for (const path of ['index.html', 'en/index.html', 'developers/index.html']) {
   const target = new URL(`static/${path}`, output);
   let html = await readFile(target, 'utf8');
@@ -41,7 +41,6 @@ if (preview) {
   }
 }
 const routes = [
-  { src: '^/api/feedback/?$', dest: '/api/feedback' },
   { src: '^/api(?:/.*)?$', status: 404 },
   { src: '^/en/?$', dest: '/en/index.html' },
   { src: '^/developers/?$', dest: '/developers/index.html' },
