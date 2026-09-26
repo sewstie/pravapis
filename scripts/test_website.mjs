@@ -151,17 +151,36 @@ try {
   await page.locator('#feedback-suggestion').fill('сьнег');
   await page.locator('#feedback-details').fill('Please review this spelling.');
   let feedbackBody;
-  let failDelivery = true;
-  await page.route('**/api/feedback', async route => {
+  let deliveryStatus = 503;
+  let deliveryResult = { success: false };
+  let accessKey = '';
+  let submissions = 0;
+  await page.route('**/assets/feedback-config.json', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ accessKey }),
+  }));
+  await page.route('https://api.web3forms.com/submit', async route => {
+    submissions++;
     feedbackBody = route.request().postDataJSON();
-    await route.fulfill({ status: failDelivery ? 503 : 200, contentType: 'application/json', body: JSON.stringify({ ok: !failDelivery }) });
+    await route.fulfill({ status: deliveryStatus, contentType: 'application/json', body: JSON.stringify(deliveryResult) });
   });
+  await feedback.locator('[type=submit]').click();
+  await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('could not be sent'));
+  check(submissions === 0, 'Missing access key prevents submission');
+  check(await page.locator('#feedback-summary').inputValue() === 'Wrong spelling', 'Missing configuration preserves text');
+  accessKey = 'test-web3forms-access-key';
   await feedback.locator('[type=submit]').click();
   await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('could not be sent'));
   check(await page.locator('#feedback-summary').inputValue() === 'Wrong spelling', 'Failed submission preserves text');
   check(feedbackBody.kind === 'word' && feedbackBody.original === 'снег' && feedbackBody.suggestion === 'сьнег', 'Only report fields are submitted');
   check(feedbackBody.page === '/en/' && !JSON.stringify(feedbackBody).includes('🎉'), 'Converter text is excluded from feedback');
-  failDelivery = false;
+  check(feedbackBody.access_key === accessKey && feedbackBody.subject === 'Pravapis feedback: word', 'Web3Forms receives key and email subject');
+  check(feedbackBody.botcheck === false, 'Honeypot defaults to unchecked');
+  check((await page.locator('.feedback-privacy').textContent()).includes('Web3Forms'), 'Privacy copy identifies Web3Forms');
+  deliveryStatus = 200;
+  await feedback.locator('[type=submit]').click();
+  await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('could not be sent'));
+  check(await page.locator('#feedback-summary').inputValue() === 'Wrong spelling', 'Provider rejection with HTTP 200 preserves text');
+  deliveryResult = { success: true };
   await feedback.locator('[type=submit]').click();
   await page.waitForFunction(() => document.querySelector('#feedback-status').textContent.includes('sent privately'));
   check(await page.locator('#feedback-summary').inputValue() === '', 'Successful submission clears form');
@@ -181,7 +200,7 @@ try {
   await noJS.close();
   const segments = changeSegments('😀 Сьнег', [{ start: 2, end: 7, from: 'Снег', to: 'Сьнег' }]);
   check(segments[1].text === 'Сьнег', 'Code-point slicing unit boundary');
-  check(requests.every(request => request.method === 'GET' || (request.method === 'POST' && request.url.endsWith('/api/feedback'))), 'Only feedback uses the API');
+  check(requests.every(request => request.method === 'GET' || (request.method === 'POST' && request.url === 'https://api.web3forms.com/submit')), 'Only feedback is posted to Web3Forms');
   check(errors.length === 0, `No browser errors: ${errors.join(', ')}`);
   console.log(`${checks} website checks passed.`);
 } finally {
